@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coldfront-orcd-direct-charge"
+version = "0.1.0"
+requires-python = ">=3.9"
+description = "ORCD Direct Charge customizations for ColdFront"
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+keywords = ["coldfront", "plugin", "orcd", "direct-charge"]
+classifiers = [
+    'Programming Language :: Python :: 3',
+    'Framework :: Django :: 4.2',
+    'Topic :: Scientific/Engineering',
+]
+dependencies = [
+    "coldfront>=1.1.0",
+]
+
+[project.urls]
+"Source Code" = "https://github.com/your-org/coldfront-orcd-direct-charge"
+
+[tool.hatch.build.targets.wheel]
+packages = ["coldfront_orcd_direct_charge"]
+
