@@ -3,9 +3,9 @@
     "_comment": "**Django Fixture for ORCD Direct Charge plugin: GPU Node Instance definitions**",
     "_comment_usage": "**Load with: coldfront loaddata gpu_node_instances**",
     "_comment_update": "**To update instances, modify this file and reload: coldfront loaddata gpu_node_instances**",
+    "_comment_note": "**H200 GPU Node with 8 GPUs - High-end compute node**",
     "model": "coldfront_orcd_direct_charge.gpunodeinstance",
     "fields": {
-      "_comment": "**H200 GPU Node with 8 GPUs - High-end compute node**",
       "name": "H200x8",
       "is_rentable": true,
       "status": "AVAILABLE",
@@ -16,7 +16,6 @@
     "_comment": "**H200 GPU Node with 4 GPUs**",
     "model": "coldfront_orcd_direct_charge.gpunodeinstance",
     "fields": {
-      "_comment": "**H200 GPU Node with 4 GPUs**",
       "name": "H200x4",
       "is_rentable": true,
       "status": "AVAILABLE",
@@ -27,7 +26,6 @@
     "_comment": "**H200 GPU Node with 2 GPUs**",
     "model": "coldfront_orcd_direct_charge.gpunodeinstance",
     "fields": {
-      "_comment": "**H200 GPU Node with 2 GPUs**",
       "name": "H200x2",
       "is_rentable": true,
       "status": "AVAILABLE",
@@ -38,7 +36,6 @@
     "_comment": "**H200 GPU Node with 1 GPU**",
     "model": "coldfront_orcd_direct_charge.gpunodeinstance",
     "fields": {
-      "_comment": "**H200 GPU Node with 1 GPU**",
       "name": "H200x1",
       "is_rentable": true,
       "status": "AVAILABLE",
@@ -49,7 +46,6 @@
     "_comment": "**L40S GPU Node with 4 GPUs**",
     "model": "coldfront_orcd_direct_charge.gpunodeinstance",
     "fields": {
-      "_comment": "**L40S GPU Node with 4 GPUs**",
       "name": "L40Sx4",
       "is_rentable": true,
       "status": "AVAILABLE",
@@ -60,7 +56,6 @@
     "_comment": "**L40S GPU Node with 2 GPUs**",
     "model": "coldfront_orcd_direct_charge.gpunodeinstance",
     "fields": {
-      "_comment": "**L40S GPU Node with 2 GPUs**",
       "name": "L40Sx2",
       "is_rentable": true,
       "status": "AVAILABLE",
@@ -71,7 +66,6 @@
     "_comment": "**L40S GPU Node with 1 GPU**",
     "model": "coldfront_orcd_direct_charge.gpunodeinstance",
     "fields": {
-      "_comment": "**L40S GPU Node with 1 GPU**",
       "name": "L40Sx1",
       "is_rentable": true,
       "status": "AVAILABLE",
@@ -79,4 +73,3 @@
     }
   }
 ]
-

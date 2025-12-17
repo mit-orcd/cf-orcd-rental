@@ -4,9 +4,9 @@
     "_comment_usage": "**Load with: coldfront loaddata cpu_node_instances**",
     "_comment_update": "**To update instances, modify this file and reload: coldfront loaddata cpu_node_instances**",
     "_comment_resource_type": "**These instances are associated with the 'CPU Node' resource type**",
+    "_comment_note": "**CPU Node with 384M memory configuration**",
     "model": "coldfront_orcd_direct_charge.cpunodeinstance",
     "fields": {
-      "_comment": "**CPU Node with 384M memory configuration**",
       "name": "CPU_384M",
       "is_rentable": true,
       "status": "AVAILABLE",
@@ -17,7 +17,6 @@
     "_comment": "**CPU Node with 1500T memory configuration**",
     "model": "coldfront_orcd_direct_charge.cpunodeinstance",
     "fields": {
-      "_comment": "**CPU Node with 1500T memory configuration**",
       "name": "CPU_1500T",
       "is_rentable": true,
       "status": "AVAILABLE",
@@ -25,4 +24,3 @@
     }
   }
 ]
-
