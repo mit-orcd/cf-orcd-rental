@@ -20,7 +20,6 @@ class GpuNodeInstanceAdmin(admin.ModelAdmin):
     list_filter = ("is_rentable", "status", "node_type")
     search_fields = ("node_type__name", "associated_resource_address")
     ordering = ("node_type__name", "associated_resource_address")
-    raw_id_fields = ("node_type",)
 
     @admin.display(description="Node Type")
     def node_type_name(self, obj):
@@ -33,7 +32,6 @@ class CpuNodeInstanceAdmin(admin.ModelAdmin):
     list_filter = ("is_rentable", "status", "node_type")
     search_fields = ("node_type__name", "associated_resource_address")
     ordering = ("node_type__name", "associated_resource_address")
-    raw_id_fields = ("node_type",)
 
     @admin.display(description="Node Type")
     def node_type_name(self, obj):
