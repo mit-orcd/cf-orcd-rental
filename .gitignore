@@ -1,3 +1,4 @@
 coldfront.db
-coldfront_orcd_direct_charge/__pycache__
+__pycache__/
+*.pyc
 uv.lock
