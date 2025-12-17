@@ -1,0 +1,95 @@
+[
+  {
+    "_comment": "**Django Fixture for ORCD Direct Charge plugin: Node Type definitions**",
+    "_comment_usage": "**Load with: coldfront loaddata node_types**",
+    "_comment_note": "**Must be loaded BEFORE gpu_node_instances and cpu_node_instances**",
+    "model": "coldfront_orcd_direct_charge.nodetype",
+    "fields": {
+      "name": "H200x8",
+      "category": "GPU",
+      "description": "NVIDIA H200 node with 8 GPUs - High-end compute node for AI/ML workloads",
+      "is_active": true
+    }
+  },
+  {
+    "_comment": "**H200 GPU Node with 4 GPUs**",
+    "model": "coldfront_orcd_direct_charge.nodetype",
+    "fields": {
+      "name": "H200x4",
+      "category": "GPU",
+      "description": "NVIDIA H200 node with 4 GPUs",
+      "is_active": true
+    }
+  },
+  {
+    "_comment": "**H200 GPU Node with 2 GPUs**",
+    "model": "coldfront_orcd_direct_charge.nodetype",
+    "fields": {
+      "name": "H200x2",
+      "category": "GPU",
+      "description": "NVIDIA H200 node with 2 GPUs",
+      "is_active": true
+    }
+  },
+  {
+    "_comment": "**H200 GPU Node with 1 GPU**",
+    "model": "coldfront_orcd_direct_charge.nodetype",
+    "fields": {
+      "name": "H200x1",
+      "category": "GPU",
+      "description": "NVIDIA H200 node with 1 GPU",
+      "is_active": true
+    }
+  },
+  {
+    "_comment": "**L40S GPU Node with 4 GPUs**",
+    "model": "coldfront_orcd_direct_charge.nodetype",
+    "fields": {
+      "name": "L40Sx4",
+      "category": "GPU",
+      "description": "NVIDIA L40S node with 4 GPUs",
+      "is_active": true
+    }
+  },
+  {
+    "_comment": "**L40S GPU Node with 2 GPUs**",
+    "model": "coldfront_orcd_direct_charge.nodetype",
+    "fields": {
+      "name": "L40Sx2",
+      "category": "GPU",
+      "description": "NVIDIA L40S node with 2 GPUs",
+      "is_active": true
+    }
+  },
+  {
+    "_comment": "**L40S GPU Node with 1 GPU**",
+    "model": "coldfront_orcd_direct_charge.nodetype",
+    "fields": {
+      "name": "L40Sx1",
+      "category": "GPU",
+      "description": "NVIDIA L40S node with 1 GPU",
+      "is_active": true
+    }
+  },
+  {
+    "_comment": "**CPU Node Types**",
+    "model": "coldfront_orcd_direct_charge.nodetype",
+    "fields": {
+      "name": "CPU_384M",
+      "category": "CPU",
+      "description": "CPU node with 384M memory configuration",
+      "is_active": true
+    }
+  },
+  {
+    "_comment": "**CPU Node with 1500T memory**",
+    "model": "coldfront_orcd_direct_charge.nodetype",
+    "fields": {
+      "name": "CPU_1500T",
+      "category": "CPU",
+      "description": "CPU node with 1500T memory configuration",
+      "is_active": true
+    }
+  }
+]
+

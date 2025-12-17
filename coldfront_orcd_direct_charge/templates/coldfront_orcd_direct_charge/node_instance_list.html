@@ -16,7 +16,7 @@
   <table class="table table-sm table-hover">
     <thead class="thead-light">
       <tr>
-        <th scope="col">Name</th>
+        <th scope="col">Type</th>
         <th scope="col">Resource Address</th>
         <th scope="col">Status</th>
         <th scope="col">Rentable</th>
@@ -26,7 +26,7 @@
     <tbody>
       {% for node in gpu_nodes %}
       <tr>
-        <td><a href="{% url 'coldfront_orcd_direct_charge:gpu-node-detail' node.pk %}">{{ node.name }}</a></td>
+        <td><a href="{% url 'coldfront_orcd_direct_charge:gpu-node-detail' node.pk %}">{{ node.node_type.name }}</a></td>
         <td><code>{{ node.associated_resource_address }}</code></td>
         <td>
           {% if node.status == "AVAILABLE" %}
@@ -58,7 +58,7 @@
   <table class="table table-sm table-hover">
     <thead class="thead-light">
       <tr>
-        <th scope="col">Name</th>
+        <th scope="col">Type</th>
         <th scope="col">Resource Address</th>
         <th scope="col">Status</th>
         <th scope="col">Rentable</th>
@@ -68,7 +68,7 @@
     <tbody>
       {% for node in cpu_nodes %}
       <tr>
-        <td><a href="{% url 'coldfront_orcd_direct_charge:cpu-node-detail' node.pk %}">{{ node.name }}</a></td>
+        <td><a href="{% url 'coldfront_orcd_direct_charge:cpu-node-detail' node.pk %}">{{ node.node_type.name }}</a></td>
         <td><code>{{ node.associated_resource_address }}</code></td>
         <td>
           {% if node.status == "AVAILABLE" %}
