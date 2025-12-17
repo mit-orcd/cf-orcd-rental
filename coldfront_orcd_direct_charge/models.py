@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-from django.core.exceptions import ValidationError
 from django.db import models
 from model_utils.models import TimeStampedModel
 
@@ -41,9 +40,7 @@ class GpuNodeInstance(TimeStampedModel):
     associated_resource_address = models.CharField(
         max_length=128,
         unique=True,
-        blank=True,
-        null=True,
-        help_text="Name of the associated resource (e.g., node3401). Must be unique when provided.",
+        help_text="Unique identifier for the external HPC/AI cluster resource (e.g., gpu-h200x8-001, node3401). Required for natural key support.",
     )
 
     class Meta:
@@ -68,18 +65,9 @@ class GpuNodeInstance(TimeStampedModel):
         loaddata to update existing records instead of creating duplicates.
         
         Returns:
-            tuple: Natural key tuple containing associated_resource_address, or None if address is blank
+            tuple: Natural key tuple containing associated_resource_address
         """
-        if self.associated_resource_address:
-            return (self.associated_resource_address,)
-        # If no address, return None to indicate this record can't use natural key
-        # This means records without addresses will be created fresh each time
-        return None
-
-    def clean(self):
-        """Validate the model instance."""
-        if self.associated_resource_address and not self.associated_resource_address.strip():
-            raise ValidationError("associated_resource_address cannot be empty if provided")
+        return (self.associated_resource_address,)
 
 
 class CpuNodeInstance(TimeStampedModel):
@@ -117,9 +105,7 @@ class CpuNodeInstance(TimeStampedModel):
     associated_resource_address = models.CharField(
         max_length=128,
         unique=True,
-        blank=True,
-        null=True,
-        help_text="Name of the associated resource (e.g., node3401). Must be unique when provided.",
+        help_text="Unique identifier for the external HPC/AI cluster resource (e.g., cpu-384m-001, node5001). Required for natural key support.",
     )
 
     class Meta:
@@ -144,16 +130,7 @@ class CpuNodeInstance(TimeStampedModel):
         loaddata to update existing records instead of creating duplicates.
         
         Returns:
-            tuple: Natural key tuple containing associated_resource_address, or None if address is blank
+            tuple: Natural key tuple containing associated_resource_address
         """
-        if self.associated_resource_address:
-            return (self.associated_resource_address,)
-        # If no address, return None to indicate this record can't use natural key
-        # This means records without addresses will be created fresh each time
-        return None
-
-    def clean(self):
-        """Validate the model instance."""
-        if self.associated_resource_address and not self.associated_resource_address.strip():
-            raise ValidationError("associated_resource_address cannot be empty if provided")
+        return (self.associated_resource_address,)
 

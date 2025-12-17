@@ -9,7 +9,7 @@
       "name": "H200x8",
       "is_rentable": true,
       "status": "AVAILABLE",
-      "associated_resource_address": ""
+      "associated_resource_address": "gpu-h200x8-001"
     }
   },
   {
@@ -19,7 +19,7 @@
       "name": "H200x4",
       "is_rentable": true,
       "status": "AVAILABLE",
-      "associated_resource_address": ""
+      "associated_resource_address": "gpu-h200x4-001"
     }
   },
   {
@@ -29,7 +29,7 @@
       "name": "H200x2",
       "is_rentable": true,
       "status": "AVAILABLE",
-      "associated_resource_address": ""
+      "associated_resource_address": "gpu-h200x2-001"
     }
   },
   {
@@ -39,7 +39,7 @@
       "name": "H200x1",
       "is_rentable": true,
       "status": "AVAILABLE",
-      "associated_resource_address": ""
+      "associated_resource_address": "gpu-h200x1-001"
     }
   },
   {
@@ -49,7 +49,7 @@
       "name": "L40Sx4",
       "is_rentable": true,
       "status": "AVAILABLE",
-      "associated_resource_address": ""
+      "associated_resource_address": "gpu-l40sx4-001"
     }
   },
   {
@@ -59,7 +59,7 @@
       "name": "L40Sx2",
       "is_rentable": true,
       "status": "AVAILABLE",
-      "associated_resource_address": ""
+      "associated_resource_address": "gpu-l40sx2-001"
     }
   },
   {
@@ -69,7 +69,7 @@
       "name": "L40Sx1",
       "is_rentable": true,
       "status": "AVAILABLE",
-      "associated_resource_address": ""
+      "associated_resource_address": "gpu-l40sx1-001"
     }
   }
 ]

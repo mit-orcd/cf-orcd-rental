@@ -10,7 +10,7 @@
       "name": "CPU_384M",
       "is_rentable": true,
       "status": "AVAILABLE",
-      "associated_resource_address": ""
+      "associated_resource_address": "cpu-384m-001"
     }
   },
   {
@@ -20,7 +20,7 @@
       "name": "CPU_1500T",
       "is_rentable": true,
       "status": "AVAILABLE",
-      "associated_resource_address": ""
+      "associated_resource_address": "cpu-1500t-001"
     }
   }
 ]
