@@ -2,6 +2,7 @@
   {
     "model": "resource.resourcetype",
     "fields": {
+      "_comment": "** GPU Node: Compute node equipped with both CPU processors and GPU **",
       "name": "GPU Node",
       "description": "Node with CPU and GPU cards"
     }
@@ -9,6 +10,7 @@
   {
     "model": "resource.resourcetype",
     "fields": {
+      "_comment": "** CPU-only node for traditional compute workloads **",
       "name": "CPU Node",
       "description": "Node with only CPUs"
     }
