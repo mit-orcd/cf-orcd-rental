@@ -58,7 +58,24 @@ INSTALLED_APPS += ['coldfront_orcd_direct_charge']
 # HOME_PAGE_ALLOCATIONS_ENABLE = True
 ```
 
-### Step 3: Restart ColdFront
+### Step 3: Load Resource Type Fixtures (Optional)
+
+This plugin includes fixtures for custom resource types. To load them:
+
+```bash
+coldfront loaddata node_resource_types
+```
+
+This creates the following resource types:
+
+| Resource Type | Description |
+|---------------|-------------|
+| GPU Node | Node with CPU and GPU cards |
+| CPU Node | Node with only CPUs |
+
+These resource types can be used when creating resources in the ColdFront admin interface or via bulk import.
+
+### Step 4: Restart ColdFront
 
 ```bash
 DEBUG=True uv run coldfront runserver
@@ -114,9 +131,26 @@ This plugin overrides the following ColdFront templates:
 This plugin follows ColdFront's plugin architecture:
 
 - **Template overrides**: Place templates in `coldfront_orcd_direct_charge/templates/` to override core templates
+- **Fixtures**: Place JSON fixtures in `coldfront_orcd_direct_charge/fixtures/` for loadable data
 - **Models**: Add `models.py` for database schema extensions
 - **Views**: Add `views.py` and `urls.py` for custom endpoints
 - **Signals**: Add `signals.py` to hook into ColdFront events
+
+### Plugin Structure
+
+```
+coldfront_orcd_direct_charge/
+├── __init__.py
+├── apps.py
+├── fixtures/
+│   └── node_resource_types.json    # Custom resource types
+└── templates/
+    ├── common/
+    │   ├── authorized_navbar.html
+    │   └── nonauthorized_navbar.html
+    └── portal/
+        └── authorized_home.html
+```
 
 ## License
 

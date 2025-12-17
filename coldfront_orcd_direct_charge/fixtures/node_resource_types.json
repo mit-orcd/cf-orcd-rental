@@ -1,0 +1,16 @@
+[
+  {
+    "model": "resource.resourcetype",
+    "fields": {
+      "name": "GPU Node",
+      "description": "Node with CPU and GPU cards"
+    }
+  },
+  {
+    "model": "resource.resourcetype",
+    "fields": {
+      "name": "CPU Node",
+      "description": "Node with only CPUs"
+    }
+  }
+]
