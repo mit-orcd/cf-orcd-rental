@@ -1,0 +1,95 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}Rent H200x8 GPU Nodes{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2><i class="fas fa-calendar-alt"></i> H200x8 Node Availability</h2>
+  <a href="{% url 'coldfront_orcd_direct_charge:reservation-request' %}" class="btn btn-primary">
+    <i class="fas fa-plus"></i> Request Reservation
+  </a>
+</div>
+<hr>
+
+<!-- Month Navigation -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <a href="?year={{ prev_year }}&month={{ prev_month }}" class="btn btn-outline-secondary">
+    <i class="fas fa-chevron-left"></i> Previous
+  </a>
+  <h3 class="mb-0">{{ month_name }} {{ year }}</h3>
+  <a href="?year={{ next_year }}&month={{ next_month }}" class="btn btn-outline-secondary">
+    Next <i class="fas fa-chevron-right"></i>
+  </a>
+</div>
+
+<!-- Legend -->
+<div class="mb-3">
+  <span class="badge badge-success mr-2" style="background-color: #28a745;">&nbsp;&nbsp;&nbsp;</span> Available
+  <span class="badge badge-danger ml-3 mr-2" style="background-color: #dc3545;">&nbsp;&nbsp;&nbsp;</span> Booked
+</div>
+
+<!-- Availability Calendar -->
+<div class="table-responsive">
+  <table class="table table-bordered table-sm" style="table-layout: fixed;">
+    <thead class="thead-light">
+      <tr>
+        <th scope="col" style="width: 120px; position: sticky; left: 0; background: #f8f9fa; z-index: 1;">Node</th>
+        {% for day in days %}
+        <th scope="col" class="text-center" style="width: 35px; min-width: 35px;">
+          {{ day }}
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for node in nodes %}
+      <tr>
+        <td style="position: sticky; left: 0; background: #fff; z-index: 1;">
+          <code>{{ node.associated_resource_address }}</code>
+        </td>
+        {% for day in days %}
+        {% with status=availability|default_if_none:"" %}
+        <td class="text-center p-1 
+          {% if availability|default_if_none:"" %}
+            {% with node_avail=availability %}
+              {% for node_id, day_status in node_avail.items %}
+                {% if node_id == node.id %}
+                  {% for d, s in day_status.items %}
+                    {% if d == day %}
+                      {% if s == 'booked' %}bg-danger{% else %}bg-success{% endif %}
+                    {% endif %}
+                  {% endfor %}
+                {% endif %}
+              {% endfor %}
+            {% endwith %}
+          {% endif %}
+        " style="{% if availability %}{% for node_id, day_status in availability.items %}{% if node_id == node.id %}{% for d, s in day_status.items %}{% if d == day %}{% if s == 'booked' %}background-color: #dc3545;{% else %}background-color: #28a745;{% endif %}{% endif %}{% endfor %}{% endif %}{% endfor %}{% endif %}">
+          &nbsp;
+        </td>
+        {% endwith %}
+        {% endfor %}
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="{{ days|length|add:1 }}" class="text-muted text-center">
+          No rentable H200x8 nodes available.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="mt-4">
+  <p class="text-muted">
+    <strong>Reservation Rules:</strong>
+    <ul>
+      <li>Reservations start at <strong>4:00 PM</strong> on the start date</li>
+      <li>Duration is in 12-hour blocks (minimum 12 hours)</li>
+      <li>Reservations must end no later than <strong>9:00 AM</strong> on the final day</li>
+    </ul>
+  </p>
+</div>
+
+{% endblock %}

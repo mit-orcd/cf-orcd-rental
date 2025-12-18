@@ -1,0 +1,111 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}Request Reservation{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-calendar-plus"></i> Request GPU Node Reservation</h2>
+<hr>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">Reservation Details</h5>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          
+          {% if form.errors %}
+          <div class="alert alert-danger">
+            <strong>Please correct the errors below:</strong>
+            {{ form.non_field_errors }}
+          </div>
+          {% endif %}
+
+          <div class="form-group">
+            <label for="{{ form.node_instance.id_for_label }}">
+              <strong>GPU Node</strong>
+            </label>
+            {{ form.node_instance }}
+            {% if form.node_instance.errors %}
+            <div class="text-danger">{{ form.node_instance.errors }}</div>
+            {% endif %}
+            <small class="form-text text-muted">Select the H200x8 node you want to reserve</small>
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.project.id_for_label }}">
+              <strong>Project</strong>
+            </label>
+            {{ form.project }}
+            {% if form.project.errors %}
+            <div class="text-danger">{{ form.project.errors }}</div>
+            {% endif %}
+            <small class="form-text text-muted">Select the project this reservation is for</small>
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.start_date.id_for_label }}">
+              <strong>Start Date</strong>
+            </label>
+            {{ form.start_date }}
+            {% if form.start_date.errors %}
+            <div class="text-danger">{{ form.start_date.errors }}</div>
+            {% endif %}
+            <small class="form-text text-muted">Reservation will start at <strong>4:00 PM</strong> on this date</small>
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.num_blocks.id_for_label }}">
+              <strong>Duration</strong>
+            </label>
+            {{ form.num_blocks }}
+            {% if form.num_blocks.errors %}
+            <div class="text-danger">{{ form.num_blocks.errors }}</div>
+            {% endif %}
+            <small class="form-text text-muted">Select the duration of your reservation</small>
+          </div>
+
+          <hr>
+
+          <div class="d-flex justify-content-between">
+            <a href="{% url 'coldfront_orcd_direct_charge:renting-calendar' %}" class="btn btn-secondary">
+              <i class="fas fa-arrow-left"></i> Back to Calendar
+            </a>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-paper-plane"></i> Submit Request
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="fas fa-info-circle"></i> Reservation Rules</h5>
+      </div>
+      <div class="card-body">
+        <ul class="mb-0">
+          <li>Reservations start at <strong>4:00 PM</strong></li>
+          <li>Duration is in 12-hour blocks</li>
+          <li>Minimum duration: 12 hours</li>
+          <li>Maximum duration: 168 hours (7 days)</li>
+          <li>End time must be no later than 9:00 AM on the final day</li>
+        </ul>
+        <hr>
+        <p class="mb-0 text-muted">
+          <small>
+            Your request will be reviewed by a rental manager. 
+            You will be notified once it has been approved or declined.
+          </small>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

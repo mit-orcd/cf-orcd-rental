@@ -1,0 +1,126 @@
+# SPDX-FileCopyrightText: (C) ORCD
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+from django import forms
+from django.core.exceptions import ValidationError
+
+from coldfront_orcd_direct_charge.models import GpuNodeInstance, Reservation
+
+
+# Duration choices for reservation (1-14 blocks of 12 hours each)
+DURATION_CHOICES = [
+    (1, "12 hours (4PM → 4AM next day)"),
+    (2, "24 hours (4PM → 4PM next day)"),
+    (3, "36 hours (4PM → 4AM in 2 days)"),
+    (4, "48 hours (4PM → 4PM in 2 days)"),
+    (5, "60 hours (4PM → 4AM in 3 days)"),
+    (6, "72 hours (4PM → 4PM in 3 days)"),
+    (7, "84 hours (4PM → 4AM in 4 days)"),
+    (8, "96 hours (4PM → 4PM in 4 days)"),
+    (9, "108 hours (4PM → 4AM in 5 days)"),
+    (10, "120 hours (4PM → 4PM in 5 days)"),
+    (11, "132 hours (4PM → 4AM in 6 days)"),
+    (12, "144 hours (4PM → 4PM in 6 days)"),
+    (13, "156 hours (4PM → 4AM in 7 days)"),
+    (14, "168 hours (4PM → 4PM in 7 days)"),
+]
+
+
+class ReservationRequestForm(forms.ModelForm):
+    """Form for submitting a reservation request for a GPU node."""
+
+    num_blocks = forms.ChoiceField(
+        choices=DURATION_CHOICES,
+        label="Duration",
+        help_text="Select the duration of your reservation (in 12-hour blocks)",
+    )
+
+    class Meta:
+        model = Reservation
+        fields = ["node_instance", "project", "start_date", "num_blocks"]
+        widgets = {
+            "start_date": forms.DateInput(
+                attrs={"type": "date", "class": "form-control"}
+            ),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+        # Filter node instances to only rentable H200x8 nodes
+        self.fields["node_instance"].queryset = GpuNodeInstance.objects.filter(
+            is_rentable=True,
+            node_type__name="H200x8",
+        )
+        self.fields["node_instance"].label = "GPU Node"
+
+        # Filter projects to only those the user is a member of
+        if user:
+            from coldfront.core.project.models import Project
+
+            user_projects = Project.objects.filter(
+                projectuser__user=user,
+                projectuser__status__name="Active",
+                status__name="Active",
+            )
+            self.fields["project"].queryset = user_projects
+        
+        # Add Bootstrap classes
+        for field_name, field in self.fields.items():
+            if not isinstance(field.widget, forms.DateInput):
+                field.widget.attrs["class"] = "form-control"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        node_instance = cleaned_data.get("node_instance")
+        start_date = cleaned_data.get("start_date")
+        num_blocks = cleaned_data.get("num_blocks")
+
+        if node_instance and start_date and num_blocks:
+            num_blocks = int(num_blocks)
+            # Check for overlapping approved reservations
+            from datetime import datetime, time, timedelta
+
+            new_start = datetime.combine(start_date, time(16, 0))
+            new_end = new_start + timedelta(hours=12 * num_blocks)
+
+            overlapping = Reservation.objects.filter(
+                node_instance=node_instance,
+                status=Reservation.StatusChoices.APPROVED,
+            )
+
+            for reservation in overlapping:
+                existing_start = reservation.start_datetime
+                existing_end = reservation.end_datetime
+
+                # Check if there's any overlap
+                if new_start < existing_end and new_end > existing_start:
+                    raise ValidationError(
+                        f"This reservation overlaps with an existing approved reservation "
+                        f"from {existing_start.strftime('%b %d %I:%M %p')} to "
+                        f"{existing_end.strftime('%b %d %I:%M %p')}."
+                    )
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.num_blocks = int(self.cleaned_data["num_blocks"])
+        if self.user:
+            instance.requesting_user = self.user
+        if commit:
+            instance.save()
+        return instance
+
+
+class ReservationDeclineForm(forms.Form):
+    """Form for declining a reservation with optional notes."""
+
+    manager_notes = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+        required=False,
+        label="Notes (optional)",
+        help_text="Provide a reason for declining this reservation (visible to requester)",
+    )

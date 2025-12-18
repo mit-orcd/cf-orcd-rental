@@ -2,6 +2,9 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+from datetime import datetime, time, timedelta
+
+from django.contrib.auth.models import User
 from django.db import models
 from model_utils.models import TimeStampedModel
 
@@ -199,3 +202,96 @@ class CpuNodeInstance(TimeStampedModel):
         return (self.associated_resource_address,)
 
     natural_key.dependencies = ["coldfront_orcd_direct_charge.nodetype"]
+
+
+class Reservation(TimeStampedModel):
+    """A reservation request for a GPU node instance.
+
+    Time rules:
+    - Reservations always start at 4:00 PM on start_date
+    - Duration is stored in 12-hour blocks (1 block = 12 hours)
+    - End time is calculated: start_datetime + (num_blocks * 12 hours)
+    - End time must be no later than 9:00 AM on the final calendar day
+
+    Attributes:
+        node_instance (GpuNodeInstance): The GPU node being reserved
+        project (Project): The Coldfront project associated with this reservation
+        requesting_user (User): The user who submitted the reservation request
+        start_date (date): The date when reservation starts (always at 4:00 PM)
+        num_blocks (int): Number of 12-hour blocks (1 block = 12 hours)
+        status (str): Current status of the reservation
+        manager_notes (str): Notes from the rental manager
+    """
+
+    class StatusChoices(models.TextChoices):
+        PENDING = "PENDING", "Pending Approval"
+        APPROVED = "APPROVED", "Approved"
+        DECLINED = "DECLINED", "Declined"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    node_instance = models.ForeignKey(
+        GpuNodeInstance,
+        on_delete=models.PROTECT,
+        related_name="reservations",
+        help_text="The GPU node instance being reserved",
+    )
+    project = models.ForeignKey(
+        "project.Project",
+        on_delete=models.PROTECT,
+        related_name="node_reservations",
+        help_text="The project this reservation is associated with",
+    )
+    requesting_user = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="node_reservation_requests",
+        help_text="The user who submitted this reservation request",
+    )
+    start_date = models.DateField(
+        help_text="Reservation starts at 4:00 PM on this date"
+    )
+    num_blocks = models.PositiveIntegerField(
+        default=1,
+        help_text="Number of 12-hour blocks (1 block = 12 hours, minimum 1, maximum 14)",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=StatusChoices.choices,
+        default=StatusChoices.PENDING,
+        help_text="Current status of the reservation",
+    )
+    manager_notes = models.TextField(
+        blank=True,
+        help_text="Notes from the rental manager (visible to requester)",
+    )
+
+    class Meta:
+        ordering = ["-created"]
+        verbose_name = "Reservation"
+        verbose_name_plural = "Reservations"
+        permissions = (
+            ("can_manage_rentals", "Can manage rental requests"),
+        )
+
+    def __str__(self):
+        return f"{self.node_instance.associated_resource_address} - {self.start_date} ({self.get_status_display()})"
+
+    @property
+    def start_datetime(self):
+        """Returns the start datetime (4:00 PM on start_date)."""
+        return datetime.combine(self.start_date, time(16, 0))  # 4:00 PM
+
+    @property
+    def end_datetime(self):
+        """Returns the end datetime based on num_blocks."""
+        return self.start_datetime + timedelta(hours=12 * self.num_blocks)
+
+    @property
+    def billable_hours(self):
+        """Returns total billable hours."""
+        return 12 * self.num_blocks
+
+    @property
+    def end_date(self):
+        """Returns the calendar date when reservation ends."""
+        return self.end_datetime.date()

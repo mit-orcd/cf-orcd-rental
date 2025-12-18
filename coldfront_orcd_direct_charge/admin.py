@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 from django.contrib import admin
-from coldfront_orcd_direct_charge.models import NodeType, GpuNodeInstance, CpuNodeInstance
+from coldfront_orcd_direct_charge.models import NodeType, GpuNodeInstance, CpuNodeInstance, Reservation
 
 
 @admin.register(NodeType)
@@ -36,3 +36,75 @@ class CpuNodeInstanceAdmin(admin.ModelAdmin):
     @admin.display(description="Node Type")
     def node_type_name(self, obj):
         return obj.node_type.name
+
+
+@admin.register(Reservation)
+class ReservationAdmin(admin.ModelAdmin):
+    list_display = (
+        "node_instance_address",
+        "project",
+        "requesting_user",
+        "start_date",
+        "num_blocks",
+        "get_billable_hours",
+        "get_end_datetime",
+        "status",
+        "created",
+    )
+    list_filter = ("status", "node_instance__node_type", "start_date")
+    search_fields = (
+        "node_instance__associated_resource_address",
+        "project__title",
+        "requesting_user__username",
+        "requesting_user__first_name",
+        "requesting_user__last_name",
+    )
+    readonly_fields = ("get_billable_hours", "get_end_datetime", "get_start_datetime", "created", "modified")
+    ordering = ("-created",)
+    actions = ["approve_reservations", "decline_reservations"]
+
+    fieldsets = (
+        (None, {
+            "fields": ("node_instance", "project", "requesting_user", "status")
+        }),
+        ("Timing", {
+            "fields": ("start_date", "num_blocks", "get_start_datetime", "get_end_datetime", "get_billable_hours")
+        }),
+        ("Notes", {
+            "fields": ("manager_notes",)
+        }),
+        ("Metadata", {
+            "fields": ("created", "modified"),
+            "classes": ("collapse",)
+        }),
+    )
+
+    @admin.display(description="Node")
+    def node_instance_address(self, obj):
+        return obj.node_instance.associated_resource_address
+
+    @admin.display(description="Billable Hours")
+    def get_billable_hours(self, obj):
+        return obj.billable_hours
+
+    @admin.display(description="End Time")
+    def get_end_datetime(self, obj):
+        return obj.end_datetime.strftime("%b %d, %Y %I:%M %p")
+
+    @admin.display(description="Start Time")
+    def get_start_datetime(self, obj):
+        return obj.start_datetime.strftime("%b %d, %Y %I:%M %p")
+
+    @admin.action(description="Approve selected reservations")
+    def approve_reservations(self, request, queryset):
+        count = queryset.filter(status=Reservation.StatusChoices.PENDING).update(
+            status=Reservation.StatusChoices.APPROVED
+        )
+        self.message_user(request, f"{count} reservation(s) approved.")
+
+    @admin.action(description="Decline selected reservations")
+    def decline_reservations(self, request, queryset):
+        count = queryset.filter(status=Reservation.StatusChoices.PENDING).update(
+            status=Reservation.StatusChoices.DECLINED
+        )
+        self.message_user(request, f"{count} reservation(s) declined.")
