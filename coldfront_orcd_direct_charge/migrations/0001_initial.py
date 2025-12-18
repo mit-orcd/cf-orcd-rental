@@ -20,7 +20,7 @@ class Migration(migrations.Migration):
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('created', model_utils.fields.AutoCreatedField(default=django.utils.timezone.now, editable=False, verbose_name='created')),
                 ('modified', model_utils.fields.AutoLastModifiedField(default=django.utils.timezone.now, editable=False, verbose_name='modified')),
-                ('name', models.CharField(help_text='Unique name of the node type (e.g., H200x8, CPU_384M)', max_length=64, unique=True)),
+                ('name', models.CharField(help_text='Unique name of the node type (e.g., H200x8, CPU_384G)', max_length=64, unique=True)),
                 ('category', models.CharField(choices=[('GPU', 'GPU Node'), ('CPU', 'CPU Node')], help_text='Category of node type: GPU or CPU', max_length=16)),
                 ('description', models.TextField(blank=True, help_text='Optional description of the node type')),
                 ('is_active', models.BooleanField(default=True, help_text='Whether this node type is currently active and available for use')),
@@ -56,7 +56,7 @@ class Migration(migrations.Migration):
                 ('modified', model_utils.fields.AutoLastModifiedField(default=django.utils.timezone.now, editable=False, verbose_name='modified')),
                 ('is_rentable', models.BooleanField(default=False, help_text='Whether this node can be rented for booking management')),
                 ('status', models.CharField(choices=[('AVAILABLE', 'Available'), ('PLACEHOLDER', 'Placeholder')], default='AVAILABLE', help_text='Current status of the node instance', max_length=32)),
-                ('associated_resource_address', models.CharField(help_text='Unique identifier for the external HPC/AI cluster resource (e.g., cpu-384m-001, node5001). Required for natural key support.', max_length=128, unique=True)),
+                ('associated_resource_address', models.CharField(help_text='Unique identifier for the external HPC/AI cluster resource (e.g., cpu-384g-001, node5001). Required for natural key support.', max_length=128, unique=True)),
                 ('node_type', models.ForeignKey(help_text='The type of CPU node', limit_choices_to={'category': 'CPU'}, on_delete=django.db.models.deletion.PROTECT, related_name='cpu_instances', to='coldfront_orcd_direct_charge.nodetype')),
             ],
             options={

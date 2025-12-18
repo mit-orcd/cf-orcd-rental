@@ -67,8 +67,8 @@ The script generates a CSV file with the following columns:
 type,resource_address,status,rentable
 H200x8,node2433,AVAILABLE,true
 L40Sx4,node1632,AVAILABLE,true
-CPU_384M,node001,AVAILABLE,true
-CPU_1500T,node002,AVAILABLE,true
+CPU_384G,node001,AVAILABLE,true
+CPU_1500G,node002,AVAILABLE,true
 ```
 
 ### Node Type Classification
@@ -78,8 +78,8 @@ CPU_1500T,node002,AVAILABLE,true
 - `L40Sx<N>` - L40S GPU nodes with N GPUs (parsed from `gres: "gpu:l40s:N"`)
 
 **CPU Nodes** (when `gres` is empty or doesn't contain GPU):
-- `CPU_1500T` - Nodes with >= 1TB memory (`real_memory >= 1000000`)
-- `CPU_384M` - Nodes with < 1TB memory
+- `CPU_1500G` - Nodes with >= 1TB memory (`real_memory >= 1000000`)
+- `CPU_384G` - Nodes with < 1TB memory
 
 ### Output Rules
 

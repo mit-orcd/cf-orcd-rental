@@ -75,19 +75,19 @@
     "_comment": "**CPU Node Types**",
     "model": "coldfront_orcd_direct_charge.nodetype",
     "fields": {
-      "name": "CPU_384M",
+      "name": "CPU_384G",
       "category": "CPU",
-      "description": "CPU node with 384M memory configuration",
+      "description": "CPU node with 384G memory configuration",
       "is_active": true
     }
   },
   {
-    "_comment": "**CPU Node with 1500T memory**",
+    "_comment": "**CPU Node with 1500G memory**",
     "model": "coldfront_orcd_direct_charge.nodetype",
     "fields": {
-      "name": "CPU_1500T",
+      "name": "CPU_1500G",
       "category": "CPU",
-      "description": "CPU node with 1500T memory configuration",
+      "description": "CPU node with 1500G memory configuration",
       "is_active": true
     }
   }

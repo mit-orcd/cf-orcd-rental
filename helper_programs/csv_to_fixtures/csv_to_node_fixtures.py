@@ -12,7 +12,7 @@ Usage:
 CSV Format:
     type,resource_address,status,rentable
     H200x8,gpu-h200x8-001,AVAILABLE,true
-    CPU_384M,cpu-384m-001,AVAILABLE,true
+    CPU_384G,cpu-384g-001,AVAILABLE,true
 """
 
 import argparse
@@ -24,7 +24,7 @@ from pathlib import Path
 
 # Known GPU and CPU node types (based on node_types fixture)
 GPU_TYPES = {"H200x8", "H200x4", "H200x2", "H200x1", "L40Sx4", "L40Sx2", "L40Sx1"}
-CPU_TYPES = {"CPU_384M", "CPU_1500T"}
+CPU_TYPES = {"CPU_384G", "CPU_1500G"}
 
 
 def parse_bool(value: str) -> bool:
@@ -178,11 +178,11 @@ def main():
 CSV Format:
   type,resource_address,status,rentable
   H200x8,gpu-h200x8-001,AVAILABLE,true
-  CPU_384M,cpu-384m-001,PLACEHOLDER,false
+  CPU_384G,cpu-384g-001,PLACEHOLDER,false
 
 Valid node types:
   GPU: H200x8, H200x4, H200x2, H200x1, L40Sx4, L40Sx2, L40Sx1
-  CPU: CPU_384M, CPU_1500T
+  CPU: CPU_384G, CPU_1500G
 
 Valid status values: AVAILABLE, PLACEHOLDER
 Valid rentable values: true, false, yes, no, 1, 0

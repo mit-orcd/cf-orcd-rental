@@ -4,23 +4,23 @@
     "_comment_usage": "**Load with: coldfront loaddata cpu_node_instances**",
     "_comment_prereq": "**Requires node_types fixture to be loaded first**",
     "_comment_resource_type": "**These instances are associated with the 'CPU Node' resource type**",
-    "_comment_note": "**CPU Node with 384M memory configuration**",
+    "_comment_note": "**CPU Node with 384G memory configuration**",
     "model": "coldfront_orcd_direct_charge.cpunodeinstance",
     "fields": {
-      "node_type": ["CPU_384M"],
+      "node_type": ["CPU_384G"],
       "is_rentable": true,
       "status": "AVAILABLE",
-      "associated_resource_address": "cpu-384m-001"
+      "associated_resource_address": "cpu-384g-001"
     }
   },
   {
-    "_comment": "**CPU Node with 1500T memory configuration**",
+    "_comment": "**CPU Node with 1500G memory configuration**",
     "model": "coldfront_orcd_direct_charge.cpunodeinstance",
     "fields": {
-      "node_type": ["CPU_1500T"],
+      "node_type": ["CPU_1500G"],
       "is_rentable": true,
       "status": "AVAILABLE",
-      "associated_resource_address": "cpu-1500t-001"
+      "associated_resource_address": "cpu-1500g-001"
     }
   }
 ]

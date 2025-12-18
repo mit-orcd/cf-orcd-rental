@@ -14,7 +14,7 @@ class NodeType(TimeStampedModel):
     categorized as either GPU or CPU, and can be managed via admin or fixtures.
 
     Attributes:
-        name (str): Unique name of the node type (e.g., "H200x8", "CPU_384M")
+        name (str): Unique name of the node type (e.g., "H200x8", "CPU_384G")
         category (str): Category of the node type ("GPU" or "CPU")
         description (str): Optional description of the node type
         is_active (bool): Whether this type is currently active/available
@@ -32,7 +32,7 @@ class NodeType(TimeStampedModel):
     name = models.CharField(
         max_length=64,
         unique=True,
-        help_text="Unique name of the node type (e.g., H200x8, CPU_384M)",
+        help_text="Unique name of the node type (e.g., H200x8, CPU_384G)",
     )
     category = models.CharField(
         max_length=16,
@@ -139,7 +139,7 @@ class CpuNodeInstance(TimeStampedModel):
     The actual instances are loaded via fixtures and can be updated dynamically.
 
     Attributes:
-        node_type (NodeType): The type of CPU node (e.g., CPU_384M, CPU_1500T)
+        node_type (NodeType): The type of CPU node (e.g., CPU_384G, CPU_1500G)
         is_rentable (bool): Flag indicating if this node can be rented
         status (str): Current status of the node instance (AVAILABLE, PLACEHOLDER)
         associated_resource_address (str): External HPC/AI cluster resource identifier
@@ -169,7 +169,7 @@ class CpuNodeInstance(TimeStampedModel):
     associated_resource_address = models.CharField(
         max_length=128,
         unique=True,
-        help_text="Unique identifier for the external HPC/AI cluster resource (e.g., cpu-384m-001, node5001). Required for natural key support.",
+        help_text="Unique identifier for the external HPC/AI cluster resource (e.g., cpu-384g-001, node5001). Required for natural key support.",
     )
 
     class Meta:

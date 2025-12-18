@@ -51,8 +51,8 @@ The CSV file must contain the following columns:
 - `L40Sx1` - NVIDIA L40S node with 1 GPU
 
 **CPU Types:**
-- `CPU_384M` - CPU node with 384M memory configuration
-- `CPU_1500T` - CPU node with 1500T memory configuration
+- `CPU_384G` - CPU node with 384G memory configuration
+- `CPU_1500G` - CPU node with 1500G memory configuration
 
 ### Sample CSV
 
@@ -62,8 +62,8 @@ H200x8,gpu-h200x8-001,AVAILABLE,true
 H200x8,gpu-h200x8-002,AVAILABLE,true
 H200x4,gpu-h200x4-001,AVAILABLE,true
 L40Sx4,gpu-l40sx4-001,PLACEHOLDER,false
-CPU_384M,cpu-384m-001,AVAILABLE,true
-CPU_1500T,cpu-1500t-001,AVAILABLE,true
+CPU_384G,cpu-384g-001,AVAILABLE,true
+CPU_1500G,cpu-1500g-001,AVAILABLE,true
 ```
 
 ## Output

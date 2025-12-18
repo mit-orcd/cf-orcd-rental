@@ -64,7 +64,7 @@ echo "type,resource_address,status,rentable" > "$OUTPUT_FILE"
 # - Filter nodes that have at least one partition in the specified list
 # - Classify as GPU or CPU based on gres field
 # - For GPU: extract type (h200/l40s) and count from gres field
-# - For CPU: classify based on real_memory (>= 1000000 MB = CPU_1500T, else CPU_384M)
+# - For CPU: classify based on real_memory (>= 1000000 MB = CPU_1500G, else CPU_384G)
 jq -r --argjson partitions "$PARTITION_ARRAY" '
     # Function to check if node has any of the specified partitions
     def has_partition:
@@ -95,9 +95,9 @@ jq -r --argjson partitions "$PARTITION_ARRAY" '
         else
             # CPU node - classify based on real_memory
             if ($node.real_memory // 0) >= 1000000 then
-                "CPU_1500T"
+                "CPU_1500G"
             else
-                "CPU_384M"
+                "CPU_384G"
             end
         end;
     
