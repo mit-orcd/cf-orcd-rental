@@ -14,6 +14,7 @@ python csv_to_node_fixtures.py input.csv [--output-dir OUTPUT_DIR]
 - `--output-dir, -o`: Output directory for fixture files (default: same as CSV file location)
 - `--gpu-output`: Filename for GPU fixtures (default: `gpu_node_instances.json`)
 - `--cpu-output`: Filename for CPU fixtures (default: `cpu_node_instances.json`)
+- `--rentable-percent, -rp`: Percentage (0-100) of nodes per type to mark as rentable (optional)
 
 ### Examples
 
@@ -26,6 +27,40 @@ python csv_to_node_fixtures.py nodes.csv --output-dir ../fixtures/
 
 # Output directly to the plugin fixtures directory
 python csv_to_node_fixtures.py nodes.csv -o ../../coldfront_orcd_direct_charge/fixtures/
+
+# Mark only 30% of each node type as rentable
+python csv_to_node_fixtures.py nodes.csv --rentable-percent 30
+```
+
+## Rentable Percentage
+
+The `--rentable-percent` option allows you to override the `rentable` column from the CSV and instead mark only a percentage of nodes as rentable. This is applied **per node type**, so each type gets the specified percentage.
+
+### How it works
+
+- The percentage is applied using floor rounding
+- For example, with `--rentable-percent 30`:
+  - 10 H200x8 nodes → 3 rentable, 7 not rentable (30% of 10 = 3)
+  - 50 L40Sx4 nodes → 15 rentable, 35 not rentable (30% of 50 = 15)
+  - 4 CPU_1500G nodes → 1 rentable, 3 not rentable (30% of 4 = 1.2 → 1)
+
+### Example output
+
+```
+$ python csv_to_node_fixtures.py nodes.csv --rentable-percent 30
+
+Applying rentable percentage: 30%
+GPU nodes:
+  L40Sx4: 15 rentable, 35 not rentable (of 50 total)
+  H200x8: 3 rentable, 9 not rentable (of 12 total)
+CPU nodes:
+  CPU_384G: 13 rentable, 33 not rentable (of 46 total)
+  CPU_1500G: 1 rentable, 3 not rentable (of 4 total)
+
+Wrote 62 entries to gpu_node_instances.json
+Wrote 50 entries to cpu_node_instances.json
+
+Summary: 62 GPU instances, 50 CPU instances
 ```
 
 ## CSV Format

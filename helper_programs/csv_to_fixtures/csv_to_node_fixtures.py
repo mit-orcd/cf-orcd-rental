@@ -8,6 +8,7 @@ into ColdFront Django using the loaddata command.
 
 Usage:
     python csv_to_node_fixtures.py input.csv [--output-dir OUTPUT_DIR]
+    python csv_to_node_fixtures.py input.csv --rentable-percent 30
 
 CSV Format:
     type,resource_address,status,rentable
@@ -18,7 +19,9 @@ CSV Format:
 import argparse
 import csv
 import json
+import math
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 
@@ -138,6 +141,48 @@ def read_csv_and_generate_fixtures(csv_path: Path) -> tuple[list[dict], list[dic
     return gpu_fixtures, cpu_fixtures
 
 
+def apply_rentable_percent(fixtures: list[dict], rentable_percent: int) -> list[dict]:
+    """Apply rentable percentage limit per node type.
+    
+    For each node type, only rentable_percent% of nodes will be marked as
+    is_rentable=True. The rest will be set to is_rentable=False.
+    
+    Args:
+        fixtures: List of fixture entries
+        rentable_percent: Percentage (0-100) of nodes per type to mark as rentable
+        
+    Returns:
+        Modified list of fixture entries with rentable flags adjusted
+    """
+    if not fixtures:
+        return fixtures
+    
+    # Group fixtures by node_type
+    by_type: dict[str, list[dict]] = defaultdict(list)
+    for fixture in fixtures:
+        node_type = fixture['fields']['node_type'][0]  # Natural key is a list
+        by_type[node_type].append(fixture)
+    
+    # Apply percentage limit per type
+    result = []
+    for node_type, type_fixtures in by_type.items():
+        total_count = len(type_fixtures)
+        rentable_count = math.floor(total_count * rentable_percent / 100)
+        
+        # Mark first N as rentable, rest as not rentable
+        for i, fixture in enumerate(type_fixtures):
+            fixture_copy = fixture.copy()
+            fixture_copy['fields'] = fixture['fields'].copy()
+            fixture_copy['fields']['is_rentable'] = (i < rentable_count)
+            result.append(fixture_copy)
+        
+        # Report what was done
+        not_rentable_count = total_count - rentable_count
+        print(f"  {node_type}: {rentable_count} rentable, {not_rentable_count} not rentable (of {total_count} total)")
+    
+    return result
+
+
 def add_fixture_headers(fixtures: list[dict], fixture_type: str) -> list[dict]:
     """Add header comments to the first fixture entry."""
     if not fixtures:
@@ -186,6 +231,13 @@ Valid node types:
 
 Valid status values: AVAILABLE, PLACEHOLDER
 Valid rentable values: true, false, yes, no, 1, 0
+
+Rentable Percentage:
+  Use --rentable-percent to override the CSV rentable values and limit
+  the percentage of nodes marked as rentable per node type.
+  
+  Example: --rentable-percent 30 marks 30% of each node type as rentable.
+  For 10 H200x8 nodes, 3 would be rentable and 7 would not be rentable.
         ''',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -217,7 +269,23 @@ Valid rentable values: true, false, yes, no, 1, 0
         help='Filename for CPU fixtures (default: cpu_node_instances.json)'
     )
     
+    parser.add_argument(
+        '--rentable-percent', '-rp',
+        type=int,
+        default=None,
+        metavar='N',
+        help='Percentage (0-100) of nodes per type to mark as rentable. '
+             'If not set, uses the rentable value from the CSV file.'
+    )
+    
     args = parser.parse_args()
+    
+    # Validate rentable-percent if provided
+    if args.rentable_percent is not None:
+        if not 0 <= args.rentable_percent <= 100:
+            print(f"Error: --rentable-percent must be between 0 and 100, got {args.rentable_percent}", 
+                  file=sys.stderr)
+            sys.exit(1)
     
     if not args.csv_file.exists():
         print(f"Error: CSV file not found: {args.csv_file}", file=sys.stderr)
@@ -228,6 +296,17 @@ Valid rentable values: true, false, yes, no, 1, 0
     
     try:
         gpu_fixtures, cpu_fixtures = read_csv_and_generate_fixtures(args.csv_file)
+        
+        # Apply rentable percentage if specified
+        if args.rentable_percent is not None:
+            print(f"\nApplying rentable percentage: {args.rentable_percent}%")
+            if gpu_fixtures:
+                print("GPU nodes:")
+                gpu_fixtures = apply_rentable_percent(gpu_fixtures, args.rentable_percent)
+            if cpu_fixtures:
+                print("CPU nodes:")
+                cpu_fixtures = apply_rentable_percent(cpu_fixtures, args.rentable_percent)
+            print()
         
         if gpu_fixtures:
             gpu_fixtures = add_fixture_headers(gpu_fixtures, "GPU")
