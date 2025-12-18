@@ -2,3 +2,7 @@ coldfront.db
 __pycache__/
 *.pyc
 uv.lock
+
+# Generated fixture files in helper_programs (output artifacts)
+helper_programs/mk_gpucpunode_csv/*.json
+helper_programs/csv_to_fixtures/*.json

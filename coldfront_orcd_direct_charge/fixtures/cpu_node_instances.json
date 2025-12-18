@@ -3,24 +3,603 @@
     "_comment": "**Django Fixture for ORCD Direct Charge plugin: CPU Node Instance definitions**",
     "_comment_usage": "**Load with: coldfront loaddata cpu_node_instances**",
     "_comment_prereq": "**Requires node_types fixture to be loaded first**",
-    "_comment_resource_type": "**These instances are associated with the 'CPU Node' resource type**",
-    "_comment_note": "**CPU Node with 384G memory configuration**",
     "model": "coldfront_orcd_direct_charge.cpunodeinstance",
     "fields": {
-      "node_type": ["CPU_384G"],
+      "node_type": [
+        "CPU_384G"
+      ],
       "is_rentable": true,
       "status": "AVAILABLE",
-      "associated_resource_address": "cpu-384g-001"
+      "associated_resource_address": "node1600"
+    },
+    "_comment_note": "**CPU_384G Node - node1600**"
+  },
+  {
+    "_comment": "**CPU_384G Node - node1601**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1601"
     }
   },
   {
-    "_comment": "**CPU Node with 1500G memory configuration**",
+    "_comment": "**CPU_384G Node - node1602**",
     "model": "coldfront_orcd_direct_charge.cpunodeinstance",
     "fields": {
-      "node_type": ["CPU_1500G"],
+      "node_type": [
+        "CPU_384G"
+      ],
       "is_rentable": true,
       "status": "AVAILABLE",
-      "associated_resource_address": "cpu-1500g-001"
+      "associated_resource_address": "node1602"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1603**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1603"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1604**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1604"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1605**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1605"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1606**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1606"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1607**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1607"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1608**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1608"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1609**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1609"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1610**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1610"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1611**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1611"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1612**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1612"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1613**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1613"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1614**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1614"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1615**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1615"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1616**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1616"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1617**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1617"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1618**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1618"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node1619**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1619"
+    }
+  },
+  {
+    "_comment": "**CPU_1500G Node - node1622**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_1500G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1622"
+    }
+  },
+  {
+    "_comment": "**CPU_1500G Node - node1623**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_1500G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1623"
+    }
+  },
+  {
+    "_comment": "**CPU_1500G Node - node1624**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_1500G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1624"
+    }
+  },
+  {
+    "_comment": "**CPU_1500G Node - node1625**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_1500G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node1625"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node2704**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node2704"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node2705**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node2705"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3103**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3103"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3104**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3104"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3105**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3105"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3106**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3106"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3107**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3107"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3108**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3108"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3109**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3109"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3110**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3110"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3111**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3111"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3112**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3112"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3113**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3113"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3114**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3114"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3303**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3303"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3304**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3304"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3305**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3305"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3306**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3306"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3307**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3307"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3308**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3308"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3309**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3309"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3310**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3310"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3311**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3311"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3312**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3312"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3313**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3313"
+    }
+  },
+  {
+    "_comment": "**CPU_384G Node - node3314**",
+    "model": "coldfront_orcd_direct_charge.cpunodeinstance",
+    "fields": {
+      "node_type": [
+        "CPU_384G"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3314"
     }
   }
 ]
