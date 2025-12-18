@@ -1,9 +1,51 @@
 {% extends "common/base.html" %}
 {% load static %}
+{% load calendar_filters %}
 
 {% block title %}Rent H200x8 GPU Nodes{% endblock %}
 
 {% block content %}
+<style>
+.calendar-cell {
+    position: relative;
+    width: 35px;
+    height: 30px;
+}
+
+/* Solid backgrounds for non-partial rentals */
+.calendar-cell.not-bookable {
+    background-color: #6c757d !important; /* Gray */
+}
+
+.calendar-cell.available {
+    background-color: #28a745 !important; /* Green */
+}
+
+.calendar-cell.fully-rented {
+    background-color: #dc3545 !important; /* Red */
+}
+
+/* Diagonal split for partial rentals */
+.calendar-cell.am-only-rented {
+    background: linear-gradient(135deg, #dc3545 0%, #dc3545 50%, #28a745 50%, #28a745 100%) !important;
+}
+
+.calendar-cell.pm-only-rented {
+    background: linear-gradient(135deg, #28a745 0%, #28a745 50%, #dc3545 50%, #dc3545 100%) !important;
+}
+
+/* Icon positioning */
+.calendar-cell .user-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 10px;
+    z-index: 1;
+    text-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+</style>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2><i class="fas fa-calendar-alt"></i> H200x8 Rental Calendar</h2>
   <a href="{% url 'coldfront_orcd_direct_charge:reservation-request' %}" class="btn btn-primary">
@@ -39,7 +81,9 @@
 <div class="mb-3">
   <span class="badge mr-2" style="background-color: #6c757d;">&nbsp;&nbsp;&nbsp;</span> Not Available
   <span class="badge badge-success ml-3 mr-2" style="background-color: #28a745;">&nbsp;&nbsp;&nbsp;</span> Available
-  <span class="badge badge-danger ml-3 mr-2" style="background-color: #dc3545;">&nbsp;&nbsp;&nbsp;</span> Rented
+  <span class="badge badge-danger ml-3 mr-2" style="background-color: #dc3545;">&nbsp;&nbsp;&nbsp;</span> Fully Rented
+  <span class="badge ml-3 mr-2" style="background: linear-gradient(135deg, #dc3545 50%, #28a745 50%); width: 20px; height: 14px; display: inline-block; vertical-align: middle;"></span> AM Rented / PM Available
+  <span class="badge ml-3 mr-2" style="background: linear-gradient(135deg, #28a745 50%, #dc3545 50%); width: 20px; height: 14px; display: inline-block; vertical-align: middle;"></span> AM Available / PM Rented
   <span class="badge badge-danger ml-3 mr-2" style="background-color: #dc3545;"><i class="fas fa-user" style="color: white;"></i></span> My Rentals
 </div>
 
@@ -63,10 +107,16 @@
           <code>{{ node.associated_resource_address }}</code>
         </td>
         {% for day in days %}
-        {% with day_info=availability|default_if_none:"" %}
-        <td class="text-center p-0" style="{% for node_id, day_status in availability.items %}{% if node_id == node.id %}{% for d, info in day_status.items %}{% if d == day %}{% if not info.is_bookable %}background-color: #6c757d;{% elif info.status == 'booked' %}background-color: #dc3545;{% else %}background-color: #28a745;{% endif %}{% endif %}{% endfor %}{% endif %}{% endfor %}">
-          {% for node_id, day_status in availability.items %}{% if node_id == node.id %}{% for d, info in day_status.items %}{% if d == day %}{% if info.is_mine %}<i class="fas fa-user" style="color: white; font-size: 10px;" title="My rental"></i>{% else %}&nbsp;{% endif %}{% endif %}{% endfor %}{% endif %}{% endfor %}
+        {% with node_avail=availability|get_availability:node.id %}
+        {% with info=node_avail|get_day_info:day %}
+        <td class="calendar-cell text-center p-0 {% if info.is_bookable == False %}not-bookable{% elif info.rental_type == 'full' %}fully-rented{% elif info.rental_type == 'am_only' %}am-only-rented{% elif info.rental_type == 'pm_only' %}pm-only-rented{% elif info.rental_type == 'available' %}available{% else %}available{% endif %}">
+          {% if info.am_is_mine or info.pm_is_mine %}
+          <span class="user-icon">
+            <i class="fas fa-user" title="My rental"></i>
+          </span>
+          {% endif %}
         </td>
+        {% endwith %}
         {% endwith %}
         {% endfor %}
       </tr>

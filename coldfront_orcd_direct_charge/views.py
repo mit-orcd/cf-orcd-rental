@@ -118,7 +118,7 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
             ).values_list("id", flat=True)
         )
 
-        # Build availability matrix: {node_id: {day: {status, is_mine, is_bookable}}}
+        # Build availability matrix: {node_id: {day: {rental_type, am_is_mine, pm_is_mine, is_bookable}}}
         availability = {}
         for node in h200x8_nodes:
             availability[node.id] = {}
@@ -126,19 +126,47 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
                 current_date = date(year, month, day)
                 # Check if date is before earliest bookable date
                 is_bookable = current_date >= earliest_bookable
-                # Check if any reservation covers this date
-                is_booked = False
-                is_mine = False
+                
+                # Define time periods for this day
+                day_4am = datetime.combine(current_date, time(4, 0))
+                day_4pm = datetime.combine(current_date, time(16, 0))
+                next_day_4am = day_4am + timedelta(days=1)
+                
+                # Track AM (4 AM - 4 PM) and PM (4 PM - 4 AM next day) separately
+                am_booked = False
+                pm_booked = False
+                am_is_mine = False
+                pm_is_mine = False
+                
                 for res in approved_reservations.filter(node_instance=node):
-                    # A reservation covers a date if the date is between start and end
-                    if res.start_date <= current_date <= res.end_date:
-                        is_booked = True
+                    # AM period: check if reservation overlaps [4 AM, 4 PM)
+                    # Interval overlap: [start, end) overlaps [4AM, 4PM) iff start < 4PM and end > 4AM
+                    if res.start_datetime < day_4pm and res.end_datetime > day_4am:
+                        am_booked = True
                         if res.project_id in user_project_ids:
-                            is_mine = True
-                        break
+                            am_is_mine = True
+                    
+                    # PM period: check if reservation overlaps [4 PM, 4 AM next day)
+                    # Interval overlap: [start, end) overlaps [4PM, 4AM-next) iff start < 4AM-next and end > 4PM
+                    if res.start_datetime < next_day_4am and res.end_datetime > day_4pm:
+                        pm_booked = True
+                        if res.project_id in user_project_ids:
+                            pm_is_mine = True
+                
+                # Determine rental type based on AM/PM status
+                if am_booked and pm_booked:
+                    rental_type = "full"
+                elif am_booked:
+                    rental_type = "am_only"
+                elif pm_booked:
+                    rental_type = "pm_only"
+                else:
+                    rental_type = "available"
+                
                 availability[node.id][day] = {
-                    "status": "booked" if is_booked else "available",
-                    "is_mine": is_mine,
+                    "rental_type": rental_type,
+                    "am_is_mine": am_is_mine,
+                    "pm_is_mine": pm_is_mine,
                     "is_bookable": is_bookable,
                 }
 
