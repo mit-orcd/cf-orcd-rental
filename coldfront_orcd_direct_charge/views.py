@@ -55,8 +55,16 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
 
         # Get year and month from query params, default to current
         today = date.today()
-        year = int(self.request.GET.get("year", today.year))
-        month = int(self.request.GET.get("month", today.month))
+        
+        # Earliest bookable date is 7 days from today
+        earliest_bookable = today + timedelta(days=7)
+        
+        # Default to the month containing the earliest bookable date
+        default_year = earliest_bookable.year
+        default_month = earliest_bookable.month
+        
+        year = int(self.request.GET.get("year", default_year))
+        month = int(self.request.GET.get("month", default_month))
 
         # Calculate the maximum allowed month (3 months from current)
         max_month = today.month + 3
@@ -65,14 +73,17 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
             max_month = max_month - 12
             max_year = today.year + 1
 
+        # Calculate the minimum allowed month (month containing earliest bookable date)
+        min_month = earliest_bookable.month
+        min_year = earliest_bookable.year
+
         # Clamp the requested month to the allowed range
-        # Don't allow going before current month or more than 3 months ahead
-        current_month_date = date(today.year, today.month, 1)
+        min_month_date = date(min_year, min_month, 1)
         max_month_date = date(max_year, max_month, 1)
         requested_month_date = date(year, month, 1)
 
-        if requested_month_date < current_month_date:
-            year, month = today.year, today.month
+        if requested_month_date < min_month_date:
+            year, month = min_year, min_month
         elif requested_month_date > max_month_date:
             year, month = max_year, max_month
 
@@ -107,12 +118,14 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
             ).values_list("id", flat=True)
         )
 
-        # Build availability matrix: {node_id: {day: {status, is_mine}}}
+        # Build availability matrix: {node_id: {day: {status, is_mine, is_bookable}}}
         availability = {}
         for node in h200x8_nodes:
             availability[node.id] = {}
             for day in days_in_month:
                 current_date = date(year, month, day)
+                # Check if date is before earliest bookable date
+                is_bookable = current_date >= earliest_bookable
                 # Check if any reservation covers this date
                 is_booked = False
                 is_mine = False
@@ -126,6 +139,7 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
                 availability[node.id][day] = {
                     "status": "booked" if is_booked else "available",
                     "is_mine": is_mine,
+                    "is_bookable": is_bookable,
                 }
 
         # Calculate prev/next month
@@ -140,12 +154,10 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
             next_year, next_month = year, month + 1
 
         # Determine if prev/next buttons should be shown
-        current_month_date = date(today.year, today.month, 1)
         prev_month_date = date(prev_year, prev_month, 1)
         next_month_date = date(next_year, next_month, 1)
-        max_month_date = date(max_year, max_month, 1)
 
-        show_prev = prev_month_date >= current_month_date
+        show_prev = prev_month_date >= min_month_date
         show_next = next_month_date <= max_month_date
 
         context.update({
@@ -162,6 +174,7 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
             "show_prev": show_prev,
             "show_next": show_next,
             "today": today,
+            "earliest_bookable": earliest_bookable,
             "max_month_name": calendar.month_name[max_month],
             "max_year": max_year,
         })

@@ -5,7 +5,7 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h2><i class="fas fa-calendar-alt"></i> H200x8 Node Availability</h2>
+  <h2><i class="fas fa-calendar-alt"></i> H200x8 Rental Calendar</h2>
   <a href="{% url 'coldfront_orcd_direct_charge:reservation-request' %}" class="btn btn-primary">
     <i class="fas fa-plus"></i> Request Reservation
   </a>
@@ -37,9 +37,10 @@
 
 <!-- Legend -->
 <div class="mb-3">
-  <span class="badge badge-success mr-2" style="background-color: #28a745;">&nbsp;&nbsp;&nbsp;</span> Available
-  <span class="badge badge-danger ml-3 mr-2" style="background-color: #dc3545;">&nbsp;&nbsp;&nbsp;</span> Booked
-  <span class="badge badge-danger ml-3 mr-2" style="background-color: #dc3545;"><i class="fas fa-user" style="color: white;"></i></span> My Project's Booking
+  <span class="badge mr-2" style="background-color: #6c757d;">&nbsp;&nbsp;&nbsp;</span> Not Available
+  <span class="badge badge-success ml-3 mr-2" style="background-color: #28a745;">&nbsp;&nbsp;&nbsp;</span> Available
+  <span class="badge badge-danger ml-3 mr-2" style="background-color: #dc3545;">&nbsp;&nbsp;&nbsp;</span> Rented
+  <span class="badge badge-danger ml-3 mr-2" style="background-color: #dc3545;"><i class="fas fa-user" style="color: white;"></i></span> My Rentals
 </div>
 
 <!-- Availability Calendar -->
@@ -63,8 +64,8 @@
         </td>
         {% for day in days %}
         {% with day_info=availability|default_if_none:"" %}
-        <td class="text-center p-0" style="{% for node_id, day_status in availability.items %}{% if node_id == node.id %}{% for d, info in day_status.items %}{% if d == day %}{% if info.status == 'booked' %}background-color: #dc3545;{% else %}background-color: #28a745;{% endif %}{% endif %}{% endfor %}{% endif %}{% endfor %}">
-          {% for node_id, day_status in availability.items %}{% if node_id == node.id %}{% for d, info in day_status.items %}{% if d == day %}{% if info.is_mine %}<i class="fas fa-user" style="color: white; font-size: 10px;" title="My project's booking"></i>{% else %}&nbsp;{% endif %}{% endif %}{% endfor %}{% endif %}{% endfor %}
+        <td class="text-center p-0" style="{% for node_id, day_status in availability.items %}{% if node_id == node.id %}{% for d, info in day_status.items %}{% if d == day %}{% if not info.is_bookable %}background-color: #6c757d;{% elif info.status == 'booked' %}background-color: #dc3545;{% else %}background-color: #28a745;{% endif %}{% endif %}{% endfor %}{% endif %}{% endfor %}">
+          {% for node_id, day_status in availability.items %}{% if node_id == node.id %}{% for d, info in day_status.items %}{% if d == day %}{% if info.is_mine %}<i class="fas fa-user" style="color: white; font-size: 10px;" title="My rental"></i>{% else %}&nbsp;{% endif %}{% endif %}{% endfor %}{% endif %}{% endfor %}
         </td>
         {% endwith %}
         {% endfor %}
@@ -84,6 +85,7 @@
   <p class="text-muted">
     <strong>Reservation Rules:</strong>
     <ul>
+      <li>Reservations must be made at least <strong>7 days in advance</strong> (earliest: {{ earliest_bookable|date:"M d, Y" }})</li>
       <li>Reservations start at <strong>4:00 PM</strong> on the start date</li>
       <li>Duration is in 12-hour blocks (minimum 12 hours)</li>
       <li>Reservations must end no later than <strong>9:00 AM</strong> on the final day</li>
