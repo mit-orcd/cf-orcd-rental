@@ -58,6 +58,24 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
         year = int(self.request.GET.get("year", today.year))
         month = int(self.request.GET.get("month", today.month))
 
+        # Calculate the maximum allowed month (3 months from current)
+        max_month = today.month + 3
+        max_year = today.year
+        if max_month > 12:
+            max_month = max_month - 12
+            max_year = today.year + 1
+
+        # Clamp the requested month to the allowed range
+        # Don't allow going before current month or more than 3 months ahead
+        current_month_date = date(today.year, today.month, 1)
+        max_month_date = date(max_year, max_month, 1)
+        requested_month_date = date(year, month, 1)
+
+        if requested_month_date < current_month_date:
+            year, month = today.year, today.month
+        elif requested_month_date > max_month_date:
+            year, month = max_year, max_month
+
         # Get rentable H200x8 nodes
         h200x8_nodes = GpuNodeInstance.objects.filter(
             is_rentable=True,
@@ -106,6 +124,15 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
         else:
             next_year, next_month = year, month + 1
 
+        # Determine if prev/next buttons should be shown
+        current_month_date = date(today.year, today.month, 1)
+        prev_month_date = date(prev_year, prev_month, 1)
+        next_month_date = date(next_year, next_month, 1)
+        max_month_date = date(max_year, max_month, 1)
+
+        show_prev = prev_month_date >= current_month_date
+        show_next = next_month_date <= max_month_date
+
         context.update({
             "nodes": h200x8_nodes,
             "days": days_in_month,
@@ -117,7 +144,11 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
             "prev_month": prev_month,
             "next_year": next_year,
             "next_month": next_month,
+            "show_prev": show_prev,
+            "show_next": show_next,
             "today": today,
+            "max_month_name": calendar.month_name[max_month],
+            "max_year": max_year,
         })
 
         return context
