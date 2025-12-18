@@ -39,6 +39,7 @@
 <div class="mb-3">
   <span class="badge badge-success mr-2" style="background-color: #28a745;">&nbsp;&nbsp;&nbsp;</span> Available
   <span class="badge badge-danger ml-3 mr-2" style="background-color: #dc3545;">&nbsp;&nbsp;&nbsp;</span> Booked
+  <span class="badge badge-danger ml-3 mr-2" style="background-color: #dc3545;"><i class="fas fa-user" style="color: white;"></i></span> My Project's Booking
 </div>
 
 <!-- Availability Calendar -->
@@ -61,23 +62,9 @@
           <code>{{ node.associated_resource_address }}</code>
         </td>
         {% for day in days %}
-        {% with status=availability|default_if_none:"" %}
-        <td class="text-center p-1 
-          {% if availability|default_if_none:"" %}
-            {% with node_avail=availability %}
-              {% for node_id, day_status in node_avail.items %}
-                {% if node_id == node.id %}
-                  {% for d, s in day_status.items %}
-                    {% if d == day %}
-                      {% if s == 'booked' %}bg-danger{% else %}bg-success{% endif %}
-                    {% endif %}
-                  {% endfor %}
-                {% endif %}
-              {% endfor %}
-            {% endwith %}
-          {% endif %}
-        " style="{% if availability %}{% for node_id, day_status in availability.items %}{% if node_id == node.id %}{% for d, s in day_status.items %}{% if d == day %}{% if s == 'booked' %}background-color: #dc3545;{% else %}background-color: #28a745;{% endif %}{% endif %}{% endfor %}{% endif %}{% endfor %}{% endif %}">
-          &nbsp;
+        {% with day_info=availability|default_if_none:"" %}
+        <td class="text-center p-0" style="{% for node_id, day_status in availability.items %}{% if node_id == node.id %}{% for d, info in day_status.items %}{% if d == day %}{% if info.status == 'booked' %}background-color: #dc3545;{% else %}background-color: #28a745;{% endif %}{% endif %}{% endfor %}{% endif %}{% endfor %}">
+          {% for node_id, day_status in availability.items %}{% if node_id == node.id %}{% for d, info in day_status.items %}{% if d == day %}{% if info.is_mine %}<i class="fas fa-user" style="color: white; font-size: 10px;" title="My project's booking"></i>{% else %}&nbsp;{% endif %}{% endif %}{% endfor %}{% endif %}{% endfor %}
         </td>
         {% endwith %}
         {% endfor %}

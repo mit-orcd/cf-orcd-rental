@@ -96,9 +96,18 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
         approved_reservations = Reservation.objects.filter(
             status=Reservation.StatusChoices.APPROVED,
             node_instance__in=h200x8_nodes,
+        ).select_related("project")
+
+        # Get user's project IDs to identify "my" reservations
+        from coldfront.core.project.models import Project
+        user_project_ids = set(
+            Project.objects.filter(
+                projectuser__user=self.request.user,
+                projectuser__status__name="Active",
+            ).values_list("id", flat=True)
         )
 
-        # Build availability matrix: {node_id: {day: "available"|"booked"}}
+        # Build availability matrix: {node_id: {day: {status, is_mine}}}
         availability = {}
         for node in h200x8_nodes:
             availability[node.id] = {}
@@ -106,12 +115,18 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
                 current_date = date(year, month, day)
                 # Check if any reservation covers this date
                 is_booked = False
+                is_mine = False
                 for res in approved_reservations.filter(node_instance=node):
                     # A reservation covers a date if the date is between start and end
                     if res.start_date <= current_date <= res.end_date:
                         is_booked = True
+                        if res.project_id in user_project_ids:
+                            is_mine = True
                         break
-                availability[node.id][day] = "booked" if is_booked else "available"
+                availability[node.id][day] = {
+                    "status": "booked" if is_booked else "available",
+                    "is_mine": is_mine,
+                }
 
         # Calculate prev/next month
         if month == 1:
