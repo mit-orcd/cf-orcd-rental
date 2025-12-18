@@ -13,3 +13,4 @@ urlpatterns = [
     path("cpu/<int:pk>/", views.CpuNodeInstanceDetailView.as_view(), name="cpu-node-detail"),
 ]
 
+

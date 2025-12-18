@@ -36,3 +36,4 @@ class CpuNodeInstanceDetailView(LoginRequiredMixin, DetailView):
     template_name = "coldfront_orcd_direct_charge/cpu_node_detail.html"
     context_object_name = "node"
 
+

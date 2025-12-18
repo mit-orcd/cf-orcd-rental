@@ -15,30 +15,6 @@
     "_comment_note": "**L40Sx4 Node - node1634**"
   },
   {
-    "_comment": "**H200x8 Node - node2433**",
-    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
-    "fields": {
-      "node_type": [
-        "H200x8"
-      ],
-      "is_rentable": true,
-      "status": "AVAILABLE",
-      "associated_resource_address": "node2433"
-    }
-  },
-  {
-    "_comment": "**H200x8 Node - node2434**",
-    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
-    "fields": {
-      "node_type": [
-        "H200x8"
-      ],
-      "is_rentable": true,
-      "status": "AVAILABLE",
-      "associated_resource_address": "node2434"
-    }
-  },
-  {
     "_comment": "**L40Sx4 Node - node2804**",
     "model": "coldfront_orcd_direct_charge.gpunodeinstance",
     "fields": {
@@ -48,30 +24,6 @@
       "is_rentable": true,
       "status": "AVAILABLE",
       "associated_resource_address": "node2804"
-    }
-  },
-  {
-    "_comment": "**H200x8 Node - node3000**",
-    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
-    "fields": {
-      "node_type": [
-        "H200x8"
-      ],
-      "is_rentable": true,
-      "status": "AVAILABLE",
-      "associated_resource_address": "node3000"
-    }
-  },
-  {
-    "_comment": "**H200x8 Node - node3001**",
-    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
-    "fields": {
-      "node_type": [
-        "H200x8"
-      ],
-      "is_rentable": true,
-      "status": "AVAILABLE",
-      "associated_resource_address": "node3001"
     }
   },
   {
@@ -159,54 +111,6 @@
     }
   },
   {
-    "_comment": "**H200x8 Node - node3100**",
-    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
-    "fields": {
-      "node_type": [
-        "H200x8"
-      ],
-      "is_rentable": true,
-      "status": "AVAILABLE",
-      "associated_resource_address": "node3100"
-    }
-  },
-  {
-    "_comment": "**H200x8 Node - node3101**",
-    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
-    "fields": {
-      "node_type": [
-        "H200x8"
-      ],
-      "is_rentable": true,
-      "status": "AVAILABLE",
-      "associated_resource_address": "node3101"
-    }
-  },
-  {
-    "_comment": "**H200x8 Node - node3200**",
-    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
-    "fields": {
-      "node_type": [
-        "H200x8"
-      ],
-      "is_rentable": true,
-      "status": "AVAILABLE",
-      "associated_resource_address": "node3200"
-    }
-  },
-  {
-    "_comment": "**H200x8 Node - node3201**",
-    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
-    "fields": {
-      "node_type": [
-        "H200x8"
-      ],
-      "is_rentable": true,
-      "status": "AVAILABLE",
-      "associated_resource_address": "node3201"
-    }
-  },
-  {
     "_comment": "**L40Sx4 Node - node3202**",
     "model": "coldfront_orcd_direct_charge.gpunodeinstance",
     "fields": {
@@ -291,18 +195,6 @@
     }
   },
   {
-    "_comment": "**H200x8 Node - node3301**",
-    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
-    "fields": {
-      "node_type": [
-        "H200x8"
-      ],
-      "is_rentable": true,
-      "status": "AVAILABLE",
-      "associated_resource_address": "node3301"
-    }
-  },
-  {
     "_comment": "**L40Sx4 Node - node3302**",
     "model": "coldfront_orcd_direct_charge.gpunodeinstance",
     "fields": {
@@ -312,30 +204,6 @@
       "is_rentable": true,
       "status": "AVAILABLE",
       "associated_resource_address": "node3302"
-    }
-  },
-  {
-    "_comment": "**H200x8 Node - node3400**",
-    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
-    "fields": {
-      "node_type": [
-        "H200x8"
-      ],
-      "is_rentable": true,
-      "status": "AVAILABLE",
-      "associated_resource_address": "node3400"
-    }
-  },
-  {
-    "_comment": "**H200x8 Node - node3401**",
-    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
-    "fields": {
-      "node_type": [
-        "H200x8"
-      ],
-      "is_rentable": true,
-      "status": "AVAILABLE",
-      "associated_resource_address": "node3401"
     }
   },
   {
@@ -561,21 +429,9 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node3512"
-    }
-  },
-  {
-    "_comment": "**H200x8 Node - node4100**",
-    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
-    "fields": {
-      "node_type": [
-        "H200x8"
-      ],
-      "is_rentable": true,
-      "status": "AVAILABLE",
-      "associated_resource_address": "node4100"
     }
   },
   {
@@ -585,7 +441,7 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4102"
     }
@@ -597,7 +453,7 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4103"
     }
@@ -609,7 +465,7 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4104"
     }
@@ -621,7 +477,7 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4105"
     }
@@ -633,7 +489,7 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4106"
     }
@@ -645,7 +501,7 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4107"
     }
@@ -657,7 +513,7 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4108"
     }
@@ -669,7 +525,7 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4201"
     }
@@ -681,7 +537,7 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4202"
     }
@@ -693,7 +549,7 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4203"
     }
@@ -705,7 +561,7 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4204"
     }
@@ -717,7 +573,7 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4205"
     }
@@ -729,7 +585,7 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4206"
     }
@@ -741,9 +597,153 @@
       "node_type": [
         "L40Sx4"
       ],
-      "is_rentable": true,
+      "is_rentable": false,
       "status": "AVAILABLE",
       "associated_resource_address": "node4207"
+    }
+  },
+  {
+    "_comment": "**H200x8 Node - node2433**",
+    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
+    "fields": {
+      "node_type": [
+        "H200x8"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node2433"
+    }
+  },
+  {
+    "_comment": "**H200x8 Node - node2434**",
+    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
+    "fields": {
+      "node_type": [
+        "H200x8"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node2434"
+    }
+  },
+  {
+    "_comment": "**H200x8 Node - node3000**",
+    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
+    "fields": {
+      "node_type": [
+        "H200x8"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3000"
+    }
+  },
+  {
+    "_comment": "**H200x8 Node - node3001**",
+    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
+    "fields": {
+      "node_type": [
+        "H200x8"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3001"
+    }
+  },
+  {
+    "_comment": "**H200x8 Node - node3100**",
+    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
+    "fields": {
+      "node_type": [
+        "H200x8"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3100"
+    }
+  },
+  {
+    "_comment": "**H200x8 Node - node3101**",
+    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
+    "fields": {
+      "node_type": [
+        "H200x8"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3101"
+    }
+  },
+  {
+    "_comment": "**H200x8 Node - node3200**",
+    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
+    "fields": {
+      "node_type": [
+        "H200x8"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3200"
+    }
+  },
+  {
+    "_comment": "**H200x8 Node - node3201**",
+    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
+    "fields": {
+      "node_type": [
+        "H200x8"
+      ],
+      "is_rentable": true,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3201"
+    }
+  },
+  {
+    "_comment": "**H200x8 Node - node3301**",
+    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
+    "fields": {
+      "node_type": [
+        "H200x8"
+      ],
+      "is_rentable": false,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3301"
+    }
+  },
+  {
+    "_comment": "**H200x8 Node - node3400**",
+    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
+    "fields": {
+      "node_type": [
+        "H200x8"
+      ],
+      "is_rentable": false,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3400"
+    }
+  },
+  {
+    "_comment": "**H200x8 Node - node3401**",
+    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
+    "fields": {
+      "node_type": [
+        "H200x8"
+      ],
+      "is_rentable": false,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node3401"
+    }
+  },
+  {
+    "_comment": "**H200x8 Node - node4100**",
+    "model": "coldfront_orcd_direct_charge.gpunodeinstance",
+    "fields": {
+      "node_type": [
+        "H200x8"
+      ],
+      "is_rentable": false,
+      "status": "AVAILABLE",
+      "associated_resource_address": "node4100"
     }
   }
 ]
