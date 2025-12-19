@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-from django.urls import path
+from django.urls import include, path
+
 from coldfront_orcd_direct_charge import views
 
 app_name = "coldfront_orcd_direct_charge"
@@ -17,6 +18,8 @@ urlpatterns = [
     path("renting/manage/", views.RentalManagerView.as_view(), name="rental-manager"),
     path("renting/manage/<int:pk>/approve/", views.ReservationApproveView.as_view(), name="reservation-approve"),
     path("renting/manage/<int:pk>/decline/", views.ReservationDeclineView.as_view(), name="reservation-decline"),
+    # API
+    path("api/", include("coldfront_orcd_direct_charge.api.urls")),
 ]
 
 

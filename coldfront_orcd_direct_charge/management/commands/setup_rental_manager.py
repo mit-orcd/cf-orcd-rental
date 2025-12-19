@@ -151,3 +151,4 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(
                 "No users in Rental Managers group"
             ))
+

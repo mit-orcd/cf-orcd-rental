@@ -49,3 +49,4 @@ Slurm JSON --> mk_gpucpunode_csv --> CSV --> csv_to_fixtures --> Django Fixtures
 3. Generate fixtures: `python3 csv_to_fixtures/csv_to_node_fixtures.py nodes.csv -o ../coldfront_orcd_direct_charge/fixtures/`
 4. Load into ColdFront: `coldfront loaddata gpu_node_instances cpu_node_instances`
 
+
