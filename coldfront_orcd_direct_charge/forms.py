@@ -78,6 +78,17 @@ class ReservationRequestForm(forms.ModelForm):
         start_date = cleaned_data.get("start_date")
         num_blocks = cleaned_data.get("num_blocks")
 
+        if start_date:
+            from datetime import date, timedelta
+            
+            # Enforce 7-day advance booking requirement
+            earliest_bookable = date.today() + timedelta(days=7)
+            if start_date < earliest_bookable:
+                raise ValidationError(
+                    f"Reservations must be made at least 7 days in advance. "
+                    f"The earliest available start date is {earliest_bookable.strftime('%b %d, %Y')}."
+                )
+
         if node_instance and start_date and num_blocks:
             num_blocks = int(num_blocks)
             # Check for overlapping approved reservations
