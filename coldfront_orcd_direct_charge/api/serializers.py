@@ -44,7 +44,9 @@ class ReservationSerializer(serializers.ModelSerializer):
     start_datetime = serializers.DateTimeField(read_only=True)
     end_datetime = serializers.DateTimeField(read_only=True)
     billable_hours = serializers.IntegerField(read_only=True)
-    metadata_entries = ReservationMetadataEntrySerializer(many=True, read_only=True)
+    rental_metadata_entries = ReservationMetadataEntrySerializer(
+        source="metadata_entries", many=True, read_only=True
+    )
 
     class Meta:
         model = Reservation
@@ -63,7 +65,7 @@ class ReservationSerializer(serializers.ModelSerializer):
             "status",
             "manager_notes",
             "rental_notes",
-            "metadata_entries",
+            "rental_metadata_entries",
             "created",
             "modified",
         )
