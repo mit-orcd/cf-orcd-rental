@@ -1,11 +1,41 @@
 # ColdFront ORCD Direct Charge Plugin
 
-A ColdFront plugin providing ORCD-specific customizations for direct charge resource allocation management.
+A ColdFront plugin providing ORCD-specific customizations for direct charge resource allocation management, including GPU/CPU node tracking and a rental reservation system for H200x8 GPU nodes.
 
-## Features
+## Features Overview
 
+### UI Customizations
 - Removes "Center Summary" from the navigation bar
 - Optionally hides "Allocations" section from the home page
+- Adds "Node Instances" and "Manage Rentals" links to navigation
+
+### Node Instance Management
+- **GPU Node Instances**: Track H200x8, L40Sx4, and other GPU node types
+- **CPU Node Instances**: Track CPU_384G, CPU_1500G, and other CPU node types
+- NodeType model for constrained node type definitions
+- Natural key support for fixture-based updates
+- Django admin interface for node management
+
+### Rental Calendar & Reservation System
+- Visual calendar showing H200x8 node availability by month
+- Reservation request submission linked to ColdFront projects
+- Rental manager dashboard for approving/declining requests
+- Partial rental visualization (AM/PM periods with diagonal split)
+- 7-day advance booking requirement
+- 3-month forward visibility limit
+- 9 AM end time cap (reservations must end by 9 AM on final day)
+
+### REST API
+- JSON API for querying reservation data
+- Token-based authentication
+- Filtering by status, node, project, user, and date
+
+### Management Tools
+- Django management command for Rental Manager group setup
+- CLI tool for querying rentals API
+- Helper programs for fixture generation from Slurm data
+
+---
 
 ## Installation
 
@@ -22,13 +52,19 @@ your-project/
 │       └── ...
 └── coldfront-orcd-direct-charge/       # This plugin (sibling directory)
     ├── pyproject.toml
+    ├── README.md
+    ├── helper_programs/                # Utility tools
     └── coldfront_orcd_direct_charge/
-        └── ...
+        ├── models.py                   # NodeType, GpuNodeInstance, CpuNodeInstance, Reservation
+        ├── views.py                    # Node instance + rental calendar views
+        ├── api/                        # REST API
+        ├── fixtures/                   # Node instance data
+        └── templates/                  # Template overrides
 ```
 
 ### Step 1: Install the Plugin Package
 
-The plugin must be installed into your Python environment so that Django can import it. From your **ColdFront directory**, install the plugin in editable mode:
+From your **ColdFront directory**, install the plugin in editable mode:
 
 ```bash
 cd /path/to/coldfront
@@ -38,83 +74,340 @@ uv pip install -e ../coldfront-orcd-direct-charge
 Or with pip:
 
 ```bash
-cd /path/to/coldfront
 pip install -e ../coldfront-orcd-direct-charge
 ```
 
-The `-e` (editable) flag means changes to the plugin code take effect immediately without reinstalling.
-
 ### Step 2: Configure ColdFront
 
-Add the plugin to your `local_settings.py` (in the ColdFront project root):
+Add the plugin to your `local_settings.py`:
 
 ```python
 INSTALLED_APPS += ['coldfront_orcd_direct_charge']
 
-# Set to True to re-enable Center Summary in the navigation bar
-# CENTER_SUMMARY_ENABLE = False
+# Optional: Re-enable Center Summary in the navigation bar
+# CENTER_SUMMARY_ENABLE = True
 
-# Set to False to hide Allocations section from home page
-# HOME_PAGE_ALLOCATIONS_ENABLE = True
+# Optional: Hide Allocations section from home page
+# HOME_PAGE_ALLOCATIONS_ENABLE = False
 ```
 
-### Step 3: Load Resource Type Fixtures (Optional)
+### Step 3: Add Plugin URLs
 
-This plugin includes fixtures for custom resource types. To load them:
+In `coldfront/coldfront/config/urls.py`, add:
+
+```python
+if "coldfront_orcd_direct_charge" in settings.INSTALLED_APPS:
+    urlpatterns.append(path("nodes/", include("coldfront_orcd_direct_charge.urls")))
+```
+
+### Step 4: Apply Migrations
 
 ```bash
-coldfront loaddata node_resource_types
+coldfront migrate
 ```
 
-This creates the following resource types:
+### Step 5: Load Fixtures
 
-| Resource Type | Description |
-|---------------|-------------|
-| GPU Node | Node with CPU and GPU cards |
-| CPU Node | Node with only CPUs |
-
-These resource types can be used when creating resources in the ColdFront admin interface or via bulk import.
-
-### Step 4: Restart ColdFront
+Load fixtures in this order (due to ForeignKey dependencies):
 
 ```bash
-DEBUG=True uv run coldfront runserver
+coldfront loaddata node_types           # NodeType definitions
+coldfront loaddata gpu_node_instances   # GPU node instances
+coldfront loaddata cpu_node_instances   # CPU node instances
+coldfront loaddata node_resource_types  # Optional: ColdFront ResourceType entries
 ```
 
-The "Center Summary" link should now be hidden from the navigation bar.
+### Step 6: Set Up Rental Managers (Optional)
 
-## Using COLDFRONT_CONFIG Environment Variable
-
-ColdFront supports specifying the path to your `local_settings.py` file via the `COLDFRONT_CONFIG` environment variable. This is useful when your settings file is outside the standard locations.
+Create the Rental Managers group and add users:
 
 ```bash
-export COLDFRONT_CONFIG=/path/to/your/local_settings.py
+coldfront setup_rental_manager --create-group
+coldfront setup_rental_manager --add-user <username>
 ```
 
-ColdFront searches for local settings in the following order:
+### Step 7: Restart ColdFront
 
-1. `coldfront/config/local_settings.py` (relative to coldfront package)
-2. `/etc/coldfront/local_settings.py` (system-wide)
-3. `local_settings.py` (in the project root)
-4. Path specified by `COLDFRONT_CONFIG` environment variable
+```bash
+DEBUG=True coldfront runserver
+```
 
-Settings files loaded later override earlier ones, so `COLDFRONT_CONFIG` takes highest precedence.
+---
+
+## URL Endpoints
+
+### Node Instance Pages
+
+| URL | Description |
+|-----|-------------|
+| `/nodes/` | List all GPU and CPU node instances |
+| `/nodes/gpu/<pk>/` | GPU node detail page |
+| `/nodes/cpu/<pk>/` | CPU node detail page |
+
+### Rental Calendar & Reservations
+
+| URL | Description |
+|-----|-------------|
+| `/nodes/renting/` | Calendar view showing H200x8 availability |
+| `/nodes/renting/request/` | Submit reservation request form |
+| `/nodes/renting/manage/` | Manager dashboard (requires permission) |
+| `/nodes/renting/manage/<pk>/approve/` | Approve reservation |
+| `/nodes/renting/manage/<pk>/decline/` | Decline reservation |
+| `/nodes/renting/manage/<pk>/metadata/` | Add booking management metadata |
+
+### REST API
+
+| URL | Description |
+|-----|-------------|
+| `/nodes/api/rentals/` | List all reservations (requires `can_manage_rentals` permission) |
+| `/nodes/api/rentals/<pk>/` | Get single reservation detail |
+
+---
+
+## Rental Calendar Features
+
+### Calendar Display
+
+The calendar shows availability for H200x8 nodes across days in the month. Each day is divided into two periods:
+
+- **AM Period**: 4:00 AM - 4:00 PM
+- **PM Period**: 4:00 PM - 4:00 AM (next day)
+
+### Color Coding
+
+| Color | Meaning |
+|-------|---------|
+| Gray | Not Available (within 7-day advance booking window) |
+| Green | Available |
+| Red | Rented |
+| Diagonal split | Partial rental (AM or PM only) |
+| Person icon | Your project has a rental on this day |
+| White "P" | Pending reservation exists |
+
+### Reservation Time Rules
+
+- **Start time**: Always 4:00 PM on the start date
+- **Duration**: 12-hour blocks (12h to 168h / 7 days)
+- **End time cap**: Reservations must end no later than 9:00 AM on the final day
+- **Advance booking**: Minimum 7 days in advance
+- **Visibility**: Calendar shows up to 3 months ahead
+
+### Duration Examples (with 9 AM cap)
+
+| Blocks | Raw Hours | Actual Billable | End Time |
+|--------|-----------|-----------------|----------|
+| 1 | 12h | 12h | 4 AM next day |
+| 2 | 24h | 17h | 9 AM next day (truncated from 4 PM) |
+| 3 | 36h | 36h | 4 AM in 2 days |
+| 4 | 48h | 41h | 9 AM in 2 days (truncated from 4 PM) |
+| 6 | 72h | 65h | 9 AM in 3 days (truncated from 4 PM) |
+
+---
+
+## Booking Management Metadata
+
+Rental managers can add multiple timestamped metadata notes to each reservation:
+
+- Click the gear icon on any reservation to open the "Booking Management Metadata" modal
+- View existing entries with timestamps
+- Add new entries (one or multiple at a time)
+- Entries are stored separately with creation timestamps
+- Only visible to rental managers
+
+---
+
+## REST API Usage
+
+### Authentication
+
+Generate an API token:
+
+```bash
+export PLUGIN_API=True
+coldfront drf_create_token <username>
+```
+
+### Example Request
+
+```bash
+curl -H "Authorization: Token YOUR_TOKEN" \
+     http://localhost:8000/nodes/api/rentals/
+```
+
+### Response Format
+
+```json
+{
+  "id": 6,
+  "node": "node2433",
+  "node_type": "H200x8",
+  "project_id": 1,
+  "project_title": "Angular momentum in QGP holography",
+  "requesting_user": "cgray",
+  "start_date": "2025-12-30",
+  "start_datetime": "2025-12-30T16:00:00-05:00",
+  "end_datetime": "2026-01-03T09:00:00-05:00",
+  "num_blocks": 8,
+  "billable_hours": 89,
+  "status": "APPROVED",
+  "manager_notes": "",
+  "rental_notes": "Benchmark testing",
+  "rental_metadata_entries": [
+    {
+      "id": 1,
+      "content": "Approved for credit",
+      "created": "2025-12-19T16:44:27.824686-05:00",
+      "modified": "2025-12-19T16:44:27.824686-05:00"
+    }
+  ],
+  "created": "2025-12-19T16:32:39.260668-05:00",
+  "modified": "2025-12-19T16:33:06.467894-05:00"
+}
+```
+
+### CLI Tool
+
+A command-line tool is included for querying the API:
+
+```bash
+cd helper_programs/orcd_dc_cli
+
+# Set environment variables
+export COLDFRONT_API_TOKEN="your_token_here"
+
+# Query rentals
+python rentals.py                        # All rentals
+python rentals.py --status PENDING       # Filter by status
+python rentals.py --node node2433        # Filter by node
+python rentals.py --format table         # Table output
+```
+
+---
+
+## Data Models
+
+### NodeType
+
+Defines the allowed node types (constrained set):
+
+```python
+class NodeType(TimeStampedModel):
+    name = CharField(max_length=64, unique=True)  # e.g., "H200x8", "CPU_384G"
+    category = CharField(choices=["GPU", "CPU"])
+    description = TextField(blank=True)
+    is_active = BooleanField(default=True)
+```
+
+### GpuNodeInstance / CpuNodeInstance
+
+Track individual physical node instances:
+
+```python
+class GpuNodeInstance(TimeStampedModel):
+    node_type = ForeignKey(NodeType)
+    is_rentable = BooleanField(default=False)
+    status = CharField(choices=["AVAILABLE", "PLACEHOLDER"])
+    associated_resource_address = CharField(unique=True)  # e.g., "node3401"
+```
+
+### Reservation
+
+Tracks rental reservations:
+
+```python
+class Reservation(TimeStampedModel):
+    node_instance = ForeignKey(GpuNodeInstance)
+    project = ForeignKey(Project)
+    requesting_user = ForeignKey(User)
+    start_date = DateField()
+    num_blocks = PositiveIntegerField()
+    status = CharField(choices=["PENDING", "APPROVED", "DECLINED", "CANCELLED"])
+    manager_notes = TextField(blank=True)
+    rental_notes = TextField(blank=True)
+```
+
+### ReservationMetadataEntry
+
+Stores multiple metadata notes per reservation:
+
+```python
+class ReservationMetadataEntry(TimeStampedModel):
+    reservation = ForeignKey(Reservation, related_name="metadata_entries")
+    content = TextField()
+```
+
+---
 
 ## Plugin Settings
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `CENTER_SUMMARY_ENABLE` | `False` | When `False`, hides the Center Summary link from the navigation bar |
-| `HOME_PAGE_ALLOCATIONS_ENABLE` | `True` | When `False`, hides the Allocations section from the user home page |
+| `CENTER_SUMMARY_ENABLE` | `False` | When `False`, hides the Center Summary link from navigation |
+| `HOME_PAGE_ALLOCATIONS_ENABLE` | `True` | When `False`, hides the Allocations section from home page |
 
-### Note on Allocations vs Allocation Accounts
+---
 
-`HOME_PAGE_ALLOCATIONS_ENABLE` controls the visibility of the **Allocations** section on the home page. This is different from `ALLOCATION_ACCOUNT_ENABLED` (a core ColdFront setting), which controls the optional "Allocation Accounts" billing feature.
+## Management Commands
 
-Setting `HOME_PAGE_ALLOCATIONS_ENABLE = False`:
-- Hides the Allocations table from the home page
-- Expands the Projects section to full width
-- Does NOT disable access to allocations via the navbar "Project > Allocations" menu
+### setup_rental_manager
+
+Manage the Rental Managers group:
+
+```bash
+# Create the group with can_manage_rentals permission
+coldfront setup_rental_manager --create-group
+
+# Add user to group
+coldfront setup_rental_manager --add-user <username>
+
+# Remove user from group
+coldfront setup_rental_manager --remove-user <username>
+
+# List all rental managers
+coldfront setup_rental_manager --list
+```
+
+---
+
+## Helper Programs
+
+Located in `helper_programs/`:
+
+### csv_to_fixtures
+
+Convert CSV files to Django fixture JSON:
+
+```bash
+cd helper_programs/csv_to_fixtures
+python csv_to_node_fixtures.py nodes.csv --rentable-percent 30
+```
+
+### mk_gpucpunode_csv
+
+Convert Slurm `scontrol` output to CSV:
+
+```bash
+cd helper_programs/mk_gpucpunode_csv
+scontrol show node -o | ./json_to_node_csv.sh > nodes.csv
+```
+
+### orcd_dc_cli
+
+Command-line tools for API access (see CLI Tool section above).
+
+---
+
+## Django Admin
+
+Access at `/admin/coldfront_orcd_direct_charge/`:
+
+- **Node Types**: Manage GPU/CPU node type definitions
+- **GPU Node Instances**: Manage individual GPU nodes
+- **CPU Node Instances**: Manage individual CPU nodes
+- **Reservations**: View/edit reservations with bulk approve/decline actions
+- **Reservation Metadata Entries**: Manage metadata notes
+
+---
 
 ## Template Overrides
 
@@ -122,37 +415,61 @@ This plugin overrides the following ColdFront templates:
 
 | Template | Purpose |
 |----------|---------|
-| `common/authorized_navbar.html` | Navbar for logged-in users (hides Center Summary) |
-| `common/nonauthorized_navbar.html` | Navbar for anonymous users (hides Center Summary) |
-| `portal/authorized_home.html` | Home page for logged-in users (conditionally hides Allocations) |
+| `common/authorized_navbar.html` | Navbar with "Node Instances" and "Manage Rentals" links |
+| `common/nonauthorized_navbar.html` | Navbar for anonymous users |
+| `portal/authorized_home.html` | Home page (conditionally hides Allocations) |
+
+---
+
+## Permissions
+
+| Permission | Description |
+|------------|-------------|
+| `can_manage_rentals` | Access to rental manager dashboard, approve/decline reservations, add metadata |
+
+Assign via Django admin or using the `setup_rental_manager` command.
+
+---
 
 ## Development
 
-This plugin follows ColdFront's plugin architecture:
+### Adding New Node Types
 
-- **Template overrides**: Place templates in `coldfront_orcd_direct_charge/templates/` to override core templates
-- **Fixtures**: Place JSON fixtures in `coldfront_orcd_direct_charge/fixtures/` for loadable data
-- **Models**: Add `models.py` for database schema extensions
-- **Views**: Add `views.py` and `urls.py` for custom endpoints
-- **Signals**: Add `signals.py` to hook into ColdFront events
+1. Create a new NodeType in Django admin or add to `fixtures/node_types.json`
+2. Create node instances in the appropriate fixture file
+3. Reload fixtures: `coldfront loaddata node_types gpu_node_instances`
+
+### Schema Changes
+
+1. Modify models in `models.py`
+2. Create migration: `coldfront makemigrations coldfront_orcd_direct_charge`
+3. Apply migration: `coldfront migrate`
+4. Update fixtures if needed
 
 ### Plugin Structure
 
 ```
 coldfront_orcd_direct_charge/
 ├── __init__.py
-├── apps.py
-├── fixtures/
-│   └── node_resource_types.json    # Custom resource types
-└── templates/
-    ├── common/
-    │   ├── authorized_navbar.html
-    │   └── nonauthorized_navbar.html
-    └── portal/
-        └── authorized_home.html
+├── apps.py                     # AppConfig, template injection, settings
+├── models.py                   # Data models
+├── admin.py                    # Django admin registration
+├── forms.py                    # Form classes
+├── views.py                    # View classes
+├── urls.py                     # URL routing
+├── api/
+│   ├── serializers.py          # DRF serializers
+│   ├── views.py                # API viewsets
+│   └── urls.py                 # API routing
+├── management/commands/        # Django management commands
+├── templatetags/               # Custom template filters
+├── migrations/                 # Database migrations
+├── fixtures/                   # Initial/seed data
+└── templates/                  # Template overrides
 ```
+
+---
 
 ## License
 
 AGPL-3.0-or-later (same as ColdFront)
-
