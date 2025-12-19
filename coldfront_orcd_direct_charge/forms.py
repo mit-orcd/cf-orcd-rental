@@ -9,21 +9,23 @@ from coldfront_orcd_direct_charge.models import GpuNodeInstance, Reservation
 
 
 # Duration choices for reservation (1-14 blocks of 12 hours each)
+# Note: Even blocks end at 4PM which is truncated to 9AM (losing 7 hours)
+# Odd blocks end at 4AM which is before 9AM (no truncation)
 DURATION_CHOICES = [
     (1, "12 hours (4PM → 4AM next day)"),
-    (2, "24 hours (4PM → 4PM next day)"),
+    (2, "17 hours (4PM → 9AM next day)"),
     (3, "36 hours (4PM → 4AM in 2 days)"),
-    (4, "48 hours (4PM → 4PM in 2 days)"),
+    (4, "41 hours (4PM → 9AM in 2 days)"),
     (5, "60 hours (4PM → 4AM in 3 days)"),
-    (6, "72 hours (4PM → 4PM in 3 days)"),
+    (6, "65 hours (4PM → 9AM in 3 days)"),
     (7, "84 hours (4PM → 4AM in 4 days)"),
-    (8, "96 hours (4PM → 4PM in 4 days)"),
+    (8, "89 hours (4PM → 9AM in 4 days)"),
     (9, "108 hours (4PM → 4AM in 5 days)"),
-    (10, "120 hours (4PM → 4PM in 5 days)"),
+    (10, "113 hours (4PM → 9AM in 5 days)"),
     (11, "132 hours (4PM → 4AM in 6 days)"),
-    (12, "144 hours (4PM → 4PM in 6 days)"),
+    (12, "137 hours (4PM → 9AM in 6 days)"),
     (13, "156 hours (4PM → 4AM in 7 days)"),
-    (14, "168 hours (4PM → 4PM in 7 days)"),
+    (14, "161 hours (4PM → 9AM in 7 days)"),
 ]
 
 
@@ -101,8 +103,8 @@ class ReservationRequestForm(forms.ModelForm):
             # Check for overlapping approved reservations
             from datetime import datetime, time, timedelta
 
-            new_start = datetime.combine(start_date, time(16, 0))
-            new_end = new_start + timedelta(hours=12 * num_blocks)
+            new_start = datetime.combine(start_date, time(Reservation.START_HOUR, 0))
+            new_end = Reservation.calculate_end_datetime(new_start, num_blocks)
 
             overlapping = Reservation.objects.filter(
                 node_instance=node_instance,

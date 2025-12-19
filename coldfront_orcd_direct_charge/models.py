@@ -284,20 +284,48 @@ class Reservation(TimeStampedModel):
     def __str__(self):
         return f"{self.node_instance.associated_resource_address} - {self.start_date} ({self.get_status_display()})"
 
+    # Reservation timing constants
+    START_HOUR = 16  # 4:00 PM
+    MAX_END_HOUR = 9  # 9:00 AM - reservations must end no later than this
+
     @property
     def start_datetime(self):
         """Returns the start datetime (4:00 PM on start_date)."""
-        return datetime.combine(self.start_date, time(16, 0))  # 4:00 PM
+        return datetime.combine(self.start_date, time(self.START_HOUR, 0))  # 4:00 PM
+
+    @staticmethod
+    def calculate_end_datetime(start_dt, num_blocks):
+        """Calculate end datetime with 9 AM cap on final day.
+
+        Reservations are specified in 12-hour blocks, but the final block
+        is automatically truncated if it would extend past 9:00 AM.
+
+        Args:
+            start_dt: The start datetime
+            num_blocks: Number of 12-hour blocks
+
+        Returns:
+            datetime: The end datetime, capped at 9:00 AM if necessary
+        """
+        calculated_end = start_dt + timedelta(hours=12 * num_blocks)
+        max_end_time = time(Reservation.MAX_END_HOUR, 0)
+
+        # If end time is after 9 AM, cap it at 9 AM on that day
+        if calculated_end.time() > max_end_time:
+            return datetime.combine(calculated_end.date(), max_end_time)
+
+        return calculated_end
 
     @property
     def end_datetime(self):
-        """Returns the end datetime based on num_blocks."""
-        return self.start_datetime + timedelta(hours=12 * self.num_blocks)
+        """Returns the end datetime based on num_blocks, capped at 9:00 AM."""
+        return self.calculate_end_datetime(self.start_datetime, self.num_blocks)
 
     @property
     def billable_hours(self):
-        """Returns total billable hours."""
-        return 12 * self.num_blocks
+        """Returns total billable hours (actual duration after any truncation)."""
+        delta = self.end_datetime - self.start_datetime
+        return int(delta.total_seconds() / 3600)
 
     @property
     def end_date(self):
