@@ -4,7 +4,20 @@
 
 from rest_framework import serializers
 
-from coldfront_orcd_direct_charge.models import Reservation
+from coldfront_orcd_direct_charge.models import Reservation, ReservationMetadataEntry
+
+
+class ReservationMetadataEntrySerializer(serializers.ModelSerializer):
+    """Serializer for individual metadata entries."""
+
+    class Meta:
+        model = ReservationMetadataEntry
+        fields = (
+            "id",
+            "content",
+            "created",
+            "modified",
+        )
 
 
 class ReservationSerializer(serializers.ModelSerializer):
@@ -31,6 +44,7 @@ class ReservationSerializer(serializers.ModelSerializer):
     start_datetime = serializers.DateTimeField(read_only=True)
     end_datetime = serializers.DateTimeField(read_only=True)
     billable_hours = serializers.IntegerField(read_only=True)
+    metadata_entries = ReservationMetadataEntrySerializer(many=True, read_only=True)
 
     class Meta:
         model = Reservation
@@ -49,7 +63,7 @@ class ReservationSerializer(serializers.ModelSerializer):
             "status",
             "manager_notes",
             "rental_notes",
-            "rental_management_metadata",
+            "metadata_entries",
             "created",
             "modified",
         )

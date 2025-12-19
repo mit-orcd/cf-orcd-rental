@@ -5,7 +5,11 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from coldfront_orcd_direct_charge.models import GpuNodeInstance, Reservation
+from coldfront_orcd_direct_charge.models import (
+    GpuNodeInstance,
+    Reservation,
+    ReservationMetadataEntry,
+)
 
 
 # Duration choices for reservation (1-14 blocks of 12 hours each)
@@ -146,21 +150,21 @@ class ReservationDeclineForm(forms.Form):
     )
 
 
-class ReservationMetadataForm(forms.ModelForm):
-    """Form for rental managers to update management metadata."""
+class ReservationMetadataEntryForm(forms.ModelForm):
+    """Form for adding a single metadata entry to a reservation."""
 
     class Meta:
-        model = Reservation
-        fields = ["rental_management_metadata"]
+        model = ReservationMetadataEntry
+        fields = ["content"]
         widgets = {
-            "rental_management_metadata": forms.Textarea(
+            "content": forms.Textarea(
                 attrs={
-                    "rows": 4,
+                    "rows": 3,
                     "class": "form-control",
-                    "placeholder": "Internal notes and metadata for rental management...",
+                    "placeholder": "Add a new metadata note...",
                 }
             ),
         }
         labels = {
-            "rental_management_metadata": "Management Metadata",
+            "content": "New Metadata Entry",
         }

@@ -70,7 +70,7 @@
 
               <!-- Metadata Modal -->
               <div class="modal fade" id="metadataModal{{ reservation.pk }}" tabindex="-1" role="dialog">
-                <div class="modal-dialog" role="document">
+                <div class="modal-dialog modal-lg" role="document">
                   <div class="modal-content">
                     <div class="modal-header">
                       <h5 class="modal-title">Management Metadata</h5>
@@ -92,16 +92,41 @@
                           {{ reservation.rental_notes }}
                         </div>
                         {% endif %}
+
+                        <!-- Existing Metadata Entries -->
+                        {% if reservation.metadata_entries.all %}
+                        <div class="mb-3">
+                          <label><strong>Existing Metadata Entries</strong></label>
+                          {% for entry in reservation.metadata_entries.all %}
+                          <div class="card mb-2">
+                            <div class="card-body py-2 px-3">
+                              <small class="text-muted">{{ entry.created|date:"M d, Y H:i" }}</small>
+                              <p class="mb-0">{{ entry.content }}</p>
+                            </div>
+                          </div>
+                          {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- New Entries Section -->
                         <div class="form-group">
-                          <label for="rental_management_metadata">Management Metadata</label>
-                          <textarea name="rental_management_metadata" class="form-control" rows="4" 
-                                    placeholder="Internal notes and metadata for rental management...">{{ reservation.rental_management_metadata }}</textarea>
+                          <label><strong>Add New Entry</strong></label>
+                          <div id="newEntriesContainer{{ reservation.pk }}">
+                            <div class="entry-field mb-2">
+                              <textarea name="new_entry_0" class="form-control" rows="2" 
+                                        placeholder="Add a new metadata note..."></textarea>
+                            </div>
+                          </div>
+                          <button type="button" class="btn btn-sm btn-outline-secondary mt-1" 
+                                  onclick="addMetadataEntry({{ reservation.pk }})">
+                            <i class="fas fa-plus"></i> Add Another Entry
+                          </button>
                           <small class="form-text text-muted">This information is only visible to rental managers.</small>
                         </div>
                       </div>
                       <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Metadata</button>
+                        <button type="submit" class="btn btn-primary">Save New Entries</button>
                       </div>
                     </form>
                   </div>
@@ -210,7 +235,7 @@
 
               <!-- Metadata Modal for Recent -->
               <div class="modal fade" id="metadataModalRecent{{ reservation.pk }}" tabindex="-1" role="dialog">
-                <div class="modal-dialog" role="document">
+                <div class="modal-dialog modal-lg" role="document">
                   <div class="modal-content">
                     <div class="modal-header">
                       <h5 class="modal-title">Management Metadata</h5>
@@ -232,16 +257,41 @@
                           {{ reservation.rental_notes }}
                         </div>
                         {% endif %}
+
+                        <!-- Existing Metadata Entries -->
+                        {% if reservation.metadata_entries.all %}
+                        <div class="mb-3">
+                          <label><strong>Existing Metadata Entries</strong></label>
+                          {% for entry in reservation.metadata_entries.all %}
+                          <div class="card mb-2">
+                            <div class="card-body py-2 px-3">
+                              <small class="text-muted">{{ entry.created|date:"M d, Y H:i" }}</small>
+                              <p class="mb-0">{{ entry.content }}</p>
+                            </div>
+                          </div>
+                          {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- New Entries Section -->
                         <div class="form-group">
-                          <label for="rental_management_metadata">Management Metadata</label>
-                          <textarea name="rental_management_metadata" class="form-control" rows="4" 
-                                    placeholder="Internal notes and metadata for rental management...">{{ reservation.rental_management_metadata }}</textarea>
+                          <label><strong>Add New Entry</strong></label>
+                          <div id="newEntriesContainerRecent{{ reservation.pk }}">
+                            <div class="entry-field mb-2">
+                              <textarea name="new_entry_0" class="form-control" rows="2" 
+                                        placeholder="Add a new metadata note..."></textarea>
+                            </div>
+                          </div>
+                          <button type="button" class="btn btn-sm btn-outline-secondary mt-1" 
+                                  onclick="addMetadataEntryRecent({{ reservation.pk }})">
+                            <i class="fas fa-plus"></i> Add Another Entry
+                          </button>
                           <small class="form-text text-muted">This information is only visible to rental managers.</small>
                         </div>
                       </div>
                       <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Metadata</button>
+                        <button type="submit" class="btn btn-primary">Save New Entries</button>
                       </div>
                     </form>
                   </div>
@@ -259,4 +309,52 @@
   </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Track the number of entry fields for each reservation
+var entryCounters = {};
+var entryCountersRecent = {};
+
+function addMetadataEntry(reservationPk) {
+    if (!entryCounters[reservationPk]) {
+        entryCounters[reservationPk] = 1;
+    }
+    var counter = entryCounters[reservationPk];
+    entryCounters[reservationPk]++;
+
+    var container = document.getElementById('newEntriesContainer' + reservationPk);
+    var newField = document.createElement('div');
+    newField.className = 'entry-field mb-2';
+    newField.innerHTML = '<div class="d-flex">' +
+        '<textarea name="new_entry_' + counter + '" class="form-control" rows="2" ' +
+        'placeholder="Add a new metadata note..."></textarea>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger ml-2" ' +
+        'onclick="this.parentElement.parentElement.remove()">' +
+        '<i class="fas fa-times"></i></button>' +
+        '</div>';
+    container.appendChild(newField);
+}
+
+function addMetadataEntryRecent(reservationPk) {
+    if (!entryCountersRecent[reservationPk]) {
+        entryCountersRecent[reservationPk] = 1;
+    }
+    var counter = entryCountersRecent[reservationPk];
+    entryCountersRecent[reservationPk]++;
+
+    var container = document.getElementById('newEntriesContainerRecent' + reservationPk);
+    var newField = document.createElement('div');
+    newField.className = 'entry-field mb-2';
+    newField.innerHTML = '<div class="d-flex">' +
+        '<textarea name="new_entry_' + counter + '" class="form-control" rows="2" ' +
+        'placeholder="Add a new metadata note..."></textarea>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger ml-2" ' +
+        'onclick="this.parentElement.parentElement.remove()">' +
+        '<i class="fas fa-times"></i></button>' +
+        '</div>';
+    container.appendChild(newField);
+}
+</script>
 {% endblock %}

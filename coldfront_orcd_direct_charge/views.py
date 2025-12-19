@@ -14,9 +14,14 @@ from django.views.generic import TemplateView, DetailView, CreateView, View
 from coldfront_orcd_direct_charge.forms import (
     ReservationRequestForm,
     ReservationDeclineForm,
-    ReservationMetadataForm,
+    ReservationMetadataEntryForm,
 )
-from coldfront_orcd_direct_charge.models import GpuNodeInstance, CpuNodeInstance, Reservation
+from coldfront_orcd_direct_charge.models import (
+    GpuNodeInstance,
+    CpuNodeInstance,
+    Reservation,
+    ReservationMetadataEntry,
+)
 
 
 class NodeInstanceListView(LoginRequiredMixin, TemplateView):
@@ -354,21 +359,31 @@ class ReservationDeclineView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
 
 class ReservationMetadataView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """View to update reservation management metadata."""
+    """View to add metadata entries to a reservation."""
 
     permission_required = "coldfront_orcd_direct_charge.can_manage_rentals"
 
     def post(self, request, pk):
         reservation = get_object_or_404(Reservation, pk=pk)
-        form = ReservationMetadataForm(request.POST, instance=reservation)
 
-        if form.is_valid():
-            form.save()
+        # Get all new entry contents from POST data
+        # The template sends them as new_entry_0, new_entry_1, etc.
+        entries_added = 0
+        for key, value in request.POST.items():
+            if key.startswith("new_entry_") and value.strip():
+                ReservationMetadataEntry.objects.create(
+                    reservation=reservation,
+                    content=value.strip(),
+                )
+                entries_added += 1
+
+        if entries_added > 0:
             messages.success(
                 request,
-                f"Metadata updated for reservation {reservation.node_instance.associated_resource_address}."
+                f"Added {entries_added} metadata {'entry' if entries_added == 1 else 'entries'} "
+                f"for reservation {reservation.node_instance.associated_resource_address}."
             )
         else:
-            messages.error(request, "Invalid form submission.")
+            messages.info(request, "No new metadata entries were added.")
 
         return redirect("coldfront_orcd_direct_charge:rental-manager")

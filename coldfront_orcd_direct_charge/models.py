@@ -331,3 +331,33 @@ class Reservation(TimeStampedModel):
     def end_date(self):
         """Returns the calendar date when reservation ends."""
         return self.end_datetime.date()
+
+
+class ReservationMetadataEntry(TimeStampedModel):
+    """Individual metadata entry for a reservation (managers only).
+
+    This model allows multiple metadata notes to be attached to a reservation,
+    each with its own timestamp. Entries are ordered chronologically.
+
+    Attributes:
+        reservation (Reservation): The reservation this entry belongs to
+        content (str): The metadata note content
+    """
+
+    reservation = models.ForeignKey(
+        Reservation,
+        on_delete=models.CASCADE,
+        related_name="metadata_entries",
+        help_text="The reservation this metadata entry belongs to",
+    )
+    content = models.TextField(
+        help_text="Metadata note content",
+    )
+
+    class Meta:
+        ordering = ["created"]
+        verbose_name = "Reservation Metadata Entry"
+        verbose_name_plural = "Reservation Metadata Entries"
+
+    def __str__(self):
+        return f"Metadata for {self.reservation} ({self.created.strftime('%Y-%m-%d %H:%M')})"

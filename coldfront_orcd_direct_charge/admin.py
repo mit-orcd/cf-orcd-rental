@@ -3,7 +3,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 from django.contrib import admin
-from coldfront_orcd_direct_charge.models import NodeType, GpuNodeInstance, CpuNodeInstance, Reservation
+from coldfront_orcd_direct_charge.models import (
+    NodeType,
+    GpuNodeInstance,
+    CpuNodeInstance,
+    Reservation,
+    ReservationMetadataEntry,
+)
 
 
 @admin.register(NodeType)
@@ -38,6 +44,30 @@ class CpuNodeInstanceAdmin(admin.ModelAdmin):
         return obj.node_type.name
 
 
+class ReservationMetadataEntryInline(admin.TabularInline):
+    """Inline admin for metadata entries on Reservation."""
+    model = ReservationMetadataEntry
+    extra = 1
+    readonly_fields = ("created",)
+    fields = ("content", "created")
+
+
+@admin.register(ReservationMetadataEntry)
+class ReservationMetadataEntryAdmin(admin.ModelAdmin):
+    """Admin for ReservationMetadataEntry model."""
+    list_display = ("reservation", "content_preview", "created")
+    list_filter = ("created",)
+    search_fields = ("content", "reservation__node_instance__associated_resource_address")
+    ordering = ("-created",)
+    readonly_fields = ("created", "modified")
+
+    @admin.display(description="Content")
+    def content_preview(self, obj):
+        if len(obj.content) > 50:
+            return obj.content[:50] + "..."
+        return obj.content
+
+
 @admin.register(Reservation)
 class ReservationAdmin(admin.ModelAdmin):
     list_display = (
@@ -49,6 +79,7 @@ class ReservationAdmin(admin.ModelAdmin):
         "get_billable_hours",
         "get_end_datetime",
         "status",
+        "metadata_count",
         "created",
     )
     list_filter = ("status", "node_instance__node_type", "start_date")
@@ -62,6 +93,7 @@ class ReservationAdmin(admin.ModelAdmin):
     readonly_fields = ("get_billable_hours", "get_end_datetime", "get_start_datetime", "created", "modified")
     ordering = ("-created",)
     actions = ["approve_reservations", "decline_reservations"]
+    inlines = [ReservationMetadataEntryInline]
 
     fieldsets = (
         (None, {
@@ -73,7 +105,7 @@ class ReservationAdmin(admin.ModelAdmin):
         ("Notes", {
             "fields": ("manager_notes",)
         }),
-        ("Metadata", {
+        ("Timestamps", {
             "fields": ("created", "modified"),
             "classes": ("collapse",)
         }),
@@ -82,6 +114,11 @@ class ReservationAdmin(admin.ModelAdmin):
     @admin.display(description="Node")
     def node_instance_address(self, obj):
         return obj.node_instance.associated_resource_address
+
+    @admin.display(description="Metadata")
+    def metadata_count(self, obj):
+        count = obj.metadata_entries.count()
+        return count if count > 0 else "-"
 
     @admin.display(description="Billable Hours")
     def get_billable_hours(self, obj):
