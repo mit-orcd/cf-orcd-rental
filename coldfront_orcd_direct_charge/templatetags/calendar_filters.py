@@ -30,12 +30,13 @@ def get_day_info(day_dict, day):
         day: The day number to look up
         
     Returns:
-        Dictionary with rental_type, am_is_mine, pm_is_mine, is_bookable
+        Dictionary with rental_type, am_is_mine, pm_is_mine, is_bookable, has_pending
     """
     default = {
         'rental_type': 'available',
         'am_is_mine': False,
         'pm_is_mine': False,
         'is_bookable': True,
+        'has_pending': False,
     }
     return day_dict.get(day, default)

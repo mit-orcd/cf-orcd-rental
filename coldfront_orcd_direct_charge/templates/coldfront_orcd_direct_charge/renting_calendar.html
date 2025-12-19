@@ -45,6 +45,36 @@
     z-index: 1;
     text-shadow: 0 0 2px rgba(0,0,0,0.5);
 }
+
+/* Pending "P" overlay - shown via CSS pseudo-element when .pending class is applied */
+.calendar-cell.pending::after {
+    content: "P";
+    position: absolute;
+    
+    /* Centering the P */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    
+    /* Badge Styling */
+    font-family: sans-serif;
+    font-weight: bold;
+    font-size: 14px;
+    color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.3); /* Semi-transparent dark circle */
+    
+    /* Making it a circle */
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    border-radius: 50%;
+    
+    /* Disable text selection on the letter */
+    user-select: none;
+    pointer-events: none;
+    z-index: 2;
+}
 </style>
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2><i class="fas fa-calendar-alt"></i> H200x8 Rental Calendar</h2>
@@ -83,6 +113,9 @@
   <span class="badge badge-success ml-3 mr-2" style="background-color: #28a745;">&nbsp;&nbsp;&nbsp;</span> Available
   <span class="badge badge-danger ml-3 mr-2" style="background-color: #dc3545;">&nbsp;&nbsp;&nbsp;</span> Rented
   <span class="badge badge-danger ml-3 mr-2" style="background-color: #dc3545;"><i class="fas fa-user" style="color: white;"></i></span> My Rentals
+  <span class="badge ml-3 mr-2" style="background-color: #28a745; position: relative; width: 20px; height: 14px; display: inline-block; vertical-align: middle;">
+    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-weight: bold; font-size: 10px; background-color: rgba(0,0,0,0.3); width: 12px; height: 12px; line-height: 12px; text-align: center; border-radius: 50%;">P</span>
+  </span> Pending Request
 </div>
 
 <!-- Availability Calendar -->
@@ -107,7 +140,7 @@
         {% for day in days %}
         {% with node_avail=availability|get_availability:node.id %}
         {% with info=node_avail|get_day_info:day %}
-        <td class="calendar-cell text-center p-0 {% if info.is_bookable == False %}not-bookable{% elif info.rental_type == 'full' %}fully-rented{% elif info.rental_type == 'am_only' %}am-only-rented{% elif info.rental_type == 'pm_only' %}pm-only-rented{% elif info.rental_type == 'available' %}available{% else %}available{% endif %}">
+        <td class="calendar-cell text-center p-0 {% if info.is_bookable == False %}not-bookable{% elif info.rental_type == 'full' %}fully-rented{% elif info.rental_type == 'am_only' %}am-only-rented{% elif info.rental_type == 'pm_only' %}pm-only-rented{% elif info.rental_type == 'available' %}available{% else %}available{% endif %}{% if info.has_pending %} pending{% endif %}"{% if info.has_pending %} title="Pending reservation request"{% endif %}>
           {% if info.am_is_mine or info.pm_is_mine %}
           <span class="user-icon">
             <i class="fas fa-user" title="My rental"></i>

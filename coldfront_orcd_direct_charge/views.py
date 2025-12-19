@@ -109,6 +109,12 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
             node_instance__in=h200x8_nodes,
         ).select_related("project")
 
+        # Get pending reservations to show "P" indicator
+        pending_reservations = Reservation.objects.filter(
+            status=Reservation.StatusChoices.PENDING,
+            node_instance__in=h200x8_nodes,
+        ).select_related("project")
+
         # Get user's project IDs to identify "my" reservations
         from coldfront.core.project.models import Project
         user_project_ids = set(
@@ -137,6 +143,8 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
                 pm_booked = False
                 am_is_mine = False
                 pm_is_mine = False
+                am_pending = False
+                pm_pending = False
                 
                 for res in approved_reservations.filter(node_instance=node):
                     # AM period: check if reservation overlaps [4 AM, 4 PM)
@@ -153,6 +161,13 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
                         if res.project_id in user_project_ids:
                             pm_is_mine = True
                 
+                # Check for pending reservations
+                for res in pending_reservations.filter(node_instance=node):
+                    if res.start_datetime < day_4pm and res.end_datetime > day_4am:
+                        am_pending = True
+                    if res.start_datetime < next_day_4am and res.end_datetime > day_4pm:
+                        pm_pending = True
+                
                 # Determine rental type based on AM/PM status
                 if am_booked and pm_booked:
                     rental_type = "full"
@@ -168,6 +183,7 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
                     "am_is_mine": am_is_mine,
                     "pm_is_mine": pm_is_mine,
                     "is_bookable": is_bookable,
+                    "has_pending": am_pending or pm_pending,
                 }
 
         # Calculate prev/next month
