@@ -85,7 +85,7 @@ class ReservationRequestForm(forms.ModelForm):
             earliest_bookable = date.today() + timedelta(days=7)
             if start_date < earliest_bookable:
                 raise ValidationError(
-                    f"Reservations must be made at least 7 days in advance. "
+                    f"Reservations require a minimum 7-day lead time. "
                     f"The earliest available start date is {earliest_bookable.strftime('%b %d, %Y')}."
                 )
 
