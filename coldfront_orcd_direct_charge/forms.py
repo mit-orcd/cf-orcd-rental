@@ -38,10 +38,17 @@ class ReservationRequestForm(forms.ModelForm):
 
     class Meta:
         model = Reservation
-        fields = ["node_instance", "project", "start_date", "num_blocks"]
+        fields = ["node_instance", "project", "start_date", "num_blocks", "rental_notes"]
         widgets = {
             "start_date": forms.DateInput(
                 attrs={"type": "date", "class": "form-control"}
+            ),
+            "rental_notes": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "class": "form-control",
+                    "placeholder": "Optional notes about your reservation request...",
+                }
             ),
         }
 
@@ -135,3 +142,23 @@ class ReservationDeclineForm(forms.Form):
         label="Notes (optional)",
         help_text="Provide a reason for declining this reservation (visible to requester)",
     )
+
+
+class ReservationMetadataForm(forms.ModelForm):
+    """Form for rental managers to update management metadata."""
+
+    class Meta:
+        model = Reservation
+        fields = ["rental_management_metadata"]
+        widgets = {
+            "rental_management_metadata": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "class": "form-control",
+                    "placeholder": "Internal notes and metadata for rental management...",
+                }
+            ),
+        }
+        labels = {
+            "rental_management_metadata": "Management Metadata",
+        }

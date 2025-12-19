@@ -18,6 +18,7 @@ urlpatterns = [
     path("renting/manage/", views.RentalManagerView.as_view(), name="rental-manager"),
     path("renting/manage/<int:pk>/approve/", views.ReservationApproveView.as_view(), name="reservation-approve"),
     path("renting/manage/<int:pk>/decline/", views.ReservationDeclineView.as_view(), name="reservation-decline"),
+    path("renting/manage/<int:pk>/metadata/", views.ReservationMetadataView.as_view(), name="reservation-metadata"),
     # API
     path("api/", include("coldfront_orcd_direct_charge.api.urls")),
 ]

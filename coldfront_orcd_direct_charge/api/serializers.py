@@ -48,6 +48,8 @@ class ReservationSerializer(serializers.ModelSerializer):
             "billable_hours",
             "status",
             "manager_notes",
+            "rental_notes",
+            "rental_management_metadata",
             "created",
             "modified",
         )

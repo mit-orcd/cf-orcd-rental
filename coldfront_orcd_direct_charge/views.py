@@ -11,7 +11,11 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, DetailView, CreateView, View
 
-from coldfront_orcd_direct_charge.forms import ReservationRequestForm, ReservationDeclineForm
+from coldfront_orcd_direct_charge.forms import (
+    ReservationRequestForm,
+    ReservationDeclineForm,
+    ReservationMetadataForm,
+)
 from coldfront_orcd_direct_charge.models import GpuNodeInstance, CpuNodeInstance, Reservation
 
 
@@ -348,3 +352,23 @@ class ReservationDeclineView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
         return redirect("coldfront_orcd_direct_charge:rental-manager")
 
+
+class ReservationMetadataView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """View to update reservation management metadata."""
+
+    permission_required = "coldfront_orcd_direct_charge.can_manage_rentals"
+
+    def post(self, request, pk):
+        reservation = get_object_or_404(Reservation, pk=pk)
+        form = ReservationMetadataForm(request.POST, instance=reservation)
+
+        if form.is_valid():
+            form.save()
+            messages.success(
+                request,
+                f"Metadata updated for reservation {reservation.node_instance.associated_resource_address}."
+            )
+        else:
+            messages.error(request, "Invalid form submission.")
+
+        return redirect("coldfront_orcd_direct_charge:rental-manager")

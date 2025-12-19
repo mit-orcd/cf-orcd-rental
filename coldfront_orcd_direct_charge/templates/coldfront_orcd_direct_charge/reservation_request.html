@@ -68,6 +68,17 @@
             <small class="form-text text-muted">Select the duration of your reservation</small>
           </div>
 
+          <div class="form-group">
+            <label for="{{ form.rental_notes.id_for_label }}">
+              <strong>Notes (Optional)</strong>
+            </label>
+            {{ form.rental_notes }}
+            {% if form.rental_notes.errors %}
+            <div class="text-danger">{{ form.rental_notes.errors }}</div>
+            {% endif %}
+            <small class="form-text text-muted">Add any notes about your reservation request</small>
+          </div>
+
           <hr>
 
           <div class="d-flex justify-content-between">

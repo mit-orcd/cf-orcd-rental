@@ -264,6 +264,14 @@ class Reservation(TimeStampedModel):
         blank=True,
         help_text="Notes from the rental manager (visible to requester)",
     )
+    rental_notes = models.TextField(
+        blank=True,
+        help_text="Optional notes from the requester about this reservation",
+    )
+    rental_management_metadata = models.TextField(
+        blank=True,
+        help_text="Internal metadata for rental management (managers only)",
+    )
 
     class Meta:
         ordering = ["-created"]

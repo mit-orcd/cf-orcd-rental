@@ -24,6 +24,7 @@
             <th>Start</th>
             <th>Duration</th>
             <th>End</th>
+            <th>Notes</th>
             <th>Submitted</th>
             <th>Actions</th>
           </tr>
@@ -37,6 +38,15 @@
             <td>{{ reservation.start_datetime|date:"M d, Y" }} @ 4:00 PM</td>
             <td>{{ reservation.billable_hours }} hours</td>
             <td>{{ reservation.end_datetime|date:"M d, Y g:i A" }}</td>
+            <td>
+              {% if reservation.rental_notes %}
+              <span class="text-muted" title="{{ reservation.rental_notes }}">
+                <i class="fas fa-sticky-note"></i> {{ reservation.rental_notes|truncatewords:5 }}
+              </span>
+              {% else %}
+              <span class="text-muted">-</span>
+              {% endif %}
+            </td>
             <td>{{ reservation.created|date:"M d, Y H:i" }}</td>
             <td>
               <form method="post" action="{% url 'coldfront_orcd_direct_charge:reservation-approve' reservation.pk %}" style="display: inline;">
@@ -51,6 +61,52 @@
                       title="Decline">
                 <i class="fas fa-times"></i> Decline
               </button>
+              <button type="button" class="btn btn-sm btn-secondary" 
+                      data-toggle="modal" 
+                      data-target="#metadataModal{{ reservation.pk }}"
+                      title="Edit Metadata">
+                <i class="fas fa-cog"></i>
+              </button>
+
+              <!-- Metadata Modal -->
+              <div class="modal fade" id="metadataModal{{ reservation.pk }}" tabindex="-1" role="dialog">
+                <div class="modal-dialog" role="document">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Management Metadata</h5>
+                      <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                      </button>
+                    </div>
+                    <form method="post" action="{% url 'coldfront_orcd_direct_charge:reservation-metadata' reservation.pk %}">
+                      {% csrf_token %}
+                      <div class="modal-body">
+                        <p>
+                          <strong>Node:</strong> {{ reservation.node_instance.associated_resource_address }}<br>
+                          <strong>Project:</strong> {{ reservation.project.title }}<br>
+                          <strong>Dates:</strong> {{ reservation.start_datetime|date:"M d" }} - {{ reservation.end_datetime|date:"M d, Y" }}
+                        </p>
+                        {% if reservation.rental_notes %}
+                        <div class="alert alert-info">
+                          <strong>Requester Notes:</strong><br>
+                          {{ reservation.rental_notes }}
+                        </div>
+                        {% endif %}
+                        <div class="form-group">
+                          <label for="rental_management_metadata">Management Metadata</label>
+                          <textarea name="rental_management_metadata" class="form-control" rows="4" 
+                                    placeholder="Internal notes and metadata for rental management...">{{ reservation.rental_management_metadata }}</textarea>
+                          <small class="form-text text-muted">This information is only visible to rental managers.</small>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Metadata</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
 
               <!-- Decline Modal -->
               <div class="modal fade" id="declineModal{{ reservation.pk }}" tabindex="-1" role="dialog">
@@ -113,8 +169,10 @@
             <th>Requester</th>
             <th>Start</th>
             <th>Duration</th>
+            <th>Notes</th>
             <th>Status</th>
             <th>Processed</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -126,6 +184,15 @@
             <td>{{ reservation.start_datetime|date:"M d, Y" }}</td>
             <td>{{ reservation.billable_hours }} hours</td>
             <td>
+              {% if reservation.rental_notes %}
+              <span class="text-muted" title="{{ reservation.rental_notes }}">
+                <i class="fas fa-sticky-note"></i> {{ reservation.rental_notes|truncatewords:5 }}
+              </span>
+              {% else %}
+              <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
               {% if reservation.status == "APPROVED" %}
               <span class="badge badge-success">Approved</span>
               {% elif reservation.status == "DECLINED" %}
@@ -133,6 +200,54 @@
               {% endif %}
             </td>
             <td>{{ reservation.modified|date:"M d, Y H:i" }}</td>
+            <td>
+              <button type="button" class="btn btn-sm btn-secondary" 
+                      data-toggle="modal" 
+                      data-target="#metadataModalRecent{{ reservation.pk }}"
+                      title="Edit Metadata">
+                <i class="fas fa-cog"></i>
+              </button>
+
+              <!-- Metadata Modal for Recent -->
+              <div class="modal fade" id="metadataModalRecent{{ reservation.pk }}" tabindex="-1" role="dialog">
+                <div class="modal-dialog" role="document">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Management Metadata</h5>
+                      <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                      </button>
+                    </div>
+                    <form method="post" action="{% url 'coldfront_orcd_direct_charge:reservation-metadata' reservation.pk %}">
+                      {% csrf_token %}
+                      <div class="modal-body">
+                        <p>
+                          <strong>Node:</strong> {{ reservation.node_instance.associated_resource_address }}<br>
+                          <strong>Project:</strong> {{ reservation.project.title }}<br>
+                          <strong>Dates:</strong> {{ reservation.start_datetime|date:"M d" }} - {{ reservation.end_datetime|date:"M d, Y" }}
+                        </p>
+                        {% if reservation.rental_notes %}
+                        <div class="alert alert-info">
+                          <strong>Requester Notes:</strong><br>
+                          {{ reservation.rental_notes }}
+                        </div>
+                        {% endif %}
+                        <div class="form-group">
+                          <label for="rental_management_metadata">Management Metadata</label>
+                          <textarea name="rental_management_metadata" class="form-control" rows="4" 
+                                    placeholder="Internal notes and metadata for rental management...">{{ reservation.rental_management_metadata }}</textarea>
+                          <small class="form-text text-muted">This information is only visible to rental managers.</small>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Metadata</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
