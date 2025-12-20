@@ -1,0 +1,86 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}
+Update Role - {{ target_user.username }}
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h2><i class="fas fa-user-edit"></i> Update Member Role</h2>
+  <p class="text-muted">{{ project.title }}</p>
+  <hr>
+</div>
+
+<div class="mb-3">
+  <a href="{% url 'coldfront_orcd_direct_charge:project-members' project.pk %}" class="btn btn-secondary">
+    <i class="fas fa-arrow-left"></i> Back to Members
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h4 class="mb-0">Update Role for {{ target_user.username }}</h4>
+  </div>
+  <div class="card-body">
+    <div class="mb-4">
+      <p><strong>User:</strong> {{ target_user.first_name }} {{ target_user.last_name }} ({{ target_user.username }})</p>
+      <p><strong>Email:</strong> {{ target_user.email }}</p>
+      <p><strong>Current Role:</strong> 
+        {% if member_role.role == 'financial_admin' %}
+          <span class="badge badge-warning">Financial Admin</span>
+        {% elif member_role.role == 'technical_admin' %}
+          <span class="badge badge-info">Technical Admin</span>
+        {% else %}
+          <span class="badge badge-secondary">Member</span>
+        {% endif %}
+      </p>
+    </div>
+    
+    <form method="post">
+      {% csrf_token %}
+      
+      <div class="form-group">
+        <label for="id_role">New Role</label>
+        {{ form.role }}
+        {% if form.role.errors %}
+          <div class="invalid-feedback d-block">
+            {{ form.role.errors.0 }}
+          </div>
+        {% endif %}
+        <small class="form-text text-muted">{{ form.role.help_text }}</small>
+      </div>
+      
+      <div class="mt-4">
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save"></i> Update Role
+        </button>
+        <a href="{% url 'coldfront_orcd_direct_charge:project-members' project.pk %}" class="btn btn-secondary">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">
+    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Role Descriptions</h5>
+  </div>
+  <div class="card-body">
+    <dl class="row mb-0">
+      {% if can_set_financial_admin %}
+        <dt class="col-sm-3"><span class="badge badge-warning">Financial Admin</span></dt>
+        <dd class="col-sm-9">Can edit cost allocations and manage all member roles. <strong>Not</strong> included in reservations.</dd>
+      {% endif %}
+      
+      <dt class="col-sm-3"><span class="badge badge-info">Technical Admin</span></dt>
+      <dd class="col-sm-9">Can add members and technical admins. Included in reservations.</dd>
+      
+      <dt class="col-sm-3"><span class="badge badge-secondary">Member</span></dt>
+      <dd class="col-sm-9">Can create reservations. Included in reservations.</dd>
+    </dl>
+  </div>
+</div>
+{% endblock %}

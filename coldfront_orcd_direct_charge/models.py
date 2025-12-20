@@ -488,3 +488,197 @@ class ProjectCostObject(TimeStampedModel):
 
     def __str__(self):
         return f"{self.cost_object}: {self.percentage}%"
+
+
+class ProjectMemberRole(TimeStampedModel):
+    """ORCD-specific role for project members.
+
+    This model tracks the role of each user within a project for the ORCD
+    Direct Charge plugin. The Owner role is implicit (determined by project.pi)
+    and is not stored in this table.
+
+    Role hierarchy (highest to lowest):
+    - Owner: Implicit via project.pi. Has all permissions.
+    - Financial Admin: Can edit cost allocations, manage all roles, create reservations.
+                       NOT included in reservations or maintenance fee billing.
+    - Technical Admin: Can manage members and technical admins, create reservations.
+                       Included in reservations and maintenance fee billing.
+    - Member: Can create reservations only.
+              Included in reservations and maintenance fee billing.
+
+    Attributes:
+        project (Project): The project this role assignment belongs to
+        user (User): The user who has this role
+        role (str): The role assigned to the user
+    """
+
+    class RoleChoices(models.TextChoices):
+        FINANCIAL_ADMIN = "financial_admin", "Financial Admin"
+        TECHNICAL_ADMIN = "technical_admin", "Technical Admin"
+        MEMBER = "member", "Member"
+
+    project = models.ForeignKey(
+        "project.Project",
+        on_delete=models.CASCADE,
+        related_name="member_roles",
+        help_text="The project this role assignment belongs to",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="project_member_roles",
+        help_text="The user who has this role",
+    )
+    role = models.CharField(
+        max_length=32,
+        choices=RoleChoices.choices,
+        help_text="The role assigned to the user in this project",
+    )
+
+    class Meta:
+        unique_together = ("project", "user")
+        verbose_name = "Project Member Role"
+        verbose_name_plural = "Project Member Roles"
+        ordering = ["project", "role", "user__username"]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_role_display()} ({self.project.title})"
+
+
+# =============================================================================
+# Role Permission Helper Functions
+# =============================================================================
+
+
+def get_user_project_role(user, project):
+    """Return the user's role in the project.
+
+    Args:
+        user: The Django User object
+        project: The ColdFront Project object
+
+    Returns:
+        str: One of "owner", "financial_admin", "technical_admin", "member", or None
+    """
+    if project.pi == user:
+        return "owner"
+    try:
+        return ProjectMemberRole.objects.get(project=project, user=user).role
+    except ProjectMemberRole.DoesNotExist:
+        return None
+
+
+def can_edit_cost_allocation(user, project):
+    """Check if user can edit cost allocation for a project.
+
+    Only owners and financial admins (plus superusers) can edit cost allocations.
+
+    Args:
+        user: The Django User object
+        project: The ColdFront Project object
+
+    Returns:
+        bool: True if user can edit cost allocations
+    """
+    if user.is_superuser:
+        return True
+    role = get_user_project_role(user, project)
+    return role in ("owner", "financial_admin")
+
+
+def can_manage_members(user, project):
+    """Check if user can add/remove members and technical admins.
+
+    Owners, financial admins, and technical admins can manage members.
+
+    Args:
+        user: The Django User object
+        project: The ColdFront Project object
+
+    Returns:
+        bool: True if user can manage members
+    """
+    if user.is_superuser:
+        return True
+    role = get_user_project_role(user, project)
+    return role in ("owner", "financial_admin", "technical_admin")
+
+
+def can_manage_financial_admins(user, project):
+    """Check if user can add/remove financial admins.
+
+    Only owners and financial admins can manage financial admin assignments.
+
+    Args:
+        user: The Django User object
+        project: The ColdFront Project object
+
+    Returns:
+        bool: True if user can manage financial admins
+    """
+    if user.is_superuser:
+        return True
+    role = get_user_project_role(user, project)
+    return role in ("owner", "financial_admin")
+
+
+def is_included_in_reservations(user, project):
+    """Check if user should be included in reservations for a project.
+
+    Owners, technical admins, and members are included in reservations.
+    Financial admins are NOT included.
+
+    Args:
+        user: The Django User object
+        project: The ColdFront Project object
+
+    Returns:
+        bool: True if user should be included in reservations
+    """
+    role = get_user_project_role(user, project)
+    return role in ("owner", "technical_admin", "member")
+
+
+def can_use_for_maintenance_fee(user, project):
+    """Check if user can use this project for maintenance fee billing.
+
+    Owners, technical admins, and members can use the project for maintenance fees.
+    Financial admins cannot.
+
+    Args:
+        user: The Django User object
+        project: The ColdFront Project object
+
+    Returns:
+        bool: True if user can use project for maintenance fee billing
+    """
+    role = get_user_project_role(user, project)
+    return role in ("owner", "technical_admin", "member")
+
+
+def get_project_members_for_reservation(project):
+    """Get all users who should be included in reservations for a project.
+
+    Returns the project owner plus all technical admins and members.
+
+    Args:
+        project: The ColdFront Project object
+
+    Returns:
+        list: List of User objects to include in reservations
+    """
+    users = [project.pi]  # Owner is always included
+
+    # Add technical admins and members
+    member_roles = ProjectMemberRole.objects.filter(
+        project=project,
+        role__in=[
+            ProjectMemberRole.RoleChoices.TECHNICAL_ADMIN,
+            ProjectMemberRole.RoleChoices.MEMBER,
+        ],
+    ).select_related("user")
+
+    for member_role in member_roles:
+        users.append(member_role.user)
+
+    return users

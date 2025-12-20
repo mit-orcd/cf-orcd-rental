@@ -23,6 +23,11 @@ urlpatterns = [
     path("user/update-maintenance-status/", views.update_maintenance_status, name="update-maintenance-status"),
     # Project cost allocation
     path("project/<int:pk>/cost-allocation/", views.ProjectCostAllocationView.as_view(), name="project-cost-allocation"),
+    # Project member management
+    path("project/<int:pk>/members/", views.ProjectMembersView.as_view(), name="project-members"),
+    path("project/<int:pk>/members/add/", views.AddMemberView.as_view(), name="add-member"),
+    path("project/<int:pk>/members/<int:user_pk>/update/", views.UpdateMemberRoleView.as_view(), name="update-member-role"),
+    path("project/<int:pk>/members/<int:user_pk>/remove/", views.RemoveMemberView.as_view(), name="remove-member"),
     # API
     path("api/", include("coldfront_orcd_direct_charge.api.urls")),
 ]

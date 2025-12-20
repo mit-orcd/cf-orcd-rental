@@ -3,6 +3,7 @@
 {% load humanize %}
 {% load static %}
 {% load common_tags %}
+{% load project_roles %}
 
 
 {% block title %}
@@ -76,14 +77,16 @@ Project Detail
 
 
 <!-- Start Project Members -->
+{% get_project_members project as project_members %}
+{% get_project_member_count project as member_count %}
+{% user_can_edit_cost_allocation request.user project as can_edit_cost %}
 <div class="card mb-3">
   <div class="card-header">
-    <h3 class="d-inline" id="users"><i class="fas fa-users" aria-hidden="true"></i> Project Members</h3> <span class="badge badge-secondary">{{project_users.count}}</span>
+    <h3 class="d-inline" id="users"><i class="fas fa-users" aria-hidden="true"></i> Project Members</h3> <span class="badge badge-secondary">{{ member_count }}</span>
     <div class="float-right">
-      {% if project.status.name != 'Archived' and is_allowed_to_update_project %}
-        <a class="btn btn-primary" href="{{mailto}}" role="button"><i class="far fa-envelope" aria-hidden="true"></i> Email Project Members</a>
-        <a class="btn btn-success" href="{% url 'project-add-users-search' project.id %}" role="button"><i class="fas fa-user-plus" aria-hidden="true"></i> Add Members</a>
-        <a class="btn btn-danger" href="{% url 'project-remove-users' project.id %}" role="button"><i class="fas fa-user-times" aria-hidden="true"></i> Remove Members</a>
+      {% if project.status.name != 'Archived' %}
+        <a class="btn btn-primary" href="{{mailto}}" role="button"><i class="far fa-envelope" aria-hidden="true"></i> Email Members</a>
+        <a class="btn btn-info" href="{% url 'coldfront_orcd_direct_charge:project-members' project.pk %}" role="button"><i class="fas fa-user-cog" aria-hidden="true"></i> Manage Members</a>
       {% endif %}
     </div>
   </div>
@@ -93,55 +96,26 @@ Project Detail
         <thead>
           <tr>
             <th scope="col" class="text-nowrap">Username</th>
-            <th scope="col" class="text-nowrap">First Name</th>
-            <th scope="col" class="text-nowrap">Last Name</th>
+            <th scope="col" class="text-nowrap">Name</th>
             <th scope="col" class="text-nowrap">Email</th>
-            <th scope="col" class="text-nowrap">Role <a href="#" data-toggle="popover" title="Role" data-trigger="hover" data-content="Manager role grants user access to add/remove users, allocations, grants, and publications to the project."><i class="fas fa-info-circle" aria-hidden="true"></i><span class="sr-only">Manager role grants user access to add/remove users, allocations, grants, and publications to the project.</span></a></th>
-            <th scope="col" class="text-nowrap">Status</th>
-            <th scope="col" class="nosort"><input type="checkbox" class="check" id="selectAll" style="margin-right: 5px;">Enable Notifications <a href="#" title="Enable Notifications" data-toggle="popover" data-trigger="hover" data-content="When disabled, user will not receive notifications for allocation requests and expirations or cloud usage (if applicable)."><i class="fas fa-info-circle" aria-hidden="true"></i><span class="sr-only">When disabled, user will not receive notifications for allocation requests and expirations or cloud usage (if applicable).</span></a></th>
-            <th scope="col" class="nosort">Actions</th>
+            <th scope="col" class="text-nowrap">Role <a href="#" data-toggle="popover" title="Role" data-trigger="hover" data-content="Owner: Full project control. Financial Admin: Manages billing and cost allocations. Technical Admin: Manages members and reservations. Member: Can create reservations."><i class="fas fa-info-circle" aria-hidden="true"></i><span class="sr-only">Role descriptions</span></a></th>
           </tr>
         </thead>
         <tbody>
-          {% for user in project_users %}
+          {% for member in project_members %}
             <tr>
-              <td>{{ user.user.username }}</td>
-              <td>{{ user.user.first_name }} </td>
-              <td>{{ user.user.last_name }}</td>
-              <td>{{ user.user.email }}</td>
-              <td>{{ user.role.name }}</td>
-              {% if user.status.name == 'Active' %}
-                <td class="text-success">{{ user.status.name }}</td>
-              {% else %}
-                <td class="text-info">{{ user.status.name }}</td>
-              {% endif %}
+              <td>{{ member.user.username }}</td>
+              <td>{{ member.user.first_name }} {{ member.user.last_name }}</td>
+              <td>{{ member.user.email }}</td>
               <td>
-                {% if is_allowed_to_update_project %}
-                  <input type="checkbox"
-                  id="email_notifications_for_user_id_{{user.id}}"
-                  name="email_notifications_checkbox"
-                  value="{{ user.enable_notifications }}"
-                  {% if user.enable_notifications %} checked {% endif %}
-                  {% if user.role.name == "Manager" %} disabled {% endif %}
-                  {% if not request.user.is_superuser and user.role.name == "User" and request.user == user.user %} disabled {% endif %}>
-                {% elif request.user == user.user %}
-                  <input type="checkbox"
-                  id="email_notifications_for_user_id_{{user.id}}"
-                  name="email_notifications_checkbox"
-                  value="{{ user.enable_notifications }}"
-                  {% if user.enable_notifications %} checked {% endif %}>
+                {% if member.role == 'owner' %}
+                  <span class="badge badge-primary">Owner</span>
+                {% elif member.role == 'financial_admin' %}
+                  <span class="badge badge-warning">Financial Admin</span>
+                {% elif member.role == 'technical_admin' %}
+                  <span class="badge badge-info">Technical Admin</span>
                 {% else %}
-                  <input type="checkbox"
-                  id="email_notifications_for_user_id_{{user.id}}"
-                  name="email_notifications_checkbox"
-                  value="{{ user.enable_notifications }}"
-                  {% if user.enable_notifications %} checked {% endif %}
-                  disabled>
-                {% endif %}
-              </td>
-              <td>
-                {% if is_allowed_to_update_project %}
-                  <a href="{% url 'project-user-detail' project.pk user.id %}"><i class="fas fa-user-edit" aria-hidden="true"></i><span class="sr-only">Edit</span></a>
+                  <span class="badge badge-secondary">Member</span>
                 {% endif %}
               </td>
             </tr>
@@ -159,7 +133,7 @@ Project Detail
   <div class="card-header">
     <h3 class="d-inline" id="cost-allocation"><i class="fas fa-money-check-alt" aria-hidden="true"></i> Cost Allocation</h3>
     <div class="float-right">
-      {% if project.status.name != 'Archived' and is_allowed_to_update_project %}
+      {% if project.status.name != 'Archived' and can_edit_cost %}
         <a class="btn btn-info" href="{% url 'coldfront_orcd_direct_charge:project-cost-allocation' project.pk %}" role="button">
           <i class="fas fa-edit" aria-hidden="true"></i> Manage Cost Allocation
         </a>
@@ -198,7 +172,7 @@ Project Detail
     {% else %}
       <p class="text-muted mb-0">
         <i class="fas fa-info-circle"></i> No cost objects configured for this project.
-        {% if is_allowed_to_update_project %}
+        {% if can_edit_cost %}
           <a href="{% url 'coldfront_orcd_direct_charge:project-cost-allocation' project.pk %}">Add cost objects</a>
         {% endif %}
       </p>
@@ -208,55 +182,13 @@ Project Detail
 <!-- End Cost Allocation -->
 
 <script>
-  function getCookie(name) {
-    var cookieValue = null;
-    if (document.cookie && document.cookie != '') {
-      var cookies = document.cookie.split(';');
-      for (var i = 0; i < cookies.length; i++) {
-        var cookie = jQuery.trim(cookies[i]);
-        // Does this cookie string begin with the name we want?
-        if (cookie.substring(0, name.length + 1) == (name + '=')) {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
-      }
-    }
-    return cookieValue;
-  }
-
   $(document).ready(function(){
     $('[data-toggle="popover"]').popover();
 
     $('#projectuser_table').DataTable({
-      'aoColumnDefs': [{
-        'bSortable': false,
-        'aTargets': ['nosort']
-      }]
-    });
-
-    $("#selectAll").click(function () {
-      $("input[id^='email_notifications_for_user_id_']").not(":disabled").prop('checked', $(this).prop('checked')).change();
-     });
-
-    $("[id^=email_notifications_for_user_id_]").change(function() {
-      var checked = $(this).prop('checked');
-      var user_project_id = Number($(this).attr('id').split("_").pop());
-
-      $.ajax({
-        headers: { 'X-CSRFToken': getCookie('csrftoken') },
-        type: "POST",
-        url: "/project/project-user-update-email-notification/",
-        data: {
-          user_project_id: user_project_id,
-          checked: checked
-        },
-        success: function (data) {
-          $("#alert_div").html('<div class="alert alert-success alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>Success!</strong> Email notification updated.</div>')
-        },
-        error: function (xhr, status, error) {
-          $("#alert_div").html('<div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>Error!</strong> Failed updating email notification.</div>')
-        }
-      });
+      'paging': false,
+      'searching': false,
+      'info': false
     });
   });
 </script>

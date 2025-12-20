@@ -170,21 +170,62 @@ def check_maintenance_status_on_project_user_delete(sender, instance, **kwargs):
 
 def reset_maintenance_if_billing_project(user, project):
     """
-    Reset user's maintenance status to inactive if project is their billing project.
+    Reset user's maintenance status to inactive if project is their billing project
+    and the user can no longer use it for maintenance fees.
 
-    Called when a user is removed from a project (either by deletion or status change).
-    If the project was being used as their billing project for maintenance fees,
-    their status is reset to 'inactive' and the billing project is cleared.
+    Called when a user is removed from a project or their role changes.
+    Checks the user's current ORCD role to determine if they can still use
+    the project for maintenance fees (owner, technical_admin, or member can;
+    financial_admin and None cannot).
     """
-    from coldfront_orcd_direct_charge.models import UserMaintenanceStatus
+    from coldfront_orcd_direct_charge.models import (
+        UserMaintenanceStatus,
+        can_use_for_maintenance_fee,
+    )
 
     try:
         maintenance_status = UserMaintenanceStatus.objects.get(
             user=user,
             billing_project=project,
         )
-        maintenance_status.status = UserMaintenanceStatus.StatusChoices.INACTIVE
-        maintenance_status.billing_project = None
-        maintenance_status.save()
+
+        # Check if user can still use this project for maintenance fees
+        if not can_use_for_maintenance_fee(user, project):
+            maintenance_status.status = UserMaintenanceStatus.StatusChoices.INACTIVE
+            maintenance_status.billing_project = None
+            maintenance_status.save()
     except UserMaintenanceStatus.DoesNotExist:
         pass  # No matching maintenance status, nothing to reset
+
+
+# =============================================================================
+# ProjectMemberRole Change Handlers
+# Reset maintenance status when user's ORCD role changes to financial_admin
+# or when they are removed from the project
+# =============================================================================
+
+
+def connect_member_role_signals():
+    """
+    Connect signal handlers for ProjectMemberRole.
+    
+    This is called from apps.py to avoid circular imports.
+    """
+    from coldfront_orcd_direct_charge.models import ProjectMemberRole
+
+    post_save.connect(check_maintenance_on_role_change, sender=ProjectMemberRole)
+    post_delete.connect(check_maintenance_on_role_delete, sender=ProjectMemberRole)
+
+
+def check_maintenance_on_role_change(sender, instance, **kwargs):
+    """Reset maintenance status if user's role changes to financial_admin."""
+    from coldfront_orcd_direct_charge.models import ProjectMemberRole
+
+    # If user is now a financial admin, they can't use this project for maintenance fees
+    if instance.role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
+        reset_maintenance_if_billing_project(instance.user, instance.project)
+
+
+def check_maintenance_on_role_delete(sender, instance, **kwargs):
+    """Reset maintenance status if user is removed from project."""
+    reset_maintenance_if_billing_project(instance.user, instance.project)

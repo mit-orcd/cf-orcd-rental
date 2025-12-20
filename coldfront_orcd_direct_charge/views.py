@@ -29,6 +29,8 @@ from coldfront_orcd_direct_charge.models import (
     Reservation,
     ReservationMetadataEntry,
     UserMaintenanceStatus,
+    can_edit_cost_allocation,
+    can_use_for_maintenance_fee,
 )
 
 
@@ -430,16 +432,19 @@ def update_maintenance_status(request):
                 status=400,
             )
 
-        # Validate that project exists and user is an active member
+        # Validate that project exists and user can use it for maintenance fees
+        # (must be owner, technical admin, or member - NOT financial admin)
         try:
-            billing_project = Project.objects.get(
-                pk=project_id,
-                projectuser__user=request.user,
-                projectuser__status__name="Active",
-            )
+            billing_project = Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
             return JsonResponse(
-                {"success": False, "error": "Invalid project or you are not an active member"},
+                {"success": False, "error": "Invalid project"},
+                status=400,
+            )
+
+        if not can_use_for_maintenance_fee(request.user, billing_project):
+            return JsonResponse(
+                {"success": False, "error": "You cannot use this project for maintenance fee billing"},
                 status=400,
             )
 
@@ -474,21 +479,13 @@ class ProjectCostAllocationView(LoginRequiredMixin, TemplateView):
     template_name = "coldfront_orcd_direct_charge/project_cost_allocation.html"
 
     def dispatch(self, request, *args, **kwargs):
-        """Check user has permission to manage this project."""
+        """Check user has permission to manage this project's cost allocation."""
         from coldfront.core.project.models import Project
 
         self.project = get_object_or_404(Project, pk=kwargs.get("pk"))
 
-        # Check if user is PI, manager, or superuser
-        is_pi = self.project.pi == request.user
-        is_manager = self.project.projectuser_set.filter(
-            user=request.user,
-            role__name="Manager",
-            status__name="Active",
-        ).exists()
-        is_superuser = request.user.is_superuser
-
-        if not (is_pi or is_manager or is_superuser):
+        # Check if user can edit cost allocation (owner, financial admin, or superuser)
+        if not can_edit_cost_allocation(request.user, self.project):
             messages.error(request, "You do not have permission to manage cost allocation for this project.")
             return redirect("project-detail", pk=self.project.pk)
 
@@ -531,3 +528,310 @@ class ProjectCostAllocationView(LoginRequiredMixin, TemplateView):
 
         # Re-render with errors
         return self.render_to_response(context)
+
+
+# =============================================================================
+# Member Management Views
+# =============================================================================
+
+from django.contrib.auth.models import User
+
+from coldfront_orcd_direct_charge.forms import AddMemberForm, UpdateMemberRoleForm
+from coldfront_orcd_direct_charge.models import (
+    ProjectMemberRole,
+    get_user_project_role,
+    can_manage_members,
+    can_manage_financial_admins,
+)
+
+
+class ProjectMembersView(LoginRequiredMixin, TemplateView):
+    """View for listing and managing project members."""
+
+    template_name = "coldfront_orcd_direct_charge/project_members.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        """Check user has permission to view project members."""
+        from coldfront.core.project.models import Project
+
+        self.project = get_object_or_404(Project, pk=kwargs.get("pk"))
+
+        # Any member of the project can view the members list
+        user_role = get_user_project_role(request.user, self.project)
+        if user_role is None and not request.user.is_superuser:
+            messages.error(request, "You do not have access to this project.")
+            return redirect("project-list")
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["project"] = self.project
+
+        # Get all member roles for this project
+        member_roles = ProjectMemberRole.objects.filter(
+            project=self.project
+        ).select_related("user").order_by("role", "user__username")
+
+        # Build list of members with their roles
+        members = []
+
+        # Add owner first
+        members.append({
+            "user": self.project.pi,
+            "role": "owner",
+            "role_display": "Owner",
+            "is_owner": True,
+        })
+
+        # Add other members
+        for mr in member_roles:
+            members.append({
+                "user": mr.user,
+                "role": mr.role,
+                "role_display": mr.get_role_display(),
+                "is_owner": False,
+            })
+
+        context["members"] = members
+        context["can_manage_members"] = can_manage_members(self.request.user, self.project)
+        context["can_manage_financial_admins"] = can_manage_financial_admins(self.request.user, self.project)
+        context["current_user_role"] = get_user_project_role(self.request.user, self.project)
+
+        return context
+
+
+class AddMemberView(LoginRequiredMixin, TemplateView):
+    """View for adding a new member to a project."""
+
+    template_name = "coldfront_orcd_direct_charge/add_member.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        """Check user has permission to add members."""
+        from coldfront.core.project.models import Project
+
+        self.project = get_object_or_404(Project, pk=kwargs.get("pk"))
+
+        if not can_manage_members(request.user, self.project):
+            messages.error(request, "You do not have permission to add members to this project.")
+            return redirect("coldfront_orcd_direct_charge:project-members", pk=self.project.pk)
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["project"] = self.project
+        context["can_add_financial_admin"] = can_manage_financial_admins(
+            self.request.user, self.project
+        )
+
+        if self.request.method == "POST":
+            context["form"] = AddMemberForm(
+                self.request.POST,
+                project=self.project,
+                current_user=self.request.user,
+                can_add_financial_admin=context["can_add_financial_admin"],
+            )
+        else:
+            context["form"] = AddMemberForm(
+                project=self.project,
+                current_user=self.request.user,
+                can_add_financial_admin=context["can_add_financial_admin"],
+            )
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+        form = context["form"]
+
+        if form.is_valid():
+            username = form.cleaned_data["username"]
+            role = form.cleaned_data["role"]
+
+            user = User.objects.get(username=username)
+
+            # Check role permission: only owner/financial admin can add financial admins
+            if role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
+                if not can_manage_financial_admins(request.user, self.project):
+                    messages.error(request, "You do not have permission to add financial admins.")
+                    return self.render_to_response(context)
+
+            # Create the member role
+            ProjectMemberRole.objects.create(
+                project=self.project,
+                user=user,
+                role=role,
+            )
+
+            # Also add to ColdFront's ProjectUser if not already there
+            from coldfront.core.project.models import (
+                ProjectUser,
+                ProjectUserRoleChoice,
+                ProjectUserStatusChoice,
+            )
+
+            if not ProjectUser.objects.filter(project=self.project, user=user).exists():
+                # Map our role to ColdFront role
+                cf_role_name = "Manager" if role in [
+                    ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN,
+                    ProjectMemberRole.RoleChoices.TECHNICAL_ADMIN,
+                ] else "User"
+
+                ProjectUser.objects.create(
+                    project=self.project,
+                    user=user,
+                    role=ProjectUserRoleChoice.objects.get(name=cf_role_name),
+                    status=ProjectUserStatusChoice.objects.get(name="Active"),
+                )
+
+            messages.success(
+                request,
+                f"Added {username} as {form.fields['role'].choices[list(dict(form.fields['role'].choices).keys()).index(role)][1]} to this project."
+            )
+            return redirect("coldfront_orcd_direct_charge:project-members", pk=self.project.pk)
+
+        return self.render_to_response(context)
+
+
+class UpdateMemberRoleView(LoginRequiredMixin, TemplateView):
+    """View for updating a member's role."""
+
+    template_name = "coldfront_orcd_direct_charge/update_member_role.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        """Check user has permission to update member roles."""
+        from coldfront.core.project.models import Project
+
+        self.project = get_object_or_404(Project, pk=kwargs.get("pk"))
+        self.target_user = get_object_or_404(User, pk=kwargs.get("user_pk"))
+
+        # Can't change owner's role
+        if self.project.pi == self.target_user:
+            messages.error(request, "Cannot change the owner's role.")
+            return redirect("coldfront_orcd_direct_charge:project-members", pk=self.project.pk)
+
+        # Get the member role
+        self.member_role = get_object_or_404(
+            ProjectMemberRole, project=self.project, user=self.target_user
+        )
+
+        if not can_manage_members(request.user, self.project):
+            messages.error(request, "You do not have permission to update member roles.")
+            return redirect("coldfront_orcd_direct_charge:project-members", pk=self.project.pk)
+
+        # Technical admins can only change members and technical admins, not financial admins
+        current_user_role = get_user_project_role(request.user, self.project)
+        if current_user_role == "technical_admin":
+            if self.member_role.role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
+                messages.error(request, "You do not have permission to change a financial admin's role.")
+                return redirect("coldfront_orcd_direct_charge:project-members", pk=self.project.pk)
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["project"] = self.project
+        context["target_user"] = self.target_user
+        context["member_role"] = self.member_role
+        context["can_set_financial_admin"] = can_manage_financial_admins(
+            self.request.user, self.project
+        )
+
+        if self.request.method == "POST":
+            context["form"] = UpdateMemberRoleForm(
+                self.request.POST,
+                can_set_financial_admin=context["can_set_financial_admin"],
+                current_role=self.member_role.role,
+            )
+        else:
+            context["form"] = UpdateMemberRoleForm(
+                can_set_financial_admin=context["can_set_financial_admin"],
+                current_role=self.member_role.role,
+            )
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+        form = context["form"]
+
+        if form.is_valid():
+            new_role = form.cleaned_data["role"]
+
+            # Check permission to set financial admin
+            if new_role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
+                if not can_manage_financial_admins(request.user, self.project):
+                    messages.error(request, "You do not have permission to set financial admin role.")
+                    return self.render_to_response(context)
+
+            # Update the role
+            self.member_role.role = new_role
+            self.member_role.save()
+
+            # Update ColdFront ProjectUser role
+            from coldfront.core.project.models import ProjectUser, ProjectUserRoleChoice
+
+            try:
+                cf_project_user = ProjectUser.objects.get(
+                    project=self.project, user=self.target_user
+                )
+                cf_role_name = "Manager" if new_role in [
+                    ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN,
+                    ProjectMemberRole.RoleChoices.TECHNICAL_ADMIN,
+                ] else "User"
+                cf_project_user.role = ProjectUserRoleChoice.objects.get(name=cf_role_name)
+                cf_project_user.save()
+            except ProjectUser.DoesNotExist:
+                pass  # No ColdFront ProjectUser record
+
+            messages.success(
+                request,
+                f"Updated {self.target_user.username}'s role to {self.member_role.get_role_display()}."
+            )
+            return redirect("coldfront_orcd_direct_charge:project-members", pk=self.project.pk)
+
+        return self.render_to_response(context)
+
+
+class RemoveMemberView(LoginRequiredMixin, View):
+    """View for removing a member from a project."""
+
+    def post(self, request, pk, user_pk):
+        from coldfront.core.project.models import Project, ProjectUser
+
+        project = get_object_or_404(Project, pk=pk)
+        target_user = get_object_or_404(User, pk=user_pk)
+
+        # Can't remove owner
+        if project.pi == target_user:
+            messages.error(request, "Cannot remove the project owner.")
+            return redirect("coldfront_orcd_direct_charge:project-members", pk=project.pk)
+
+        # Check permission
+        if not can_manage_members(request.user, project):
+            messages.error(request, "You do not have permission to remove members.")
+            return redirect("coldfront_orcd_direct_charge:project-members", pk=project.pk)
+
+        # Get the member role
+        try:
+            member_role = ProjectMemberRole.objects.get(project=project, user=target_user)
+        except ProjectMemberRole.DoesNotExist:
+            messages.error(request, "This user is not a member of the project.")
+            return redirect("coldfront_orcd_direct_charge:project-members", pk=project.pk)
+
+        # Technical admins can only remove members and technical admins, not financial admins
+        current_user_role = get_user_project_role(request.user, project)
+        if current_user_role == "technical_admin":
+            if member_role.role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
+                messages.error(request, "You do not have permission to remove a financial admin.")
+                return redirect("coldfront_orcd_direct_charge:project-members", pk=project.pk)
+
+        # Remove the member role
+        member_role.delete()
+
+        # Also remove from ColdFront's ProjectUser
+        ProjectUser.objects.filter(project=project, user=target_user).delete()
+
+        messages.success(request, f"Removed {target_user.username} from the project.")
+        return redirect("coldfront_orcd_direct_charge:project-members", pk=project.pk)

@@ -1,0 +1,122 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}
+Project Members - {{ project.title }}
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h2><i class="fas fa-users"></i> Project Members</h2>
+  <p class="text-muted">{{ project.title }}</p>
+  <hr>
+</div>
+
+<div class="mb-3">
+  <a href="{% url 'project-detail' project.pk %}" class="btn btn-secondary">
+    <i class="fas fa-arrow-left"></i> Back to Project
+  </a>
+  {% if can_manage_members %}
+    <a href="{% url 'coldfront_orcd_direct_charge:add-member' project.pk %}" class="btn btn-success">
+      <i class="fas fa-user-plus"></i> Add Member
+    </a>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h4 class="mb-0">Members ({{ members|length }})</h4>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            {% if can_manage_members %}
+              <th>Actions</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for member in members %}
+            <tr>
+              <td>{{ member.user.username }}</td>
+              <td>{{ member.user.first_name }} {{ member.user.last_name }}</td>
+              <td>
+                <a href="mailto:{{ member.user.email }}">{{ member.user.email }}</a>
+              </td>
+              <td>
+                {% if member.role == 'owner' %}
+                  <span class="badge badge-primary">Owner</span>
+                {% elif member.role == 'financial_admin' %}
+                  <span class="badge badge-warning">Financial Admin</span>
+                {% elif member.role == 'technical_admin' %}
+                  <span class="badge badge-info">Technical Admin</span>
+                {% else %}
+                  <span class="badge badge-secondary">Member</span>
+                {% endif %}
+              </td>
+              {% if can_manage_members %}
+                <td>
+                  {% if not member.is_owner %}
+                    {% if member.role == 'financial_admin' and not can_manage_financial_admins %}
+                      <span class="text-muted">-</span>
+                    {% else %}
+                      <a href="{% url 'coldfront_orcd_direct_charge:update-member-role' project.pk member.user.pk %}" 
+                         class="btn btn-sm btn-outline-primary" title="Change Role">
+                        <i class="fas fa-edit"></i>
+                      </a>
+                      <form action="{% url 'coldfront_orcd_direct_charge:remove-member' project.pk member.user.pk %}" 
+                            method="post" style="display: inline;"
+                            onsubmit="return confirm('Are you sure you want to remove {{ member.user.username }} from this project?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove Member">
+                          <i class="fas fa-user-times"></i>
+                        </button>
+                      </form>
+                    {% endif %}
+                  {% else %}
+                    <span class="text-muted">-</span>
+                  {% endif %}
+                </td>
+              {% endif %}
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="{% if can_manage_members %}5{% else %}4{% endif %}" class="text-center text-muted">
+                No members found.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">
+    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Role Descriptions</h5>
+  </div>
+  <div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-3"><span class="badge badge-primary">Owner</span></dt>
+      <dd class="col-sm-9">Full control over the project. Can manage all members and settings. Included in reservations.</dd>
+      
+      <dt class="col-sm-3"><span class="badge badge-warning">Financial Admin</span></dt>
+      <dd class="col-sm-9">Can edit cost allocations and manage all member roles. <strong>Not</strong> included in reservations or maintenance fee billing.</dd>
+      
+      <dt class="col-sm-3"><span class="badge badge-info">Technical Admin</span></dt>
+      <dd class="col-sm-9">Can add members and technical admins. Included in reservations and can use project for maintenance fees.</dd>
+      
+      <dt class="col-sm-3"><span class="badge badge-secondary">Member</span></dt>
+      <dd class="col-sm-9">Can create reservations. Included in reservations and can use project for maintenance fees.</dd>
+    </dl>
+  </div>
+</div>
+{% endblock %}

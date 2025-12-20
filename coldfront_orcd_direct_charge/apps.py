@@ -16,6 +16,9 @@ class OrcdDirectChargeConfig(AppConfig):
         # Import signals to register handlers
         from coldfront_orcd_direct_charge import signals  # noqa: F401
 
+        # Connect ProjectMemberRole signals (avoids circular imports)
+        signals.connect_member_role_signals()
+
         # Dynamically add the plugin templates directory to TEMPLATES['DIRS']
         # This allows the plugin to override core ColdFront templates
         plugin_templates_dir = os.path.join(

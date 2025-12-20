@@ -7,6 +7,7 @@ from coldfront_orcd_direct_charge.models import (
     NodeType,
     GpuNodeInstance,
     CpuNodeInstance,
+    ProjectMemberRole,
     Reservation,
     ReservationMetadataEntry,
 )
@@ -18,6 +19,29 @@ class NodeTypeAdmin(admin.ModelAdmin):
     list_filter = ("category", "is_active")
     search_fields = ("name", "description")
     ordering = ("category", "name")
+
+
+@admin.register(ProjectMemberRole)
+class ProjectMemberRoleAdmin(admin.ModelAdmin):
+    list_display = ("user_username", "project_title", "role", "created", "modified")
+    list_filter = ("role", "project")
+    search_fields = (
+        "user__username",
+        "user__first_name",
+        "user__last_name",
+        "project__title",
+    )
+    ordering = ("project__title", "role", "user__username")
+    raw_id_fields = ("user", "project")
+    readonly_fields = ("created", "modified")
+
+    @admin.display(description="Username")
+    def user_username(self, obj):
+        return obj.user.username
+
+    @admin.display(description="Project")
+    def project_title(self, obj):
+        return obj.project.title
 
 
 @admin.register(GpuNodeInstance)

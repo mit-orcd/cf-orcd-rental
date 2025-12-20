@@ -5,10 +5,13 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
+from django.contrib.auth.models import User
+
 from coldfront_orcd_direct_charge.models import (
     GpuNodeInstance,
     ProjectCostAllocation,
     ProjectCostObject,
+    ProjectMemberRole,
     Reservation,
     ReservationMetadataEntry,
 )
@@ -260,3 +263,92 @@ ProjectCostObjectFormSet = forms.inlineformset_factory(
     min_num=0,
     validate_min=False,
 )
+
+
+# =============================================================================
+# Member Management Forms
+# =============================================================================
+
+
+class AddMemberForm(forms.Form):
+    """Form for adding a new member to a project with a role."""
+
+    username = forms.CharField(
+        max_length=150,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Enter username",
+                "autocomplete": "off",
+            }
+        ),
+        help_text="Enter the username of the user to add",
+    )
+    role = forms.ChoiceField(
+        choices=[],  # Will be set dynamically based on current user's permissions
+        widget=forms.Select(attrs={"class": "form-control"}),
+        help_text="Select the role for this member",
+    )
+
+    def __init__(self, *args, project=None, current_user=None, can_add_financial_admin=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.project = project
+        self.current_user = current_user
+
+        # Set role choices based on current user's permissions
+        role_choices = [
+            (ProjectMemberRole.RoleChoices.MEMBER, "Member"),
+            (ProjectMemberRole.RoleChoices.TECHNICAL_ADMIN, "Technical Admin"),
+        ]
+        if can_add_financial_admin:
+            role_choices.append(
+                (ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN, "Financial Admin")
+            )
+        self.fields["role"].choices = role_choices
+
+    def clean_username(self):
+        username = self.cleaned_data["username"]
+
+        # Check if user exists
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            raise ValidationError(f"User '{username}' does not exist.")
+
+        # Check if user is already the project owner
+        if self.project and self.project.pi == user:
+            raise ValidationError(f"'{username}' is the project owner and cannot be added as a member.")
+
+        # Check if user already has a role in this project
+        if self.project and ProjectMemberRole.objects.filter(project=self.project, user=user).exists():
+            raise ValidationError(f"'{username}' already has a role in this project.")
+
+        return username
+
+
+class UpdateMemberRoleForm(forms.Form):
+    """Form for updating a member's role in a project."""
+
+    role = forms.ChoiceField(
+        choices=[],  # Will be set dynamically
+        widget=forms.Select(attrs={"class": "form-control"}),
+        help_text="Select the new role for this member",
+    )
+
+    def __init__(self, *args, can_set_financial_admin=False, current_role=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Set role choices based on permissions
+        role_choices = [
+            (ProjectMemberRole.RoleChoices.MEMBER, "Member"),
+            (ProjectMemberRole.RoleChoices.TECHNICAL_ADMIN, "Technical Admin"),
+        ]
+        if can_set_financial_admin:
+            role_choices.append(
+                (ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN, "Financial Admin")
+            )
+        self.fields["role"].choices = role_choices
+
+        # Set initial value if provided
+        if current_role:
+            self.fields["role"].initial = current_role
