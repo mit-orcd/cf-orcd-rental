@@ -123,9 +123,9 @@ coldfront loaddata cpu_node_instances   # CPU node instances
 coldfront loaddata node_resource_types  # Optional: ColdFront ResourceType entries
 ```
 
-### Step 6: Set Up Rental Managers (Optional)
+### Step 6: Set Up Rental Manager (Optional)
 
-Create the Rental Managers group and add users:
+Create the Rental Manager group and add users:
 
 ```bash
 coldfront setup_rental_manager --create-group
@@ -408,7 +408,7 @@ AUTO_DEFAULT_PROJECT_ENABLE = True  # Create USERNAME_default_project for each u
 
 ### setup_rental_manager
 
-Manage the Rental Managers group:
+Manage the Rental Manager group:
 
 ```bash
 # Create the group with can_manage_rentals permission

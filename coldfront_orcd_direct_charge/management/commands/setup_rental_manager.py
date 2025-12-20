@@ -7,31 +7,34 @@ from django.contrib.auth.models import User, Group, Permission
 
 
 class Command(BaseCommand):
-    help = "Set up the Rental Managers group and manage user membership"
+    help = "Set up the Rental Manager group and manage user membership"
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--create-group",
             action="store_true",
-            help="Create the Rental Managers group with the can_manage_rentals permission",
+            help="Create the Rental Manager group with the can_manage_rentals permission",
         )
         parser.add_argument(
             "--add-user",
             type=str,
-            help="Username to add to Rental Managers group",
+            help="Username to add to Rental Manager group",
         )
         parser.add_argument(
             "--remove-user",
             type=str,
-            help="Username to remove from Rental Managers group",
+            help="Username to remove from Rental Manager group",
         )
         parser.add_argument(
             "--list",
             action="store_true",
-            help="List all users in the Rental Managers group",
+            help="List all users in the Rental Manager group",
         )
 
     def handle(self, *args, **options):
+        # Migrate old group name if it exists
+        self._migrate_group_name()
+
         # Check if any action was specified
         if not any([options["create_group"], options["add_user"], 
                     options["remove_user"], options["list"]]):
@@ -52,6 +55,19 @@ class Command(BaseCommand):
         if options["list"]:
             self._list_users()
 
+    def _migrate_group_name(self):
+        """Rename 'Rental Managers' to 'Rental Manager' if old name exists."""
+        try:
+            old_group = Group.objects.get(name="Rental Managers")
+            if not Group.objects.filter(name="Rental Manager").exists():
+                old_group.name = "Rental Manager"
+                old_group.save()
+                self.stdout.write(self.style.SUCCESS(
+                    "Migrated group name from 'Rental Managers' to 'Rental Manager'"
+                ))
+        except Group.DoesNotExist:
+            pass  # No migration needed
+
     def _get_permission(self):
         """Get the can_manage_rentals permission."""
         try:
@@ -64,25 +80,25 @@ class Command(BaseCommand):
             return None
 
     def _create_group(self):
-        """Create the Rental Managers group with permissions."""
+        """Create the Rental Manager group with permissions."""
         perm = self._get_permission()
         if not perm:
             return
 
-        group, created = Group.objects.get_or_create(name="Rental Managers")
+        group, created = Group.objects.get_or_create(name="Rental Manager")
         group.permissions.add(perm)
 
         if created:
             self.stdout.write(self.style.SUCCESS(
-                "Created 'Rental Managers' group with can_manage_rentals permission"
+                "Created 'Rental Manager' group with can_manage_rentals permission"
             ))
         else:
             self.stdout.write(self.style.SUCCESS(
-                "'Rental Managers' group already exists; ensured permission is assigned"
+                "'Rental Manager' group already exists; ensured permission is assigned"
             ))
 
     def _add_user(self, username):
-        """Add a user to the Rental Managers group."""
+        """Add a user to the Rental Manager group."""
         try:
             user = User.objects.get(username=username)
         except User.DoesNotExist:
@@ -90,10 +106,10 @@ class Command(BaseCommand):
             return
 
         try:
-            group = Group.objects.get(name="Rental Managers")
+            group = Group.objects.get(name="Rental Manager")
         except Group.DoesNotExist:
             self.stdout.write(self.style.ERROR(
-                "Rental Managers group not found. Run with --create-group first."
+                "Rental Manager group not found. Run with --create-group first."
             ))
             return
 
@@ -104,11 +120,11 @@ class Command(BaseCommand):
         else:
             user.groups.add(group)
             self.stdout.write(self.style.SUCCESS(
-                f"Added '{username}' to Rental Managers group"
+                f"Added '{username}' to Rental Manager group"
             ))
 
     def _remove_user(self, username):
-        """Remove a user from the Rental Managers group."""
+        """Remove a user from the Rental Manager group."""
         try:
             user = User.objects.get(username=username)
         except User.DoesNotExist:
@@ -116,9 +132,9 @@ class Command(BaseCommand):
             return
 
         try:
-            group = Group.objects.get(name="Rental Managers")
+            group = Group.objects.get(name="Rental Manager")
         except Group.DoesNotExist:
-            self.stdout.write(self.style.ERROR("Rental Managers group not found."))
+            self.stdout.write(self.style.ERROR("Rental Manager group not found."))
             return
 
         if group not in user.groups.all():
@@ -128,27 +144,26 @@ class Command(BaseCommand):
         else:
             user.groups.remove(group)
             self.stdout.write(self.style.SUCCESS(
-                f"Removed '{username}' from Rental Managers group"
+                f"Removed '{username}' from Rental Manager group"
             ))
 
     def _list_users(self):
-        """List all users in the Rental Managers group."""
+        """List all users in the Rental Manager group."""
         try:
-            group = Group.objects.get(name="Rental Managers")
+            group = Group.objects.get(name="Rental Manager")
         except Group.DoesNotExist:
             self.stdout.write(self.style.ERROR(
-                "Rental Managers group not found. Run with --create-group first."
+                "Rental Manager group not found. Run with --create-group first."
             ))
             return
 
         users = group.user_set.all().order_by("username")
         if users:
-            self.stdout.write(self.style.SUCCESS("Rental Managers:"))
+            self.stdout.write(self.style.SUCCESS("Rental Manager members:"))
             for user in users:
                 name = f"{user.first_name} {user.last_name}".strip() or "(no name)"
                 self.stdout.write(f"  - {user.username} ({user.email}) - {name}")
         else:
             self.stdout.write(self.style.WARNING(
-                "No users in Rental Managers group"
+                "No users in Rental Manager group"
             ))
-
