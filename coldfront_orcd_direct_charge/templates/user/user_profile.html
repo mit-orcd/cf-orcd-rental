@@ -1,6 +1,5 @@
 {% extends "common/base.html" %}
 {% load static %}
-{% load settings_value %}
 
 {% block title %}
 User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif %}
