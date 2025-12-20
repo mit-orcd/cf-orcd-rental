@@ -361,3 +361,42 @@ class ReservationMetadataEntry(TimeStampedModel):
 
     def __str__(self):
         return f"Metadata for {self.reservation} ({self.created.strftime('%Y-%m-%d %H:%M')})"
+
+
+class UserMaintenanceStatus(TimeStampedModel):
+    """Tracks the account maintenance status for each user.
+
+    Each user has an associated maintenance status that can be one of:
+    - inactive: Default status for new accounts
+    - basic: Basic maintenance level
+    - advanced: Advanced maintenance level
+
+    Attributes:
+        user (User): The Django user this status belongs to
+        status (str): The current maintenance status
+    """
+
+    class StatusChoices(models.TextChoices):
+        INACTIVE = "inactive", "Inactive"
+        BASIC = "basic", "Basic"
+        ADVANCED = "advanced", "Advanced"
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="maintenance_status",
+        help_text="The user this maintenance status belongs to",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=StatusChoices.choices,
+        default=StatusChoices.INACTIVE,
+        help_text="Current account maintenance status",
+    )
+
+    class Meta:
+        verbose_name = "User Maintenance Status"
+        verbose_name_plural = "User Maintenance Statuses"
+
+    def __str__(self):
+        return f"{self.user.username}: {self.get_status_display()}"

@@ -74,8 +74,38 @@ class OrcdDirectChargeConfig(AppConfig):
             )
 
         # Apply auto features to existing users (deferred to avoid issues during migrations)
+        # Always ensure maintenance status exists for all users
+        self._ensure_maintenance_status_if_ready()
+
         if settings.AUTO_PI_ENABLE or settings.AUTO_DEFAULT_PROJECT_ENABLE:
             self._apply_auto_features_if_ready()
+
+    def _ensure_maintenance_status_if_ready(self):
+        """Ensure all users have a maintenance status if database is ready."""
+        from django.db import connection
+
+        try:
+            table_names = connection.introspection.table_names()
+            # Check if both auth_user and our maintenance status table exist
+            if (
+                "auth_user" in table_names
+                and "coldfront_orcd_direct_charge_usermaintenancestatus" in table_names
+            ):
+                self._ensure_maintenance_status()
+        except Exception:
+            # Database might not be ready yet (e.g., during initial setup)
+            pass
+
+    def _ensure_maintenance_status(self):
+        """Ensure all users have a UserMaintenanceStatus record."""
+        from django.contrib.auth.models import User
+        from coldfront_orcd_direct_charge.models import UserMaintenanceStatus
+
+        for user in User.objects.all():
+            UserMaintenanceStatus.objects.get_or_create(
+                user=user,
+                defaults={"status": UserMaintenanceStatus.StatusChoices.INACTIVE},
+            )
 
     def _apply_auto_features_if_ready(self):
         """Apply auto features to existing users if database is ready."""

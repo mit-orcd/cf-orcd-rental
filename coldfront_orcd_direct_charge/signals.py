@@ -7,6 +7,7 @@ Signal handlers for auto-configuration features.
 
 When AUTO_PI_ENABLE is True, new users automatically get is_pi=True.
 When AUTO_DEFAULT_PROJECT_ENABLE is True, new users get USERNAME_personal and USERNAME_group projects.
+New users always get a UserMaintenanceStatus record with 'inactive' default.
 
 These features are IRREVERSIBLE - once applied, changes persist even if features are disabled.
 """
@@ -19,9 +20,12 @@ from django.conf import settings
 
 @receiver(post_save, sender=User)
 def auto_configure_user(sender, instance, created, **kwargs):
-    """Apply auto-PI and auto-default-project to new users."""
+    """Apply auto-PI, auto-default-project, and maintenance status to new users."""
     if not created:
         return
+
+    # Always create maintenance status for new users
+    create_maintenance_status_for_user(instance)
 
     # Auto-PI: set is_pi=True if enabled
     if getattr(settings, "AUTO_PI_ENABLE", False):
@@ -33,6 +37,20 @@ def auto_configure_user(sender, instance, created, **kwargs):
     if getattr(settings, "AUTO_DEFAULT_PROJECT_ENABLE", False):
         create_default_project_for_user(instance)
         create_group_project_for_user(instance)
+
+
+def create_maintenance_status_for_user(user):
+    """
+    Create UserMaintenanceStatus for a user if it doesn't exist.
+
+    Default status is 'inactive'.
+    """
+    from coldfront_orcd_direct_charge.models import UserMaintenanceStatus
+
+    UserMaintenanceStatus.objects.get_or_create(
+        user=user,
+        defaults={"status": UserMaintenanceStatus.StatusChoices.INACTIVE},
+    )
 
 
 def create_default_project_for_user(user):

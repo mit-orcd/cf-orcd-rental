@@ -56,6 +56,24 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
             </tr>
             {% endif %}
             <tr>
+              <th scope="row">Account Maintenance Fee Status:</th>
+              <td>
+                <span id="maintenance-status-display">
+                  {% if viewed_user.maintenance_status %}
+                    {{ viewed_user.maintenance_status.get_status_display }}
+                  {% else %}
+                    Inactive
+                  {% endif %}
+                </span>
+                {% if user == viewed_user %}
+                  <a href="#" data-toggle="modal" data-target="#maintenanceStatusModal" title="Edit Account Maintenance Fee Status">
+                    <i class="fas fa-edit" aria-hidden="true"></i>
+                    <span class="sr-only">Edit Account Maintenance Fee Status</span>
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+            <tr>
               <th scope="row">Last Login:</th>
               <td>{{viewed_user.last_login}}</td>
             </tr>
@@ -66,9 +84,94 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
   </div>
 </div>
 
+<!-- Account Maintenance Status Modal -->
+{% if user == viewed_user %}
+<div class="modal fade" id="maintenanceStatusModal" tabindex="-1" role="dialog" aria-labelledby="maintenanceStatusModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="maintenanceStatusModalLabel">Edit Account Maintenance Fee Status</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="maintenanceStatusForm">
+          {% csrf_token %}
+          <div class="form-group">
+            <label for="maintenanceStatusSelect">Account Maintenance Fee Status</label>
+            <select class="form-control" id="maintenanceStatusSelect" name="status">
+              <option value="inactive" {% if viewed_user.maintenance_status.status == 'inactive' %}selected{% endif %}>Inactive</option>
+              <option value="basic" {% if viewed_user.maintenance_status.status == 'basic' %}selected{% endif %}>Basic</option>
+              <option value="advanced" {% if viewed_user.maintenance_status.status == 'advanced' %}selected{% endif %}>Advanced</option>
+            </select>
+          </div>
+        </form>
+        <div id="maintenanceStatusAlert" class="alert" style="display: none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveMaintenanceStatus">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <script>
   $("#navbar-main > ul > li.active").removeClass("active");
   $("#navbar-user").addClass("active");
   $("#navbar-user-user-profile").addClass("active");
+
+  {% if user == viewed_user %}
+  // Handle maintenance status form submission
+  $(document).ready(function() {
+    $("#saveMaintenanceStatus").click(function() {
+      var formData = $("#maintenanceStatusForm").serialize();
+      
+      $.ajax({
+        url: "{% url 'coldfront_orcd_direct_charge:update-maintenance-status' %}",
+        type: "POST",
+        data: formData,
+        success: function(response) {
+          if (response.success) {
+            // Update the display value
+            $("#maintenance-status-display").text(response.display);
+            // Close the modal
+            $("#maintenanceStatusModal").modal("hide");
+            // Show success message (optional - using alert div)
+            $("#maintenanceStatusAlert")
+              .removeClass("alert-danger")
+              .addClass("alert-success")
+              .text("Status updated successfully!")
+              .show();
+          } else {
+            $("#maintenanceStatusAlert")
+              .removeClass("alert-success")
+              .addClass("alert-danger")
+              .text(response.error || "An error occurred.")
+              .show();
+          }
+        },
+        error: function(xhr) {
+          var errorMsg = "An error occurred.";
+          if (xhr.responseJSON && xhr.responseJSON.error) {
+            errorMsg = xhr.responseJSON.error;
+          }
+          $("#maintenanceStatusAlert")
+            .removeClass("alert-success")
+            .addClass("alert-danger")
+            .text(errorMsg)
+            .show();
+        }
+      });
+    });
+
+    // Reset alert when modal is opened
+    $("#maintenanceStatusModal").on("show.bs.modal", function() {
+      $("#maintenanceStatusAlert").hide();
+    });
+  });
+  {% endif %}
 </script>
 {% endblock %}

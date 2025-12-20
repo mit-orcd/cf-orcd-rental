@@ -16,11 +16,16 @@ from coldfront_orcd_direct_charge.forms import (
     ReservationDeclineForm,
     ReservationMetadataEntryForm,
 )
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
+
 from coldfront_orcd_direct_charge.models import (
     GpuNodeInstance,
     CpuNodeInstance,
     Reservation,
     ReservationMetadataEntry,
+    UserMaintenanceStatus,
 )
 
 
@@ -387,3 +392,37 @@ class ReservationMetadataView(LoginRequiredMixin, PermissionRequiredMixin, View)
             messages.info(request, "No new metadata entries were added.")
 
         return redirect("coldfront_orcd_direct_charge:rental-manager")
+
+
+@login_required
+@require_POST
+def update_maintenance_status(request):
+    """Update the current user's account maintenance status via AJAX."""
+    new_status = request.POST.get("status")
+
+    # Validate the status value
+    valid_statuses = [choice[0] for choice in UserMaintenanceStatus.StatusChoices.choices]
+    if new_status not in valid_statuses:
+        return JsonResponse(
+            {"success": False, "error": "Invalid status value"},
+            status=400,
+        )
+
+    # Get or create the user's maintenance status
+    maintenance_status, _ = UserMaintenanceStatus.objects.get_or_create(
+        user=request.user,
+        defaults={"status": UserMaintenanceStatus.StatusChoices.INACTIVE},
+    )
+
+    # Update the status
+    maintenance_status.status = new_status
+    maintenance_status.save()
+
+    # Get the display value for the new status
+    display_value = maintenance_status.get_status_display()
+
+    return JsonResponse({
+        "success": True,
+        "status": new_status,
+        "display": display_value,
+    })
