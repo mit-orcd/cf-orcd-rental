@@ -21,6 +21,8 @@ urlpatterns = [
     path("renting/manage/<int:pk>/metadata/", views.ReservationMetadataView.as_view(), name="reservation-metadata"),
     # User profile
     path("user/update-maintenance-status/", views.update_maintenance_status, name="update-maintenance-status"),
+    # Project cost allocation
+    path("project/<int:pk>/cost-allocation/", views.ProjectCostAllocationView.as_view(), name="project-cost-allocation"),
     # API
     path("api/", include("coldfront_orcd_direct_charge.api.urls")),
 ]

@@ -12,6 +12,8 @@ from django.urls import reverse_lazy
 from django.views.generic import TemplateView, DetailView, CreateView, View
 
 from coldfront_orcd_direct_charge.forms import (
+    ProjectCostAllocationForm,
+    ProjectCostObjectFormSet,
     ReservationRequestForm,
     ReservationDeclineForm,
     ReservationMetadataEntryForm,
@@ -23,6 +25,7 @@ from django.contrib.auth.decorators import login_required
 from coldfront_orcd_direct_charge.models import (
     GpuNodeInstance,
     CpuNodeInstance,
+    ProjectCostAllocation,
     Reservation,
     ReservationMetadataEntry,
     UserMaintenanceStatus,
@@ -463,3 +466,68 @@ def update_maintenance_status(request):
         "project_id": billing_project.pk if billing_project else None,
         "project_title": billing_project.title if billing_project else None,
     })
+
+
+class ProjectCostAllocationView(LoginRequiredMixin, TemplateView):
+    """View for managing cost allocation for a project."""
+
+    template_name = "coldfront_orcd_direct_charge/project_cost_allocation.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        """Check user has permission to manage this project."""
+        from coldfront.core.project.models import Project
+
+        self.project = get_object_or_404(Project, pk=kwargs.get("pk"))
+
+        # Check if user is PI, manager, or superuser
+        is_pi = self.project.pi == request.user
+        is_manager = self.project.projectuser_set.filter(
+            user=request.user,
+            role__name="Manager",
+            status__name="Active",
+        ).exists()
+        is_superuser = request.user.is_superuser
+
+        if not (is_pi or is_manager or is_superuser):
+            messages.error(request, "You do not have permission to manage cost allocation for this project.")
+            return redirect("project-detail", pk=self.project.pk)
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["project"] = self.project
+
+        # Get or create the cost allocation for this project
+        allocation, _ = ProjectCostAllocation.objects.get_or_create(
+            project=self.project,
+            defaults={"notes": ""},
+        )
+        context["allocation"] = allocation
+
+        if self.request.method == "POST":
+            context["form"] = ProjectCostAllocationForm(
+                self.request.POST, instance=allocation
+            )
+            context["formset"] = ProjectCostObjectFormSet(
+                self.request.POST, instance=allocation
+            )
+        else:
+            context["form"] = ProjectCostAllocationForm(instance=allocation)
+            context["formset"] = ProjectCostObjectFormSet(instance=allocation)
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+        form = context["form"]
+        formset = context["formset"]
+
+        if form.is_valid() and formset.is_valid():
+            form.save()
+            formset.save()
+            messages.success(request, "Cost allocation updated successfully.")
+            return redirect("project-detail", pk=self.project.pk)
+
+        # Re-render with errors
+        return self.render_to_response(context)

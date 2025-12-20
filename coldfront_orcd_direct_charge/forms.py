@@ -7,6 +7,8 @@ from django.core.exceptions import ValidationError
 
 from coldfront_orcd_direct_charge.models import (
     GpuNodeInstance,
+    ProjectCostAllocation,
+    ProjectCostObject,
     Reservation,
     ReservationMetadataEntry,
 )
@@ -168,3 +170,93 @@ class ReservationMetadataEntryForm(forms.ModelForm):
         labels = {
             "content": "New Metadata Entry",
         }
+
+
+class ProjectCostAllocationForm(forms.ModelForm):
+    """Form for editing the overall cost allocation notes."""
+
+    class Meta:
+        model = ProjectCostAllocation
+        fields = ["notes"]
+        widgets = {
+            "notes": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "class": "form-control",
+                    "placeholder": "Notes about this cost allocation...",
+                }
+            ),
+        }
+        labels = {
+            "notes": "Allocation Notes",
+        }
+
+
+class ProjectCostObjectForm(forms.ModelForm):
+    """Form for individual cost object entries."""
+
+    class Meta:
+        model = ProjectCostObject
+        fields = ["cost_object", "percentage"]
+        widgets = {
+            "cost_object": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "e.g., ABC-123-XYZ",
+                }
+            ),
+            "percentage": forms.NumberInput(
+                attrs={
+                    "class": "form-control",
+                    "min": "0",
+                    "max": "100",
+                    "step": "0.01",
+                    "placeholder": "0.00",
+                }
+            ),
+        }
+        labels = {
+            "cost_object": "Cost Object",
+            "percentage": "Percentage (%)",
+        }
+
+
+class BaseProjectCostObjectFormSet(forms.BaseInlineFormSet):
+    """Custom formset for cost objects with percentage validation."""
+
+    def clean(self):
+        """Validate that all percentages sum to 100%."""
+        super().clean()
+
+        if any(self.errors):
+            return
+
+        total = 0
+        valid_forms = 0
+
+        for form in self.forms:
+            if form.cleaned_data and not form.cleaned_data.get("DELETE", False):
+                percentage = form.cleaned_data.get("percentage", 0)
+                if percentage:
+                    total += percentage
+                    valid_forms += 1
+
+        # Only validate if there are cost objects
+        if valid_forms > 0 and total != 100:
+            raise ValidationError(
+                f"Cost object percentages must sum to 100%. "
+                f"Current total: {total}%"
+            )
+
+
+# Create the formset factory
+ProjectCostObjectFormSet = forms.inlineformset_factory(
+    ProjectCostAllocation,
+    ProjectCostObject,
+    form=ProjectCostObjectForm,
+    formset=BaseProjectCostObjectFormSet,
+    extra=1,
+    can_delete=True,
+    min_num=0,
+    validate_min=False,
+)

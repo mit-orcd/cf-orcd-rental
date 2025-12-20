@@ -5,6 +5,7 @@
 from datetime import datetime, time, timedelta
 
 from django.contrib.auth.models import User
+from django.core.validators import RegexValidator
 from django.db import models
 from model_utils.models import TimeStampedModel
 
@@ -409,3 +410,81 @@ class UserMaintenanceStatus(TimeStampedModel):
 
     def __str__(self):
         return f"{self.user.username}: {self.get_status_display()}"
+
+
+class ProjectCostAllocation(TimeStampedModel):
+    """Stores the overall cost allocation settings for a project.
+
+    Each project can have one cost allocation configuration, which includes
+    notes about the allocation and links to one or more cost objects.
+
+    Attributes:
+        project (Project): The project this cost allocation belongs to
+        notes (str): Notes about the cost allocation for this project
+    """
+
+    project = models.OneToOneField(
+        "project.Project",
+        on_delete=models.CASCADE,
+        related_name="cost_allocation",
+        help_text="The project this cost allocation belongs to",
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Notes about the cost allocation for this project",
+    )
+
+    class Meta:
+        verbose_name = "Project Cost Allocation"
+        verbose_name_plural = "Project Cost Allocations"
+
+    def __str__(self):
+        return f"Cost Allocation for {self.project.title}"
+
+    def total_percentage(self):
+        """Calculate the total percentage across all cost objects."""
+        return sum(co.percentage for co in self.cost_objects.all())
+
+
+class ProjectCostObject(TimeStampedModel):
+    """Stores individual cost objects with their percentage allocation.
+
+    Each cost object has a unique identifier and a percentage of the total
+    billing that should be allocated to it. All percentages for a project
+    should sum to 100%.
+
+    Attributes:
+        allocation (ProjectCostAllocation): The parent cost allocation
+        cost_object (str): Cost object identifier (alphanumeric and hyphens)
+        percentage (Decimal): Percentage of billing allocated to this cost object
+    """
+
+    allocation = models.ForeignKey(
+        ProjectCostAllocation,
+        on_delete=models.CASCADE,
+        related_name="cost_objects",
+        help_text="The cost allocation this cost object belongs to",
+    )
+    cost_object = models.CharField(
+        max_length=64,
+        help_text="Cost object identifier (alphanumeric characters and hyphens only)",
+        validators=[
+            RegexValidator(
+                regex=r'^[A-Za-z0-9-]+$',
+                message="Cost object must contain only letters, numbers, and hyphens",
+            )
+        ],
+    )
+    percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        help_text="Percentage of billing allocated to this cost object (0.00 - 100.00)",
+    )
+
+    class Meta:
+        verbose_name = "Project Cost Object"
+        verbose_name_plural = "Project Cost Objects"
+        ordering = ["-percentage", "cost_object"]
+
+    def __str__(self):
+        return f"{self.cost_object}: {self.percentage}%"

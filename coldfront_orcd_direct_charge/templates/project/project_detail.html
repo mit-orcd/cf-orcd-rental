@@ -153,6 +153,60 @@ Project Detail
 </div>
 <!-- End Project Members -->
 
+
+<!-- Start Cost Allocation -->
+<div class="card mb-3">
+  <div class="card-header">
+    <h3 class="d-inline" id="cost-allocation"><i class="fas fa-money-check-alt" aria-hidden="true"></i> Cost Allocation</h3>
+    <div class="float-right">
+      {% if project.status.name != 'Archived' and is_allowed_to_update_project %}
+        <a class="btn btn-info" href="{% url 'coldfront_orcd_direct_charge:project-cost-allocation' project.pk %}" role="button">
+          <i class="fas fa-edit" aria-hidden="true"></i> Manage Cost Allocation
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card-body">
+    {% if project.cost_allocation and project.cost_allocation.cost_objects.exists %}
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered">
+          <thead class="thead-light">
+            <tr>
+              <th>Cost Object</th>
+              <th>Percentage</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cost_obj in project.cost_allocation.cost_objects.all %}
+              <tr>
+                <td><code>{{ cost_obj.cost_object }}</code></td>
+                <td>{{ cost_obj.percentage }}%</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="table-secondary">
+            <tr>
+              <th>Total</th>
+              <th>{{ project.cost_allocation.total_percentage }}%</th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {% if project.cost_allocation.notes %}
+        <p class="text-muted mt-2"><strong>Notes:</strong> {{ project.cost_allocation.notes }}</p>
+      {% endif %}
+    {% else %}
+      <p class="text-muted mb-0">
+        <i class="fas fa-info-circle"></i> No cost objects configured for this project.
+        {% if is_allowed_to_update_project %}
+          <a href="{% url 'coldfront_orcd_direct_charge:project-cost-allocation' project.pk %}">Add cost objects</a>
+        {% endif %}
+      </p>
+    {% endif %}
+  </div>
+</div>
+<!-- End Cost Allocation -->
+
 <script>
   function getCookie(name) {
     var cookieValue = null;

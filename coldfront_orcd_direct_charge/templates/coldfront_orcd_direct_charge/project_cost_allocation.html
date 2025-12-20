@@ -1,0 +1,179 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}Cost Allocation - {{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h2><i class="fas fa-money-check-alt"></i> Cost Allocation</h2>
+  <p class="text-muted">Project: <strong>{{ project.title }}</strong></p>
+  <hr>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">
+    <h4 class="mb-0"><i class="fas fa-receipt"></i> Cost Objects</h4>
+  </div>
+  <div class="card-body">
+    <form method="post" id="costAllocationForm">
+      {% csrf_token %}
+
+      <!-- Notes Section -->
+      <div class="mb-4">
+        <h5>Allocation Notes</h5>
+        {{ form.notes }}
+        {% if form.notes.errors %}
+          <div class="text-danger">{{ form.notes.errors }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Cost Objects Section -->
+      <div class="mb-4">
+        <h5>Cost Objects</h5>
+        <p class="text-muted small">
+          Enter cost object identifiers (letters, numbers, and hyphens only) and the percentage of billing to allocate to each.
+          All percentages must sum to 100%.
+        </p>
+
+        {{ formset.management_form }}
+
+        {% if formset.non_form_errors %}
+          <div class="alert alert-danger">
+            {{ formset.non_form_errors }}
+          </div>
+        {% endif %}
+
+        <table class="table table-bordered" id="costObjectsTable">
+          <thead class="thead-light">
+            <tr>
+              <th style="width: 50%;">Cost Object</th>
+              <th style="width: 30%;">Percentage (%)</th>
+              <th style="width: 20%;">Delete</th>
+            </tr>
+          </thead>
+          <tbody id="costObjectsBody">
+            {% for cost_form in formset %}
+              <tr class="cost-object-row">
+                <td>
+                  {{ cost_form.id }}
+                  {{ cost_form.cost_object }}
+                  {% if cost_form.cost_object.errors %}
+                    <div class="text-danger small">{{ cost_form.cost_object.errors }}</div>
+                  {% endif %}
+                </td>
+                <td>
+                  {{ cost_form.percentage }}
+                  {% if cost_form.percentage.errors %}
+                    <div class="text-danger small">{{ cost_form.percentage.errors }}</div>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  {% if cost_form.instance.pk %}
+                    {{ cost_form.DELETE }}
+                  {% else %}
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove row">
+                      <i class="fas fa-times"></i>
+                    </button>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <button type="button" class="btn btn-outline-success" id="addCostObject">
+          <i class="fas fa-plus"></i> Add Cost Object
+        </button>
+
+        <div class="mt-3">
+          <strong>Total: <span id="percentageTotal">0</span>%</strong>
+          <span id="percentageStatus" class="ml-2"></span>
+        </div>
+      </div>
+
+      <hr>
+
+      <div class="mt-3">
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save"></i> Save Cost Allocation
+        </button>
+        <a href="{% url 'project-detail' project.pk %}" class="btn btn-secondary">
+          <i class="fas fa-times"></i> Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+$(document).ready(function() {
+  // Calculate and update percentage total
+  function updatePercentageTotal() {
+    var total = 0;
+    $('#costObjectsBody input[name$="-percentage"]').each(function() {
+      var val = parseFloat($(this).val()) || 0;
+      // Check if this row is marked for deletion
+      var deleteCheckbox = $(this).closest('tr').find('input[name$="-DELETE"]');
+      if (!deleteCheckbox.is(':checked')) {
+        total += val;
+      }
+    });
+    $('#percentageTotal').text(total.toFixed(2));
+
+    // Update status indicator
+    var status = $('#percentageStatus');
+    if (total === 100) {
+      status.html('<span class="badge badge-success">Valid</span>');
+    } else if (total === 0) {
+      status.html('<span class="badge badge-secondary">No cost objects</span>');
+    } else {
+      status.html('<span class="badge badge-danger">Must equal 100%</span>');
+    }
+  }
+
+  // Initial calculation
+  updatePercentageTotal();
+
+  // Update on any percentage change
+  $(document).on('input', 'input[name$="-percentage"]', updatePercentageTotal);
+  $(document).on('change', 'input[name$="-DELETE"]', updatePercentageTotal);
+
+  // Add new cost object row
+  $('#addCostObject').click(function() {
+    var totalForms = $('#id_cost_objects-TOTAL_FORMS');
+    var formIdx = parseInt(totalForms.val());
+
+    var newRow = `
+      <tr class="cost-object-row">
+        <td>
+          <input type="text" name="cost_objects-${formIdx}-cost_object" 
+                 class="form-control" placeholder="e.g., ABC-123-XYZ"
+                 maxlength="64">
+        </td>
+        <td>
+          <input type="number" name="cost_objects-${formIdx}-percentage" 
+                 class="form-control" placeholder="0.00"
+                 min="0" max="100" step="0.01">
+        </td>
+        <td class="text-center">
+          <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove row">
+            <i class="fas fa-times"></i>
+          </button>
+        </td>
+      </tr>
+    `;
+
+    $('#costObjectsBody').append(newRow);
+    totalForms.val(formIdx + 1);
+    updatePercentageTotal();
+  });
+
+  // Remove row (for new unsaved rows only)
+  $(document).on('click', '.remove-row', function() {
+    $(this).closest('tr').remove();
+    updatePercentageTotal();
+  });
+});
+</script>
+{% endblock %}
