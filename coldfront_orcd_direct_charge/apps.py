@@ -64,8 +64,8 @@ class OrcdDirectChargeConfig(AppConfig):
         if "AUTO_PI_ENABLE" not in settings.SETTINGS_EXPORT:
             settings.SETTINGS_EXPORT.append("AUTO_PI_ENABLE")
 
-        # AUTO_DEFAULT_PROJECT_ENABLE: When True, creates USERNAME_default_project for each user
-        # Each user gets a personal default project they own as PI.
+        # AUTO_DEFAULT_PROJECT_ENABLE: When True, creates USERNAME_personal and USERNAME_group projects for each user
+        # Each user gets personal and group projects they own as PI.
         # Requires user to be a PI (will auto-enable is_pi for project owners).
         # Precedence: local_settings.py > environment variable > default (False)
         if not hasattr(settings, "AUTO_DEFAULT_PROJECT_ENABLE"):
@@ -100,12 +100,14 @@ class OrcdDirectChargeConfig(AppConfig):
             # Update all UserProfiles where is_pi is False
             UserProfile.objects.filter(is_pi=False).update(is_pi=True)
 
-        # AUTO_DEFAULT_PROJECT_ENABLE: Create default project for each user
+        # AUTO_DEFAULT_PROJECT_ENABLE: Create personal and group projects for each user
         if settings.AUTO_DEFAULT_PROJECT_ENABLE:
             from coldfront_orcd_direct_charge.signals import (
                 create_default_project_for_user,
+                create_group_project_for_user,
             )
 
             for user in User.objects.all():
                 create_default_project_for_user(user)
+                create_group_project_for_user(user)
 
