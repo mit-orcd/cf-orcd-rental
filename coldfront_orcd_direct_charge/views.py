@@ -111,8 +111,15 @@ class RentingCalendarView(LoginRequiredMixin, TemplateView):
         cal = calendar.Calendar(firstweekday=6)  # Start on Sunday
         month_days = list(cal.itermonthdays(year, month))
         
-        # Get only the days that are in this month (filter out 0s)
-        days_in_month = [d for d in range(1, calendar.monthrange(year, month)[1] + 1)]
+        # Determine the first day to show in the calendar
+        if year == today.year and month == today.month:
+            # For current month, start from today
+            first_day = today.day
+        else:
+            # For future months, show all days
+            first_day = 1
+
+        days_in_month = [d for d in range(first_day, calendar.monthrange(year, month)[1] + 1)]
 
         # Get approved reservations for this month
         month_start = date(year, month, 1)
