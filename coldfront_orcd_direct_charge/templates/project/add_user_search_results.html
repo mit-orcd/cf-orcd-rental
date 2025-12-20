@@ -41,10 +41,10 @@
             <tr>
               <td>{{ form.selected }}</td>
               <td>{{ forloop.counter }}</td>
-              <td>{{ form.username.value }}{{ form.username }}</td>
-              <td>{{ form.first_name.value }}{{ form.first_name }}</td>
-              <td>{{ form.last_name.value }}{{ form.last_name }}</td>
-              <td>{{ form.email.value }}{{ form.email }}</td>
+              <td>{{ form.username.value }}<input type="hidden" name="{{ form.username.html_name }}" value="{{ form.username.value }}"></td>
+              <td>{{ form.first_name.value }}</td>
+              <td>{{ form.last_name.value }}</td>
+              <td>{{ form.email.value }}</td>
               <td>{{ form.role }}</td>
             </tr>
           {% endfor %}
