@@ -854,3 +854,203 @@ class RemoveMemberView(LoginRequiredMixin, View):
 
         messages.success(request, f"Removed {target_user.username} from the project.")
         return redirect("coldfront_orcd_direct_charge:project-members", pk=project.pk)
+
+
+# =============================================================================
+# Add Users Search Results Views (Override ColdFront's add-users flow)
+# =============================================================================
+
+from django.forms import formset_factory
+from django.shortcuts import render
+from django.http import HttpResponseRedirect
+from django.urls import reverse
+
+from coldfront.core.user.utils import CombinedUserSearch
+
+from coldfront_orcd_direct_charge.forms import ProjectAddUserWithRoleForm
+
+
+class ProjectAddUsersSearchResultsView(LoginRequiredMixin, TemplateView):
+    """Override ColdFront's view to use ORCD roles and remove allocations."""
+
+    template_name = "project/add_user_search_results.html"
+
+    def test_func(self):
+        """Check user can add members to this project."""
+        if self.request.user.is_superuser:
+            return True
+
+        project_obj = get_object_or_404(
+            __import__("coldfront.core.project.models", fromlist=["Project"]).Project,
+            pk=self.kwargs.get("pk")
+        )
+
+        if project_obj.pi == self.request.user:
+            return True
+
+        # Check ORCD roles - owner, financial admin, or technical admin can add members
+        if can_manage_members(self.request.user, project_obj):
+            return True
+
+        return False
+
+    def dispatch(self, request, *args, **kwargs):
+        from coldfront.core.project.models import Project
+
+        project_obj = get_object_or_404(Project, pk=self.kwargs.get("pk"))
+        if project_obj.status.name not in ["Active", "New"]:
+            messages.error(request, "You cannot add members to an archived project.")
+            return HttpResponseRedirect(reverse("project-detail", kwargs={"pk": project_obj.pk}))
+
+        if not can_manage_members(request.user, project_obj):
+            messages.error(request, "You do not have permission to add members to this project.")
+            return HttpResponseRedirect(reverse("project-detail", kwargs={"pk": project_obj.pk}))
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        from coldfront.core.project.models import Project
+
+        user_search_string = request.POST.get("q")
+        search_by = request.POST.get("search_by")
+        pk = self.kwargs.get("pk")
+
+        project_obj = get_object_or_404(Project, pk=pk)
+
+        # Get users already in project (either as owner or via ProjectMemberRole)
+        users_to_exclude = [project_obj.pi.username]
+        users_to_exclude.extend([
+            mr.user.username for mr in ProjectMemberRole.objects.filter(project=project_obj)
+        ])
+
+        combined_user_search_obj = CombinedUserSearch(user_search_string, search_by, users_to_exclude)
+        context = combined_user_search_obj.search()
+
+        matches = context.get("matches")
+        # Set default role to Member for all matches
+        for match in matches:
+            match.update({"role": ProjectMemberRole.RoleChoices.MEMBER})
+
+        if matches:
+            formset = formset_factory(ProjectAddUserWithRoleForm, max_num=len(matches))
+            formset = formset(initial=matches, prefix="userform")
+            context["formset"] = formset
+            context["user_search_string"] = user_search_string
+            context["search_by"] = search_by
+
+        if len(user_search_string.split()) > 1:
+            users_already_in_project = []
+            for ele in user_search_string.split():
+                if ele in users_to_exclude:
+                    users_already_in_project.append(ele)
+            context["users_already_in_project"] = users_already_in_project
+
+        context["pk"] = pk
+        return render(request, self.template_name, context)
+
+
+class ProjectAddUsersView(LoginRequiredMixin, View):
+    """Handle form submission to add users with ORCD roles."""
+
+    def dispatch(self, request, *args, **kwargs):
+        from coldfront.core.project.models import Project
+
+        project_obj = get_object_or_404(Project, pk=self.kwargs.get("pk"))
+
+        if not can_manage_members(request.user, project_obj):
+            messages.error(request, "You do not have permission to add members to this project.")
+            return HttpResponseRedirect(reverse("project-detail", kwargs={"pk": project_obj.pk}))
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        from coldfront.core.project.models import (
+            Project,
+            ProjectUser,
+            ProjectUserRoleChoice,
+            ProjectUserStatusChoice,
+        )
+
+        pk = self.kwargs.get("pk")
+        project_obj = get_object_or_404(Project, pk=pk)
+
+        # Parse the formset data
+        formset_data = {}
+        for key, value in request.POST.items():
+            if key.startswith("userform-"):
+                parts = key.split("-")
+                if len(parts) >= 3:
+                    index = int(parts[1])
+                    field = parts[2]
+                    if index not in formset_data:
+                        formset_data[index] = {}
+                    formset_data[index][field] = value
+
+        added_count = 0
+        for index, data in formset_data.items():
+            # Check if this user was selected
+            if data.get("selected") != "on":
+                continue
+
+            username = data.get("username")
+            role = data.get("role")
+
+            if not username or not role:
+                continue
+
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                messages.warning(request, f"User '{username}' not found.")
+                continue
+
+            # Skip if user is project owner
+            if project_obj.pi == user:
+                messages.warning(request, f"'{username}' is the project owner.")
+                continue
+
+            # Skip if user already has a role
+            if ProjectMemberRole.objects.filter(project=project_obj, user=user).exists():
+                messages.warning(request, f"'{username}' already has a role in this project.")
+                continue
+
+            # Check permission to add financial admins
+            if role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
+                if not can_manage_financial_admins(request.user, project_obj):
+                    messages.warning(request, f"You don't have permission to add '{username}' as Financial Admin.")
+                    continue
+
+            logger.info(
+                "Adding member to project via search: user=%s, project=%s, role=%s, added_by=%s",
+                username, project_obj.title, role, request.user.username
+            )
+
+            # Create ProjectMemberRole
+            ProjectMemberRole.objects.create(
+                project=project_obj,
+                user=user,
+                role=role,
+            )
+
+            # Also create ColdFront ProjectUser for compatibility
+            cf_role_name = "Manager" if role in [
+                ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN,
+                ProjectMemberRole.RoleChoices.TECHNICAL_ADMIN,
+            ] else "User"
+
+            if not ProjectUser.objects.filter(project=project_obj, user=user).exists():
+                ProjectUser.objects.create(
+                    project=project_obj,
+                    user=user,
+                    role=ProjectUserRoleChoice.objects.get(name=cf_role_name),
+                    status=ProjectUserStatusChoice.objects.get(name="Active"),
+                )
+
+            added_count += 1
+
+        if added_count > 0:
+            messages.success(request, f"Added {added_count} member(s) to the project.")
+        else:
+            messages.info(request, "No members were added.")
+
+        return redirect("coldfront_orcd_direct_charge:project-members", pk=pk)

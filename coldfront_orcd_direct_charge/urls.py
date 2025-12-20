@@ -28,6 +28,9 @@ urlpatterns = [
     path("project/<int:pk>/members/add/", views.AddMemberView.as_view(), name="add-member"),
     path("project/<int:pk>/members/<int:user_pk>/update/", views.UpdateMemberRoleView.as_view(), name="update-member-role"),
     path("project/<int:pk>/members/<int:user_pk>/remove/", views.RemoveMemberView.as_view(), name="remove-member"),
+    # Project add users search (override ColdFront's flow)
+    path("project/<int:pk>/add-users-search-results/", views.ProjectAddUsersSearchResultsView.as_view(), name="project-add-users-search-results"),
+    path("project/<int:pk>/add-users/", views.ProjectAddUsersView.as_view(), name="project-add-users"),
     # API
     path("api/", include("coldfront_orcd_direct_charge.api.urls")),
 ]

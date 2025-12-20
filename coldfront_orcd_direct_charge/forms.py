@@ -352,3 +352,26 @@ class UpdateMemberRoleForm(forms.Form):
         # Set initial value if provided
         if current_role:
             self.fields["role"].initial = current_role
+
+
+class ProjectAddUserWithRoleForm(forms.Form):
+    """Form for adding a user from search results with ORCD role selection.
+    
+    This replaces ColdFront's ProjectAddUserForm to use ORCD roles instead
+    of the core ProjectUserRoleChoice model.
+    """
+    username = forms.CharField(max_length=150, disabled=True)
+    first_name = forms.CharField(max_length=150, required=False, disabled=True)
+    last_name = forms.CharField(max_length=150, required=False, disabled=True)
+    email = forms.EmailField(max_length=100, required=False, disabled=True)
+    source = forms.CharField(max_length=16, disabled=True)
+    role = forms.ChoiceField(
+        choices=[
+            (ProjectMemberRole.RoleChoices.MEMBER, "Member"),
+            (ProjectMemberRole.RoleChoices.TECHNICAL_ADMIN, "Technical Admin"),
+            (ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN, "Financial Admin"),
+        ],
+        initial=ProjectMemberRole.RoleChoices.MEMBER,
+        widget=forms.Select(attrs={"class": "form-control form-control-sm"}),
+    )
+    selected = forms.BooleanField(initial=False, required=False)
