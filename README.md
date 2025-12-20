@@ -9,6 +9,12 @@ A ColdFront plugin providing ORCD-specific customizations for direct charge reso
 - Optionally hides "Allocations" section from the home page
 - Adds "Node Instances" and "Manage Rentals" links to navigation
 
+### User Auto-Configuration (Optional)
+- **Auto-PI**: Automatically set all users as PIs (`is_pi=True`)
+- **Auto Default Project**: Create `USERNAME_default_project` for each user
+- Configured via environment variables or `local_settings.py`
+- Changes are irreversible (persist when features are disabled)
+
 ### Node Instance Management
 - **GPU Node Instances**: Track H200x8, L40Sx4, and other GPU node types
 - **CPU Node Instances**: Track CPU_384G, CPU_1500G, and other CPU node types
@@ -340,10 +346,61 @@ class ReservationMetadataEntry(TimeStampedModel):
 
 ## Plugin Settings
 
+### UI Settings
+
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `CENTER_SUMMARY_ENABLE` | `False` | When `False`, hides the Center Summary link from navigation |
 | `HOME_PAGE_ALLOCATIONS_ENABLE` | `True` | When `False`, hides the Allocations section from home page |
+
+### Auto-Configuration Features
+
+These optional features automatically configure user accounts. **Changes are IRREVERSIBLE** - once applied, accounts keep their settings even if the feature is disabled.
+
+| Setting | Env Variable | Default | Description |
+|---------|--------------|---------|-------------|
+| `AUTO_PI_ENABLE` | `AUTO_PI_ENABLE` | `False` | Set `is_pi=True` for all users |
+| `AUTO_DEFAULT_PROJECT_ENABLE` | `AUTO_DEFAULT_PROJECT_ENABLE` | `False` | Create `USERNAME_default_project` for each user |
+
+**Precedence**: `local_settings.py` > Environment Variable > Default
+
+#### Option 1: Environment Variables (Recommended)
+
+No code changes needed - just set environment variables before starting ColdFront:
+
+```bash
+export AUTO_PI_ENABLE=true
+export AUTO_DEFAULT_PROJECT_ENABLE=true
+coldfront runserver
+```
+
+#### Option 2: local_settings.py
+
+Add to your `local_settings.py`:
+
+```python
+# ORCD Auto-Configuration Features (IRREVERSIBLE once applied)
+AUTO_PI_ENABLE = True              # Set all users as PIs
+AUTO_DEFAULT_PROJECT_ENABLE = True  # Create USERNAME_default_project for each user
+```
+
+#### Behavior
+
+**When AUTO_PI_ENABLE is True:**
+- All existing users have `is_pi` set to `True` on app startup
+- All new users automatically get `is_pi=True` via signal
+- Users can create projects without manual PI approval
+
+**When AUTO_DEFAULT_PROJECT_ENABLE is True:**
+- All existing users get a `USERNAME_default_project` on app startup
+- All new users automatically get the project via signal
+- User is set as PI (required to own a project)
+- User is added as Manager on their project with Active status
+
+**Irreversibility:**
+- Turning off features does NOT revert changes
+- Users keep their `is_pi=True` status
+- Projects remain in the system
 
 ---
 
@@ -451,7 +508,8 @@ Assign via Django admin or using the `setup_rental_manager` command.
 ```
 coldfront_orcd_direct_charge/
 ├── __init__.py
-├── apps.py                     # AppConfig, template injection, settings
+├── apps.py                     # AppConfig, template injection, settings, auto-config
+├── signals.py                  # Signal handlers for user auto-configuration
 ├── models.py                   # Data models
 ├── admin.py                    # Django admin registration
 ├── forms.py                    # Form classes
