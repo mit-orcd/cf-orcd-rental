@@ -367,13 +367,14 @@ class UserMaintenanceStatus(TimeStampedModel):
     """Tracks the account maintenance status for each user.
 
     Each user has an associated maintenance status that can be one of:
-    - inactive: Default status for new accounts
-    - basic: Basic maintenance level
-    - advanced: Advanced maintenance level
+    - inactive: Default status for new accounts (no billing project required)
+    - basic: Basic maintenance level (requires billing project)
+    - advanced: Advanced maintenance level (requires billing project)
 
     Attributes:
         user (User): The Django user this status belongs to
         status (str): The current maintenance status
+        billing_project (Project): Project to charge maintenance fees to (required for basic/advanced)
     """
 
     class StatusChoices(models.TextChoices):
@@ -392,6 +393,14 @@ class UserMaintenanceStatus(TimeStampedModel):
         choices=StatusChoices.choices,
         default=StatusChoices.INACTIVE,
         help_text="Current account maintenance status",
+    )
+    billing_project = models.ForeignKey(
+        "project.Project",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="maintenance_fee_users",
+        help_text="Project to which maintenance fees are charged (required for basic/advanced)",
     )
 
     class Meta:

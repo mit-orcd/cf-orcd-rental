@@ -60,7 +60,7 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
               <td>
                 <span id="maintenance-status-display">
                   {% if viewed_user.maintenance_status %}
-                    {{ viewed_user.maintenance_status.get_status_display }}
+                    {{ viewed_user.maintenance_status.get_status_display }}{% if viewed_user.maintenance_status.billing_project %} (charged to: {{ viewed_user.maintenance_status.billing_project.title }}){% endif %}
                   {% else %}
                     Inactive
                   {% endif %}
@@ -101,10 +101,22 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
           <div class="form-group">
             <label for="maintenanceStatusSelect">Account Maintenance Fee Status</label>
             <select class="form-control" id="maintenanceStatusSelect" name="status">
-              <option value="inactive" {% if viewed_user.maintenance_status.status == 'inactive' %}selected{% endif %}>Inactive</option>
+              <option value="inactive" {% if viewed_user.maintenance_status.status == 'inactive' or not viewed_user.maintenance_status %}selected{% endif %}>Inactive</option>
               <option value="basic" {% if viewed_user.maintenance_status.status == 'basic' %}selected{% endif %}>Basic</option>
               <option value="advanced" {% if viewed_user.maintenance_status.status == 'advanced' %}selected{% endif %}>Advanced</option>
             </select>
+          </div>
+          <div class="form-group" id="billingProjectGroup" style="display: none;">
+            <label for="billingProjectSelect">Billing Project <span class="text-danger">*</span></label>
+            <select class="form-control" id="billingProjectSelect" name="project_id">
+              <option value="">-- Select a project --</option>
+              {% for pu in user.projectuser_set.all %}
+                {% if pu.status.name == 'Active' %}
+                  <option value="{{ pu.project.pk }}" {% if viewed_user.maintenance_status.billing_project.pk == pu.project.pk %}selected{% endif %}>{{ pu.project.title }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            <small class="form-text text-muted">Maintenance fees will be charged to this project.</small>
           </div>
         </form>
         <div id="maintenanceStatusAlert" class="alert" style="display: none;"></div>
@@ -124,9 +136,43 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
   $("#navbar-user-user-profile").addClass("active");
 
   {% if user == viewed_user %}
-  // Handle maintenance status form submission
   $(document).ready(function() {
+    // Function to toggle billing project visibility
+    function toggleBillingProject() {
+      var status = $("#maintenanceStatusSelect").val();
+      if (status === "inactive") {
+        $("#billingProjectGroup").hide();
+        $("#billingProjectSelect").val("");  // Clear selection
+      } else {
+        $("#billingProjectGroup").show();
+      }
+    }
+
+    // Initial toggle on page load
+    toggleBillingProject();
+
+    // Toggle on status change
+    $("#maintenanceStatusSelect").change(function() {
+      toggleBillingProject();
+      // Hide any previous alerts when changing status
+      $("#maintenanceStatusAlert").hide();
+    });
+
+    // Handle form submission
     $("#saveMaintenanceStatus").click(function() {
+      var status = $("#maintenanceStatusSelect").val();
+      var projectId = $("#billingProjectSelect").val();
+
+      // Client-side validation for project selection
+      if (status !== "inactive" && !projectId) {
+        $("#maintenanceStatusAlert")
+          .removeClass("alert-success")
+          .addClass("alert-danger")
+          .text("Please select a project for fee billing")
+          .show();
+        return;
+      }
+
       var formData = $("#maintenanceStatusForm").serialize();
       
       $.ajax({
@@ -139,12 +185,8 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
             $("#maintenance-status-display").text(response.display);
             // Close the modal
             $("#maintenanceStatusModal").modal("hide");
-            // Show success message (optional - using alert div)
-            $("#maintenanceStatusAlert")
-              .removeClass("alert-danger")
-              .addClass("alert-success")
-              .text("Status updated successfully!")
-              .show();
+            // Reset alert
+            $("#maintenanceStatusAlert").hide();
           } else {
             $("#maintenanceStatusAlert")
               .removeClass("alert-success")
@@ -167,9 +209,10 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
       });
     });
 
-    // Reset alert when modal is opened
+    // Reset alert and toggle on modal open
     $("#maintenanceStatusModal").on("show.bs.modal", function() {
       $("#maintenanceStatusAlert").hide();
+      toggleBillingProject();
     });
   });
   {% endif %}

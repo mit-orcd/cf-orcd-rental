@@ -9,13 +9,18 @@ When AUTO_PI_ENABLE is True, new users automatically get is_pi=True.
 When AUTO_DEFAULT_PROJECT_ENABLE is True, new users get USERNAME_personal and USERNAME_group projects.
 New users always get a UserMaintenanceStatus record with 'inactive' default.
 
+When a user is removed from a project that is their billing project for maintenance fees,
+their maintenance status is automatically reset to 'inactive'.
+
 These features are IRREVERSIBLE - once applied, changes persist even if features are disabled.
 """
 
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.conf import settings
+
+from coldfront.core.project.models import ProjectUser
 
 
 @receiver(post_save, sender=User)
@@ -139,3 +144,47 @@ def create_group_project_for_user(user):
         role=ProjectUserRoleChoice.objects.get(name="Manager"),
         status=ProjectUserStatusChoice.objects.get(name="Active"),
     )
+
+
+# =============================================================================
+# Project Membership Change Handlers
+# Reset maintenance status when user loses access to their billing project
+# =============================================================================
+
+
+@receiver(post_save, sender=ProjectUser)
+def check_maintenance_status_on_project_user_change(sender, instance, **kwargs):
+    """Reset maintenance status if user's billing project membership becomes inactive."""
+    # Only act if status is not Active
+    if instance.status.name == "Active":
+        return
+
+    reset_maintenance_if_billing_project(instance.user, instance.project)
+
+
+@receiver(post_delete, sender=ProjectUser)
+def check_maintenance_status_on_project_user_delete(sender, instance, **kwargs):
+    """Reset maintenance status if user is deleted from their billing project."""
+    reset_maintenance_if_billing_project(instance.user, instance.project)
+
+
+def reset_maintenance_if_billing_project(user, project):
+    """
+    Reset user's maintenance status to inactive if project is their billing project.
+
+    Called when a user is removed from a project (either by deletion or status change).
+    If the project was being used as their billing project for maintenance fees,
+    their status is reset to 'inactive' and the billing project is cleared.
+    """
+    from coldfront_orcd_direct_charge.models import UserMaintenanceStatus
+
+    try:
+        maintenance_status = UserMaintenanceStatus.objects.get(
+            user=user,
+            billing_project=project,
+        )
+        maintenance_status.status = UserMaintenanceStatus.StatusChoices.INACTIVE
+        maintenance_status.billing_project = None
+        maintenance_status.save()
+    except UserMaintenanceStatus.DoesNotExist:
+        pass  # No matching maintenance status, nothing to reset

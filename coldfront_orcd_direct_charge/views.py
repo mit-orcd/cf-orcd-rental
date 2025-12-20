@@ -398,7 +398,10 @@ class ReservationMetadataView(LoginRequiredMixin, PermissionRequiredMixin, View)
 @require_POST
 def update_maintenance_status(request):
     """Update the current user's account maintenance status via AJAX."""
+    from coldfront.core.project.models import Project
+
     new_status = request.POST.get("status")
+    project_id = request.POST.get("project_id")
 
     # Validate the status value
     valid_statuses = [choice[0] for choice in UserMaintenanceStatus.StatusChoices.choices]
@@ -408,21 +411,48 @@ def update_maintenance_status(request):
             status=400,
         )
 
+    # For basic/advanced, require a billing project
+    billing_project = None
+    if new_status != UserMaintenanceStatus.StatusChoices.INACTIVE:
+        if not project_id:
+            return JsonResponse(
+                {"success": False, "error": "Please select a project for fee billing"},
+                status=400,
+            )
+
+        # Validate that project exists and user is an active member
+        try:
+            billing_project = Project.objects.get(
+                pk=project_id,
+                projectuser__user=request.user,
+                projectuser__status__name="Active",
+            )
+        except Project.DoesNotExist:
+            return JsonResponse(
+                {"success": False, "error": "Invalid project or you are not an active member"},
+                status=400,
+            )
+
     # Get or create the user's maintenance status
     maintenance_status, _ = UserMaintenanceStatus.objects.get_or_create(
         user=request.user,
         defaults={"status": UserMaintenanceStatus.StatusChoices.INACTIVE},
     )
 
-    # Update the status
+    # Update the status and billing project
     maintenance_status.status = new_status
+    maintenance_status.billing_project = billing_project
     maintenance_status.save()
 
-    # Get the display value for the new status
+    # Build the display value
     display_value = maintenance_status.get_status_display()
+    if billing_project:
+        display_value = f"{display_value} (charged to: {billing_project.title})"
 
     return JsonResponse({
         "success": True,
         "status": new_status,
         "display": display_value,
+        "project_id": billing_project.pk if billing_project else None,
+        "project_title": billing_project.title if billing_project else None,
     })
