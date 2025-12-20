@@ -15,12 +15,16 @@ their maintenance status is automatically reset to 'inactive'.
 These features are IRREVERSIBLE - once applied, changes persist even if features are disabled.
 """
 
+import logging
+
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.conf import settings
 
 from coldfront.core.project.models import ProjectUser
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=User)
@@ -191,6 +195,11 @@ def reset_maintenance_if_billing_project(user, project):
 
         # Check if user can still use this project for maintenance fees
         if not can_use_for_maintenance_fee(user, project):
+            logger.info(
+                "Resetting maintenance status: user=%s lost eligibility for project=%s, "
+                "status reset to inactive",
+                user.username, project.title
+            )
             maintenance_status.status = UserMaintenanceStatus.StatusChoices.INACTIVE
             maintenance_status.billing_project = None
             maintenance_status.save()
@@ -223,9 +232,17 @@ def check_maintenance_on_role_change(sender, instance, **kwargs):
 
     # If user is now a financial admin, they can't use this project for maintenance fees
     if instance.role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
+        logger.debug(
+            "Member role changed to financial_admin: user=%s, project=%s, checking maintenance status",
+            instance.user.username, instance.project.title
+        )
         reset_maintenance_if_billing_project(instance.user, instance.project)
 
 
 def check_maintenance_on_role_delete(sender, instance, **kwargs):
     """Reset maintenance status if user is removed from project."""
+    logger.debug(
+        "Member role deleted: user=%s, project=%s, checking maintenance status",
+        instance.user.username, instance.project.title
+    )
     reset_maintenance_if_billing_project(instance.user, instance.project)

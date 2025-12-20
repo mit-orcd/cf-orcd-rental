@@ -3,7 +3,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import calendar
+import logging
 from datetime import date, datetime, time, timedelta
+
+logger = logging.getLogger(__name__)
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
@@ -651,6 +654,11 @@ class AddMemberView(LoginRequiredMixin, TemplateView):
 
             user = User.objects.get(username=username)
 
+            logger.info(
+                "Adding member to project: user=%s, project=%s, role=%s, added_by=%s",
+                username, self.project.title, role, request.user.username
+            )
+
             # Check role permission: only owner/financial admin can add financial admins
             if role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
                 if not can_manage_financial_admins(request.user, self.project):
@@ -765,6 +773,12 @@ class UpdateMemberRoleView(LoginRequiredMixin, TemplateView):
                     messages.error(request, "You do not have permission to set financial admin role.")
                     return self.render_to_response(context)
 
+            old_role = self.member_role.role
+            logger.info(
+                "Updating member role: user=%s, project=%s, old_role=%s, new_role=%s, updated_by=%s",
+                self.target_user.username, self.project.title, old_role, new_role, request.user.username
+            )
+
             # Update the role
             self.member_role.role = new_role
             self.member_role.save()
@@ -826,6 +840,11 @@ class RemoveMemberView(LoginRequiredMixin, View):
             if member_role.role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
                 messages.error(request, "You do not have permission to remove a financial admin.")
                 return redirect("coldfront_orcd_direct_charge:project-members", pk=project.pk)
+
+        logger.info(
+            "Removing member from project: user=%s, project=%s, role=%s, removed_by=%s",
+            target_user.username, project.title, member_role.role, request.user.username
+        )
 
         # Remove the member role
         member_role.delete()

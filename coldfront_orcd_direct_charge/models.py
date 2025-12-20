@@ -2,12 +2,15 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+import logging
 from datetime import datetime, time, timedelta
 
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 from django.db import models
 from model_utils.models import TimeStampedModel
+
+logger = logging.getLogger(__name__)
 
 
 class NodeType(TimeStampedModel):
