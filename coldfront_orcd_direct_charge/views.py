@@ -568,35 +568,58 @@ class ProjectMembersView(LoginRequiredMixin, TemplateView):
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
+        from collections import OrderedDict
+
         context = super().get_context_data(**kwargs)
         context["project"] = self.project
+
+        # Role display names and badge classes
+        ROLE_DISPLAY = {
+            "owner": ("Owner", "badge-primary"),
+            "financial_admin": ("Financial Admin", "badge-warning"),
+            "technical_admin": ("Technical Admin", "badge-info"),
+            "member": ("Member", "badge-secondary"),
+        }
 
         # Get all member roles for this project
         member_roles = ProjectMemberRole.objects.filter(
             project=self.project
-        ).select_related("user").order_by("role", "user__username")
+        ).select_related("user").order_by("user__username", "role")
 
-        # Build list of members with their roles
-        members = []
+        # Build dict of members grouped by user
+        members_dict = OrderedDict()
 
         # Add owner first
-        members.append({
-            "user": self.project.pi,
-            "role": "owner",
-            "role_display": "Owner",
+        owner = self.project.pi
+        members_dict[owner.pk] = {
+            "user": owner,
+            "roles": ["owner"],
+            "roles_display": [{"name": "Owner", "badge_class": "badge-primary"}],
             "is_owner": True,
-        })
+        }
 
-        # Add other members
+        # Add other members, grouping roles by user
         for mr in member_roles:
-            members.append({
-                "user": mr.user,
-                "role": mr.role,
-                "role_display": mr.get_role_display(),
-                "is_owner": False,
-            })
+            user_pk = mr.user.pk
+            role_info = ROLE_DISPLAY.get(mr.role, (mr.get_role_display(), "badge-secondary"))
 
-        context["members"] = members
+            if user_pk in members_dict:
+                # User already exists (e.g., owner with additional roles)
+                members_dict[user_pk]["roles"].append(mr.role)
+                members_dict[user_pk]["roles_display"].append({
+                    "name": role_info[0],
+                    "badge_class": role_info[1],
+                })
+            else:
+                # New user
+                members_dict[user_pk] = {
+                    "user": mr.user,
+                    "roles": [mr.role],
+                    "roles_display": [{"name": role_info[0], "badge_class": role_info[1]}],
+                    "is_owner": False,
+                }
+
+        context["members"] = list(members_dict.values())
         context["can_manage_members"] = can_manage_members(self.request.user, self.project)
         context["can_manage_financial_admins"] = can_manage_financial_admins(self.request.user, self.project)
         context["current_user_role"] = get_user_project_role(self.request.user, self.project)
