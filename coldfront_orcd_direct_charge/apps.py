@@ -60,6 +60,10 @@ class OrcdDirectChargeConfig(AppConfig):
                 os.environ.get("AUTO_PI_ENABLE", "").lower() == "true"
             )
 
+        # Export AUTO_PI_ENABLE to templates (used to hide PI Status when always True)
+        if "AUTO_PI_ENABLE" not in settings.SETTINGS_EXPORT:
+            settings.SETTINGS_EXPORT.append("AUTO_PI_ENABLE")
+
         # AUTO_DEFAULT_PROJECT_ENABLE: When True, creates USERNAME_default_project for each user
         # Each user gets a personal default project they own as PI.
         # Requires user to be a PI (will auto-enable is_pi for project owners).
