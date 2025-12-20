@@ -2,13 +2,18 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Template tags for project member roles."""
+"""Template tags for project member roles.
+
+Supports multi-role: users can have multiple roles (e.g., Financial Admin AND Technical Admin).
+"""
+
+from collections import OrderedDict
 
 from django import template
 
 from coldfront_orcd_direct_charge.models import (
     ProjectMemberRole,
-    get_user_project_role,
+    get_user_project_roles,
     can_edit_cost_allocation,
     can_manage_members,
     can_manage_financial_admins,
@@ -16,13 +21,26 @@ from coldfront_orcd_direct_charge.models import (
 
 register = template.Library()
 
+# Role display names and badge classes
+ROLE_DISPLAY = {
+    "owner": ("Owner", "badge-primary"),
+    "financial_admin": ("Financial Admin", "badge-warning"),
+    "technical_admin": ("Technical Admin", "badge-info"),
+    "member": ("Member", "badge-secondary"),
+}
+
 
 @register.simple_tag
 def get_project_members(project):
     """Get all members of a project with their ORCD roles.
 
-    Returns a list of dictionaries with 'user', 'role', and 'role_display' keys.
-    The owner is included first, followed by other members sorted by role.
+    Users can have multiple roles. Returns a list of dictionaries with:
+    - 'user': the User object
+    - 'roles': list of role strings (e.g., ["owner", "financial_admin"])
+    - 'roles_display': list of dicts with 'name' and 'badge_class' for each role
+    - 'is_owner': True if user is the project owner
+
+    The owner is included first, followed by other members sorted by username.
 
     Args:
         project: The ColdFront Project object
@@ -30,57 +48,77 @@ def get_project_members(project):
     Returns:
         List of member dictionaries
     """
-    members = []
+    # Use OrderedDict to group roles by user while maintaining order
+    members_dict = OrderedDict()
 
-    # Add owner first
-    members.append({
-        "user": project.pi,
-        "role": "owner",
-        "role_display": "Owner",
+    # Add owner first (with owner role)
+    owner = project.pi
+    members_dict[owner.pk] = {
+        "user": owner,
+        "roles": ["owner"],
+        "roles_display": [{"name": "Owner", "badge_class": "badge-primary"}],
         "is_owner": True,
-    })
+    }
 
-    # Add other members
+    # Get all role assignments for this project
     member_roles = ProjectMemberRole.objects.filter(
         project=project
-    ).select_related("user").order_by("role", "user__username")
+    ).select_related("user").order_by("user__username", "role")
 
     for mr in member_roles:
-        members.append({
-            "user": mr.user,
-            "role": mr.role,
-            "role_display": mr.get_role_display(),
-            "is_owner": False,
-        })
+        user_pk = mr.user.pk
+        role_info = ROLE_DISPLAY.get(mr.role, (mr.get_role_display(), "badge-secondary"))
 
-    return members
+        if user_pk in members_dict:
+            # User already exists (e.g., owner with additional roles)
+            members_dict[user_pk]["roles"].append(mr.role)
+            members_dict[user_pk]["roles_display"].append({
+                "name": role_info[0],
+                "badge_class": role_info[1],
+            })
+        else:
+            # New user
+            members_dict[user_pk] = {
+                "user": mr.user,
+                "roles": [mr.role],
+                "roles_display": [{"name": role_info[0], "badge_class": role_info[1]}],
+                "is_owner": False,
+            }
+
+    return list(members_dict.values())
 
 
 @register.simple_tag
 def get_project_member_count(project):
-    """Get the total count of project members including owner.
+    """Get the total count of unique project members including owner.
 
     Args:
         project: The ColdFront Project object
 
     Returns:
-        Integer count of members
+        Integer count of unique members
     """
-    return ProjectMemberRole.objects.filter(project=project).count() + 1  # +1 for owner
+    # Count unique users with roles
+    unique_users = set(
+        ProjectMemberRole.objects.filter(project=project).values_list("user_id", flat=True)
+    )
+    # Add owner if not already counted
+    unique_users.add(project.pi_id)
+    return len(unique_users)
 
 
 @register.simple_tag
-def user_project_role(user, project):
-    """Get the user's role in a project.
+def user_project_roles(user, project):
+    """Get all of the user's roles in a project.
 
     Args:
         user: The Django User object
         project: The ColdFront Project object
 
     Returns:
-        String role name or None
+        List of role strings, e.g., ["owner", "financial_admin"]
     """
-    return get_user_project_role(user, project)
+    return get_user_project_roles(user, project)
 
 
 @register.simple_tag
@@ -109,3 +147,17 @@ def user_can_manage_members(user, project):
         Boolean
     """
     return can_manage_members(user, project)
+
+
+@register.simple_tag
+def user_can_manage_financial_admins(user, project):
+    """Check if user can manage financial admins for a project.
+
+    Args:
+        user: The Django User object
+        project: The ColdFront Project object
+
+    Returns:
+        Boolean
+    """
+    return can_manage_financial_admins(user, project)

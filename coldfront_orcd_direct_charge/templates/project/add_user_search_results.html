@@ -33,7 +33,7 @@
             <th scope="col">First Name</th>
             <th scope="col">Last Name</th>
             <th scope="col">Email</th>
-            <th scope="col">Role <a href="#" data-toggle="popover" title="Role" data-trigger="hover" data-content="Financial Admin: Manages billing, NOT in reservations. Technical Admin: Manages members, included in reservations. Member: Included in reservations."><i class="fas fa-info-circle" aria-hidden="true"></i></a></th>
+            <th scope="col">Roles <a href="#" data-toggle="popover" title="Roles" data-trigger="hover" data-content="Users can have multiple roles. Financial Admin: Manages billing, NOT in reservations. Technical Admin: Manages members, included in reservations. Member: Included in reservations."><i class="fas fa-info-circle" aria-hidden="true"></i></a></th>
           </tr>
         </thead>
         <tbody>
@@ -45,7 +45,7 @@
               <td>{{ form.first_name.value }}</td>
               <td>{{ form.last_name.value }}</td>
               <td>{{ form.email.value }}</td>
-              <td>{{ form.role }}</td>
+              <td>{{ form.roles }}</td>
             </tr>
           {% endfor %}
         </tbody>

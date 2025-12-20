@@ -3,12 +3,12 @@
 {% load static %}
 
 {% block title %}
-Update Role - {{ target_user.username }}
+Manage Roles - {{ target_user.username }}
 {% endblock %}
 
 {% block content %}
 <div class="mb-3">
-  <h2><i class="fas fa-user-edit"></i> Update Member Role</h2>
+  <h2><i class="fas fa-user-edit"></i> Manage Member Roles</h2>
   <p class="text-muted">{{ project.title }}</p>
   <hr>
 </div>
@@ -21,19 +21,28 @@ Update Role - {{ target_user.username }}
 
 <div class="card">
   <div class="card-header">
-    <h4 class="mb-0">Update Role for {{ target_user.username }}</h4>
+    <h4 class="mb-0">Manage Roles for {{ target_user.username }}</h4>
   </div>
   <div class="card-body">
     <div class="mb-4">
       <p><strong>User:</strong> {{ target_user.first_name }} {{ target_user.last_name }} ({{ target_user.username }})</p>
       <p><strong>Email:</strong> {{ target_user.email }}</p>
-      <p><strong>Current Role:</strong> 
-        {% if member_role.role == 'financial_admin' %}
-          <span class="badge badge-warning">Financial Admin</span>
-        {% elif member_role.role == 'technical_admin' %}
-          <span class="badge badge-info">Technical Admin</span>
+      {% if is_owner %}
+        <p><strong>Owner:</strong> <span class="badge badge-primary">Yes</span> <small class="text-muted">(implicit, cannot be changed)</small></p>
+      {% endif %}
+      <p><strong>Current Roles:</strong> 
+        {% if current_roles %}
+          {% for role in current_roles %}
+            {% if role == 'financial_admin' %}
+              <span class="badge badge-warning">Financial Admin</span>
+            {% elif role == 'technical_admin' %}
+              <span class="badge badge-info">Technical Admin</span>
+            {% elif role == 'member' %}
+              <span class="badge badge-secondary">Member</span>
+            {% endif %}
+          {% endfor %}
         {% else %}
-          <span class="badge badge-secondary">Member</span>
+          <span class="text-muted">None (explicit roles only)</span>
         {% endif %}
       </p>
     </div>
@@ -42,19 +51,26 @@ Update Role - {{ target_user.username }}
       {% csrf_token %}
       
       <div class="form-group">
-        <label for="id_role">New Role</label>
-        {{ form.role }}
-        {% if form.role.errors %}
+        <label>Roles</label>
+        <div class="ml-2">
+          {{ form.roles }}
+        </div>
+        {% if form.roles.errors %}
           <div class="invalid-feedback d-block">
-            {{ form.role.errors.0 }}
+            {{ form.roles.errors.0 }}
           </div>
         {% endif %}
-        <small class="form-text text-muted">{{ form.role.help_text }}</small>
+        <small class="form-text text-muted">
+          {{ form.roles.help_text }}
+          {% if not is_owner %}
+            <br><strong>Note:</strong> Unchecking all roles will remove this user from the project.
+          {% endif %}
+        </small>
       </div>
       
       <div class="mt-4">
         <button type="submit" class="btn btn-primary">
-          <i class="fas fa-save"></i> Update Role
+          <i class="fas fa-save"></i> Update Roles
         </button>
         <a href="{% url 'coldfront_orcd_direct_charge:project-members' project.pk %}" class="btn btn-secondary">
           Cancel
@@ -81,6 +97,9 @@ Update Role - {{ target_user.username }}
       <dt class="col-sm-3"><span class="badge badge-secondary">Member</span></dt>
       <dd class="col-sm-9">Can create reservations. Included in reservations.</dd>
     </dl>
+    <p class="mt-3 mb-0 text-muted small">
+      <i class="fas fa-info-circle"></i> Users can have multiple roles. Permissions are cumulative.
+    </p>
   </div>
 </div>
 {% endblock %}

@@ -271,7 +271,7 @@ ProjectCostObjectFormSet = forms.inlineformset_factory(
 
 
 class AddMemberForm(forms.Form):
-    """Form for adding a new member to a project with a role."""
+    """Form for adding a new member to a project with one or more roles."""
 
     username = forms.CharField(
         max_length=150,
@@ -284,10 +284,10 @@ class AddMemberForm(forms.Form):
         ),
         help_text="Enter the username of the user to add",
     )
-    role = forms.ChoiceField(
+    roles = forms.MultipleChoiceField(
         choices=[],  # Will be set dynamically based on current user's permissions
-        widget=forms.Select(attrs={"class": "form-control"}),
-        help_text="Select the role for this member",
+        widget=forms.CheckboxSelectMultiple(),
+        help_text="Select one or more roles for this member",
     )
 
     def __init__(self, *args, project=None, current_user=None, can_add_financial_admin=False, **kwargs):
@@ -304,7 +304,7 @@ class AddMemberForm(forms.Form):
             role_choices.append(
                 (ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN, "Financial Admin")
             )
-        self.fields["role"].choices = role_choices
+        self.fields["roles"].choices = role_choices
 
     def clean_username(self):
         username = self.cleaned_data["username"]
@@ -319,23 +319,29 @@ class AddMemberForm(forms.Form):
         if self.project and self.project.pi == user:
             raise ValidationError(f"'{username}' is the project owner and cannot be added as a member.")
 
-        # Check if user already has a role in this project
-        if self.project and ProjectMemberRole.objects.filter(project=self.project, user=user).exists():
-            raise ValidationError(f"'{username}' already has a role in this project.")
-
         return username
 
+    def clean_roles(self):
+        roles = self.cleaned_data.get("roles", [])
+        if not roles:
+            raise ValidationError("You must select at least one role.")
+        return roles
 
-class UpdateMemberRoleForm(forms.Form):
-    """Form for updating a member's role in a project."""
 
-    role = forms.ChoiceField(
+class ManageMemberRolesForm(forms.Form):
+    """Form for managing (adding/removing) a member's roles in a project.
+    
+    Supports multiple roles per user - users can have any combination of roles.
+    """
+
+    roles = forms.MultipleChoiceField(
         choices=[],  # Will be set dynamically
-        widget=forms.Select(attrs={"class": "form-control"}),
-        help_text="Select the new role for this member",
+        widget=forms.CheckboxSelectMultiple(),
+        help_text="Select the roles for this member. Unchecked roles will be removed.",
+        required=False,  # Allow removing all roles (which removes user from project)
     )
 
-    def __init__(self, *args, can_set_financial_admin=False, current_role=None, **kwargs):
+    def __init__(self, *args, can_set_financial_admin=False, current_roles=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Set role choices based on permissions
@@ -347,31 +353,36 @@ class UpdateMemberRoleForm(forms.Form):
             role_choices.append(
                 (ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN, "Financial Admin")
             )
-        self.fields["role"].choices = role_choices
+        self.fields["roles"].choices = role_choices
 
-        # Set initial value if provided
-        if current_role:
-            self.fields["role"].initial = current_role
+        # Set initial values if provided (list of current roles)
+        if current_roles:
+            self.fields["roles"].initial = current_roles
+
+
+# Keep old form name for backward compatibility
+UpdateMemberRoleForm = ManageMemberRolesForm
 
 
 class ProjectAddUserWithRoleForm(forms.Form):
     """Form for adding a user from search results with ORCD role selection.
     
     This replaces ColdFront's ProjectAddUserForm to use ORCD roles instead
-    of the core ProjectUserRoleChoice model.
+    of the core ProjectUserRoleChoice model. Supports multiple role selection.
     """
     username = forms.CharField(max_length=150, disabled=True)
     first_name = forms.CharField(max_length=150, required=False, disabled=True)
     last_name = forms.CharField(max_length=150, required=False, disabled=True)
     email = forms.EmailField(max_length=100, required=False, disabled=True)
     source = forms.CharField(max_length=16, disabled=True)
-    role = forms.ChoiceField(
+    roles = forms.MultipleChoiceField(
         choices=[
             (ProjectMemberRole.RoleChoices.MEMBER, "Member"),
             (ProjectMemberRole.RoleChoices.TECHNICAL_ADMIN, "Technical Admin"),
             (ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN, "Financial Admin"),
         ],
-        initial=ProjectMemberRole.RoleChoices.MEMBER,
-        widget=forms.Select(attrs={"class": "form-control form-control-sm"}),
+        initial=[ProjectMemberRole.RoleChoices.MEMBER],
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+        required=False,  # At least one must be selected when user is selected
     )
     selected = forms.BooleanField(initial=False, required=False)

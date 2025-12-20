@@ -98,7 +98,7 @@ Project Detail
             <th scope="col" class="text-nowrap">Username</th>
             <th scope="col" class="text-nowrap">Name</th>
             <th scope="col" class="text-nowrap">Email</th>
-            <th scope="col" class="text-nowrap">Role <a href="#" data-toggle="popover" title="Role" data-trigger="hover" data-content="Owner: Full project control. Financial Admin: Manages billing and cost allocations. Technical Admin: Manages members and reservations. Member: Can create reservations."><i class="fas fa-info-circle" aria-hidden="true"></i><span class="sr-only">Role descriptions</span></a></th>
+            <th scope="col" class="text-nowrap">Roles <a href="#" data-toggle="popover" title="Roles" data-trigger="hover" data-content="Users can have multiple roles. Owner: Full project control. Financial Admin: Manages billing and cost allocations. Technical Admin: Manages members and reservations. Member: Can create reservations."><i class="fas fa-info-circle" aria-hidden="true"></i><span class="sr-only">Role descriptions</span></a></th>
           </tr>
         </thead>
         <tbody>
@@ -108,15 +108,11 @@ Project Detail
               <td>{{ member.user.first_name }} {{ member.user.last_name }}</td>
               <td>{{ member.user.email }}</td>
               <td>
-                {% if member.role == 'owner' %}
-                  <span class="badge badge-primary">Owner</span>
-                {% elif member.role == 'financial_admin' %}
-                  <span class="badge badge-warning">Financial Admin</span>
-                {% elif member.role == 'technical_admin' %}
-                  <span class="badge badge-info">Technical Admin</span>
-                {% else %}
-                  <span class="badge badge-secondary">Member</span>
-                {% endif %}
+                {% for role_info in member.roles_display %}
+                  <span class="badge {{ role_info.badge_class }}">{{ role_info.name }}</span>
+                {% empty %}
+                  <span class="text-muted">No roles</span>
+                {% endfor %}
               </td>
             </tr>
           {% endfor %}

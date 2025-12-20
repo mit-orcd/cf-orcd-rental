@@ -36,7 +36,7 @@ Project Members - {{ project.title }}
             <th>Username</th>
             <th>Name</th>
             <th>Email</th>
-            <th>Role</th>
+            <th>Roles</th>
             {% if can_manage_members %}
               <th>Actions</th>
             {% endif %}
@@ -51,29 +51,31 @@ Project Members - {{ project.title }}
                 <a href="mailto:{{ member.user.email }}">{{ member.user.email }}</a>
               </td>
               <td>
-                {% if member.role == 'owner' %}
-                  <span class="badge badge-primary">Owner</span>
-                {% elif member.role == 'financial_admin' %}
-                  <span class="badge badge-warning">Financial Admin</span>
-                {% elif member.role == 'technical_admin' %}
-                  <span class="badge badge-info">Technical Admin</span>
-                {% else %}
-                  <span class="badge badge-secondary">Member</span>
-                {% endif %}
+                {% for role_info in member.roles_display %}
+                  <span class="badge {{ role_info.badge_class }}">{{ role_info.name }}</span>
+                {% empty %}
+                  <span class="text-muted">No roles</span>
+                {% endfor %}
               </td>
               {% if can_manage_members %}
                 <td>
-                  {% if not member.is_owner %}
-                    {% if member.role == 'financial_admin' and not can_manage_financial_admins %}
+                  {% if member.is_owner and member.roles|length == 1 %}
+                    {# Owner with no additional roles - allow adding roles #}
+                    <a href="{% url 'coldfront_orcd_direct_charge:update-member-role' project.pk member.user.pk %}" 
+                       class="btn btn-sm btn-outline-primary" title="Manage Roles">
+                      <i class="fas fa-edit"></i>
+                    </a>
+                  {% elif not member.is_owner %}
+                    {% if 'financial_admin' in member.roles and not can_manage_financial_admins %}
                       <span class="text-muted">-</span>
                     {% else %}
                       <a href="{% url 'coldfront_orcd_direct_charge:update-member-role' project.pk member.user.pk %}" 
-                         class="btn btn-sm btn-outline-primary" title="Change Role">
+                         class="btn btn-sm btn-outline-primary" title="Manage Roles">
                         <i class="fas fa-edit"></i>
                       </a>
                       <form action="{% url 'coldfront_orcd_direct_charge:remove-member' project.pk member.user.pk %}" 
                             method="post" style="display: inline;"
-                            onsubmit="return confirm('Are you sure you want to remove {{ member.user.username }} from this project?');">
+                            onsubmit="return confirm('Are you sure you want to remove {{ member.user.username }} and all their roles from this project?');">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove Member">
                           <i class="fas fa-user-times"></i>

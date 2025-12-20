@@ -539,7 +539,7 @@ class ProjectMemberRole(TimeStampedModel):
     )
 
     class Meta:
-        unique_together = ("project", "user")
+        unique_together = ("project", "user", "role")  # Allow multiple roles per user
         verbose_name = "Project Member Role"
         verbose_name_plural = "Project Member Roles"
         ordering = ["project", "role", "user__username"]
@@ -553,28 +553,59 @@ class ProjectMemberRole(TimeStampedModel):
 # =============================================================================
 
 
-def get_user_project_role(user, project):
-    """Return the user's role in the project.
+def get_user_project_roles(user, project):
+    """Return all of the user's roles in the project.
+
+    A user can have multiple roles (e.g., Financial Admin AND Technical Admin).
+    Owner is implicit via project.pi and is always listed first if applicable.
 
     Args:
         user: The Django User object
         project: The ColdFront Project object
 
     Returns:
-        str: One of "owner", "financial_admin", "technical_admin", "member", or None
+        list: List of role strings, e.g. ["owner", "financial_admin", "technical_admin"]
+              Returns empty list if user has no roles in the project.
     """
+    roles = []
+
+    # Owner is implicit via project.pi
     if project.pi == user:
-        return "owner"
-    try:
-        return ProjectMemberRole.objects.get(project=project, user=user).role
-    except ProjectMemberRole.DoesNotExist:
+        roles.append("owner")
+
+    # Get explicit roles from ProjectMemberRole
+    explicit_roles = ProjectMemberRole.objects.filter(
+        project=project, user=user
+    ).values_list("role", flat=True)
+
+    roles.extend(explicit_roles)
+
+    return roles
+
+
+# Keep the old function for backward compatibility but mark as deprecated
+def get_user_project_role(user, project):
+    """DEPRECATED: Use get_user_project_roles() instead.
+
+    Returns the user's highest-priority role in the project.
+    For multi-role support, use get_user_project_roles() which returns all roles.
+    """
+    roles = get_user_project_roles(user, project)
+    if not roles:
         return None
+    # Return highest priority role
+    priority = ["owner", "financial_admin", "technical_admin", "member"]
+    for role in priority:
+        if role in roles:
+            return role
+    return roles[0] if roles else None
 
 
 def can_edit_cost_allocation(user, project):
     """Check if user can edit cost allocation for a project.
 
     Only owners and financial admins (plus superusers) can edit cost allocations.
+    With multi-role support, user only needs ONE of these roles.
 
     Args:
         user: The Django User object
@@ -585,14 +616,15 @@ def can_edit_cost_allocation(user, project):
     """
     if user.is_superuser:
         return True
-    role = get_user_project_role(user, project)
-    return role in ("owner", "financial_admin")
+    roles = set(get_user_project_roles(user, project))
+    return bool(roles & {"owner", "financial_admin"})
 
 
 def can_manage_members(user, project):
     """Check if user can add/remove members and technical admins.
 
     Owners, financial admins, and technical admins can manage members.
+    With multi-role support, user only needs ONE of these roles.
 
     Args:
         user: The Django User object
@@ -603,14 +635,15 @@ def can_manage_members(user, project):
     """
     if user.is_superuser:
         return True
-    role = get_user_project_role(user, project)
-    return role in ("owner", "financial_admin", "technical_admin")
+    roles = set(get_user_project_roles(user, project))
+    return bool(roles & {"owner", "financial_admin", "technical_admin"})
 
 
 def can_manage_financial_admins(user, project):
     """Check if user can add/remove financial admins.
 
     Only owners and financial admins can manage financial admin assignments.
+    With multi-role support, user only needs ONE of these roles.
 
     Args:
         user: The Django User object
@@ -621,15 +654,16 @@ def can_manage_financial_admins(user, project):
     """
     if user.is_superuser:
         return True
-    role = get_user_project_role(user, project)
-    return role in ("owner", "financial_admin")
+    roles = set(get_user_project_roles(user, project))
+    return bool(roles & {"owner", "financial_admin"})
 
 
 def is_included_in_reservations(user, project):
     """Check if user should be included in reservations for a project.
 
     Owners, technical admins, and members are included in reservations.
-    Financial admins are NOT included.
+    Financial admins are NOT included UNLESS they also have another role
+    that includes them (technical_admin or member).
 
     Args:
         user: The Django User object
@@ -638,15 +672,15 @@ def is_included_in_reservations(user, project):
     Returns:
         bool: True if user should be included in reservations
     """
-    role = get_user_project_role(user, project)
-    return role in ("owner", "technical_admin", "member")
+    roles = set(get_user_project_roles(user, project))
+    return bool(roles & {"owner", "technical_admin", "member"})
 
 
 def can_use_for_maintenance_fee(user, project):
     """Check if user can use this project for maintenance fee billing.
 
     Owners, technical admins, and members can use the project for maintenance fees.
-    Financial admins cannot.
+    Financial admins cannot UNLESS they also have another eligible role.
 
     Args:
         user: The Django User object
@@ -655,14 +689,15 @@ def can_use_for_maintenance_fee(user, project):
     Returns:
         bool: True if user can use project for maintenance fee billing
     """
-    role = get_user_project_role(user, project)
-    return role in ("owner", "technical_admin", "member")
+    roles = set(get_user_project_roles(user, project))
+    return bool(roles & {"owner", "technical_admin", "member"})
 
 
 def get_project_members_for_reservation(project):
     """Get all users who should be included in reservations for a project.
 
-    Returns the project owner plus all technical admins and members.
+    Returns the project owner plus all users with technical_admin or member roles.
+    Users with only financial_admin role are excluded.
 
     Args:
         project: The ColdFront Project object
@@ -670,7 +705,8 @@ def get_project_members_for_reservation(project):
     Returns:
         list: List of User objects to include in reservations
     """
-    users = [project.pi]  # Owner is always included
+    users = set()
+    users.add(project.pi)  # Owner is always included
 
     # Add technical admins and members
     member_roles = ProjectMemberRole.objects.filter(
@@ -682,6 +718,6 @@ def get_project_members_for_reservation(project):
     ).select_related("user")
 
     for member_role in member_roles:
-        users.append(member_role.user)
+        users.add(member_role.user)
 
-    return users
+    return list(users)

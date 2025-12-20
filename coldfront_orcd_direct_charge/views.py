@@ -650,27 +650,28 @@ class AddMemberView(LoginRequiredMixin, TemplateView):
 
         if form.is_valid():
             username = form.cleaned_data["username"]
-            role = form.cleaned_data["role"]
+            roles = form.cleaned_data["roles"]  # Now a list of roles
 
             user = User.objects.get(username=username)
 
             logger.info(
-                "Adding member to project: user=%s, project=%s, role=%s, added_by=%s",
-                username, self.project.title, role, request.user.username
+                "Adding member to project: user=%s, project=%s, roles=%s, added_by=%s",
+                username, self.project.title, roles, request.user.username
             )
 
             # Check role permission: only owner/financial admin can add financial admins
-            if role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
+            if ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN in roles:
                 if not can_manage_financial_admins(request.user, self.project):
                     messages.error(request, "You do not have permission to add financial admins.")
                     return self.render_to_response(context)
 
-            # Create the member role
-            ProjectMemberRole.objects.create(
-                project=self.project,
-                user=user,
-                role=role,
-            )
+            # Create the member roles (one record per role)
+            for role in roles:
+                ProjectMemberRole.objects.get_or_create(
+                    project=self.project,
+                    user=user,
+                    role=role,
+                )
 
             # Also add to ColdFront's ProjectUser if not already there
             from coldfront.core.project.models import (
@@ -680,11 +681,11 @@ class AddMemberView(LoginRequiredMixin, TemplateView):
             )
 
             if not ProjectUser.objects.filter(project=self.project, user=user).exists():
-                # Map our role to ColdFront role
-                cf_role_name = "Manager" if role in [
+                # Map our roles to ColdFront role: Manager if any admin role, else User
+                cf_role_name = "Manager" if any(r in [
                     ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN,
                     ProjectMemberRole.RoleChoices.TECHNICAL_ADMIN,
-                ] else "User"
+                ] for r in roles) else "User"
 
                 ProjectUser.objects.create(
                     project=self.project,
@@ -693,9 +694,13 @@ class AddMemberView(LoginRequiredMixin, TemplateView):
                     status=ProjectUserStatusChoice.objects.get(name="Active"),
                 )
 
+            # Build role display names for message
+            role_names = [
+                dict(form.fields["roles"].choices).get(r, r) for r in roles
+            ]
             messages.success(
                 request,
-                f"Added {username} as {form.fields['role'].choices[list(dict(form.fields['role'].choices).keys()).index(role)][1]} to this project."
+                f"Added {username} with role(s): {', '.join(role_names)}"
             )
             return redirect("coldfront_orcd_direct_charge:project-members", pk=self.project.pk)
 
@@ -703,7 +708,7 @@ class AddMemberView(LoginRequiredMixin, TemplateView):
 
 
 class UpdateMemberRoleView(LoginRequiredMixin, TemplateView):
-    """View for updating a member's role."""
+    """View for managing a member's roles (add/remove multiple roles)."""
 
     template_name = "coldfront_orcd_direct_charge/update_member_role.html"
 
@@ -714,25 +719,30 @@ class UpdateMemberRoleView(LoginRequiredMixin, TemplateView):
         self.project = get_object_or_404(Project, pk=kwargs.get("pk"))
         self.target_user = get_object_or_404(User, pk=kwargs.get("user_pk"))
 
-        # Can't change owner's role
-        if self.project.pi == self.target_user:
-            messages.error(request, "Cannot change the owner's role.")
-            return redirect("coldfront_orcd_direct_charge:project-members", pk=self.project.pk)
+        # Can't change owner's explicit roles if they're the owner
+        # (but owner CAN have additional explicit roles)
+        self.is_owner = self.project.pi == self.target_user
 
-        # Get the member role
-        self.member_role = get_object_or_404(
-            ProjectMemberRole, project=self.project, user=self.target_user
+        # Get all member roles for this user
+        self.member_roles = list(
+            ProjectMemberRole.objects.filter(
+                project=self.project, user=self.target_user
+            ).values_list("role", flat=True)
         )
+
+        # If not owner and has no roles, redirect
+        if not self.is_owner and not self.member_roles:
+            messages.error(request, "This user is not a member of the project.")
+            return redirect("coldfront_orcd_direct_charge:project-members", pk=self.project.pk)
 
         if not can_manage_members(request.user, self.project):
             messages.error(request, "You do not have permission to update member roles.")
             return redirect("coldfront_orcd_direct_charge:project-members", pk=self.project.pk)
 
         # Technical admins can only change members and technical admins, not financial admins
-        current_user_role = get_user_project_role(request.user, self.project)
-        if current_user_role == "technical_admin":
-            if self.member_role.role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
-                messages.error(request, "You do not have permission to change a financial admin's role.")
+        if not can_manage_financial_admins(request.user, self.project):
+            if ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN in self.member_roles:
+                messages.error(request, "You do not have permission to change a financial admin's roles.")
                 return redirect("coldfront_orcd_direct_charge:project-members", pk=self.project.pk)
 
         return super().dispatch(request, *args, **kwargs)
@@ -741,7 +751,8 @@ class UpdateMemberRoleView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         context["project"] = self.project
         context["target_user"] = self.target_user
-        context["member_role"] = self.member_role
+        context["is_owner"] = self.is_owner
+        context["current_roles"] = self.member_roles
         context["can_set_financial_admin"] = can_manage_financial_admins(
             self.request.user, self.project
         )
@@ -750,12 +761,12 @@ class UpdateMemberRoleView(LoginRequiredMixin, TemplateView):
             context["form"] = UpdateMemberRoleForm(
                 self.request.POST,
                 can_set_financial_admin=context["can_set_financial_admin"],
-                current_role=self.member_role.role,
+                current_roles=self.member_roles,
             )
         else:
             context["form"] = UpdateMemberRoleForm(
                 can_set_financial_admin=context["can_set_financial_admin"],
-                current_role=self.member_role.role,
+                current_roles=self.member_roles,
             )
 
         return context
@@ -765,23 +776,37 @@ class UpdateMemberRoleView(LoginRequiredMixin, TemplateView):
         form = context["form"]
 
         if form.is_valid():
-            new_role = form.cleaned_data["role"]
+            new_roles = set(form.cleaned_data["roles"])
+            old_roles = set(self.member_roles)
 
             # Check permission to set financial admin
-            if new_role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
+            if ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN in new_roles:
                 if not can_manage_financial_admins(request.user, self.project):
                     messages.error(request, "You do not have permission to set financial admin role.")
                     return self.render_to_response(context)
 
-            old_role = self.member_role.role
             logger.info(
-                "Updating member role: user=%s, project=%s, old_role=%s, new_role=%s, updated_by=%s",
-                self.target_user.username, self.project.title, old_role, new_role, request.user.username
+                "Updating member roles: user=%s, project=%s, old_roles=%s, new_roles=%s, updated_by=%s",
+                self.target_user.username, self.project.title, old_roles, new_roles, request.user.username
             )
 
-            # Update the role
-            self.member_role.role = new_role
-            self.member_role.save()
+            # Remove roles that were unchecked
+            roles_to_remove = old_roles - new_roles
+            if roles_to_remove:
+                ProjectMemberRole.objects.filter(
+                    project=self.project,
+                    user=self.target_user,
+                    role__in=roles_to_remove,
+                ).delete()
+
+            # Add roles that were newly checked
+            roles_to_add = new_roles - old_roles
+            for role in roles_to_add:
+                ProjectMemberRole.objects.get_or_create(
+                    project=self.project,
+                    user=self.target_user,
+                    role=role,
+                )
 
             # Update ColdFront ProjectUser role
             from coldfront.core.project.models import ProjectUser, ProjectUserRoleChoice
@@ -790,26 +815,37 @@ class UpdateMemberRoleView(LoginRequiredMixin, TemplateView):
                 cf_project_user = ProjectUser.objects.get(
                     project=self.project, user=self.target_user
                 )
-                cf_role_name = "Manager" if new_role in [
+                # Manager if any admin role, else User
+                cf_role_name = "Manager" if any(r in [
                     ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN,
                     ProjectMemberRole.RoleChoices.TECHNICAL_ADMIN,
-                ] else "User"
+                ] for r in new_roles) else "User"
                 cf_project_user.role = ProjectUserRoleChoice.objects.get(name=cf_role_name)
                 cf_project_user.save()
             except ProjectUser.DoesNotExist:
                 pass  # No ColdFront ProjectUser record
 
-            messages.success(
-                request,
-                f"Updated {self.target_user.username}'s role to {self.member_role.get_role_display()}."
-            )
+            # Build message
+            if not new_roles and not self.is_owner:
+                messages.success(
+                    request,
+                    f"Removed all roles from {self.target_user.username}. They are no longer a project member."
+                )
+            else:
+                role_names = [
+                    dict(form.fields["roles"].choices).get(r, r) for r in new_roles
+                ]
+                messages.success(
+                    request,
+                    f"Updated {self.target_user.username}'s roles to: {', '.join(role_names) if role_names else 'None'}"
+                )
             return redirect("coldfront_orcd_direct_charge:project-members", pk=self.project.pk)
 
         return self.render_to_response(context)
 
 
 class RemoveMemberView(LoginRequiredMixin, View):
-    """View for removing a member from a project."""
+    """View for removing a member (and all their roles) from a project."""
 
     def post(self, request, pk, user_pk):
         from coldfront.core.project.models import Project, ProjectUser
@@ -827,27 +863,26 @@ class RemoveMemberView(LoginRequiredMixin, View):
             messages.error(request, "You do not have permission to remove members.")
             return redirect("coldfront_orcd_direct_charge:project-members", pk=project.pk)
 
-        # Get the member role
-        try:
-            member_role = ProjectMemberRole.objects.get(project=project, user=target_user)
-        except ProjectMemberRole.DoesNotExist:
+        # Get all member roles for this user
+        member_roles = ProjectMemberRole.objects.filter(project=project, user=target_user)
+        if not member_roles.exists():
             messages.error(request, "This user is not a member of the project.")
             return redirect("coldfront_orcd_direct_charge:project-members", pk=project.pk)
 
-        # Technical admins can only remove members and technical admins, not financial admins
-        current_user_role = get_user_project_role(request.user, project)
-        if current_user_role == "technical_admin":
-            if member_role.role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
+        # Technical admins cannot remove users who have financial admin role
+        if not can_manage_financial_admins(request.user, project):
+            if member_roles.filter(role=ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN).exists():
                 messages.error(request, "You do not have permission to remove a financial admin.")
                 return redirect("coldfront_orcd_direct_charge:project-members", pk=project.pk)
 
+        roles_list = list(member_roles.values_list("role", flat=True))
         logger.info(
-            "Removing member from project: user=%s, project=%s, role=%s, removed_by=%s",
-            target_user.username, project.title, member_role.role, request.user.username
+            "Removing member from project: user=%s, project=%s, roles=%s, removed_by=%s",
+            target_user.username, project.title, roles_list, request.user.username
         )
 
-        # Remove the member role
-        member_role.delete()
+        # Remove all member roles
+        member_roles.delete()
 
         # Also remove from ColdFront's ProjectUser
         ProjectUser.objects.filter(project=project, user=target_user).delete()
@@ -974,7 +1009,7 @@ class ProjectAddUsersView(LoginRequiredMixin, View):
         pk = self.kwargs.get("pk")
         project_obj = get_object_or_404(Project, pk=pk)
 
-        # Parse the formset data
+        # Parse the formset data - handle multiple roles per user (checkboxes)
         formset_data = {}
         for key, value in request.POST.items():
             if key.startswith("userform-"):
@@ -983,8 +1018,19 @@ class ProjectAddUsersView(LoginRequiredMixin, View):
                     index = int(parts[1])
                     field = parts[2]
                     if index not in formset_data:
-                        formset_data[index] = {}
-                    formset_data[index][field] = value
+                        formset_data[index] = {"roles": []}
+                    if field == "roles":
+                        # Multiple checkboxes with same name
+                        formset_data[index]["roles"].append(value)
+                    else:
+                        formset_data[index][field] = value
+
+        # Also get roles from getlist for proper multi-value handling
+        for index in formset_data.keys():
+            roles_key = f"userform-{index}-roles"
+            roles = request.POST.getlist(roles_key)
+            if roles:
+                formset_data[index]["roles"] = roles
 
         added_count = 0
         for index, data in formset_data.items():
@@ -993,9 +1039,9 @@ class ProjectAddUsersView(LoginRequiredMixin, View):
                 continue
 
             username = data.get("username")
-            role = data.get("role")
+            roles = data.get("roles", [])
 
-            if not username or not role:
+            if not username or not roles:
                 continue
 
             try:
@@ -1009,34 +1055,33 @@ class ProjectAddUsersView(LoginRequiredMixin, View):
                 messages.warning(request, f"'{username}' is the project owner.")
                 continue
 
-            # Skip if user already has a role
-            if ProjectMemberRole.objects.filter(project=project_obj, user=user).exists():
-                messages.warning(request, f"'{username}' already has a role in this project.")
-                continue
-
             # Check permission to add financial admins
-            if role == ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN:
+            if ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN in roles:
                 if not can_manage_financial_admins(request.user, project_obj):
                     messages.warning(request, f"You don't have permission to add '{username}' as Financial Admin.")
-                    continue
+                    # Remove financial admin from the roles list
+                    roles = [r for r in roles if r != ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN]
+                    if not roles:
+                        continue
 
             logger.info(
-                "Adding member to project via search: user=%s, project=%s, role=%s, added_by=%s",
-                username, project_obj.title, role, request.user.username
+                "Adding member to project via search: user=%s, project=%s, roles=%s, added_by=%s",
+                username, project_obj.title, roles, request.user.username
             )
 
-            # Create ProjectMemberRole
-            ProjectMemberRole.objects.create(
-                project=project_obj,
-                user=user,
-                role=role,
-            )
+            # Create ProjectMemberRole for each role
+            for role in roles:
+                ProjectMemberRole.objects.get_or_create(
+                    project=project_obj,
+                    user=user,
+                    role=role,
+                )
 
             # Also create ColdFront ProjectUser for compatibility
-            cf_role_name = "Manager" if role in [
+            cf_role_name = "Manager" if any(r in [
                 ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN,
                 ProjectMemberRole.RoleChoices.TECHNICAL_ADMIN,
-            ] else "User"
+            ] for r in roles) else "User"
 
             if not ProjectUser.objects.filter(project=project_obj, user=user).exists():
                 ProjectUser.objects.create(
