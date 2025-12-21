@@ -14,6 +14,7 @@ from coldfront_orcd_direct_charge.models import (
     ProjectMemberRole,
     Reservation,
     ReservationMetadataEntry,
+    has_approved_cost_allocation,
 )
 
 
@@ -93,8 +94,16 @@ class ReservationRequestForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         node_instance = cleaned_data.get("node_instance")
+        project = cleaned_data.get("project")
         start_date = cleaned_data.get("start_date")
         num_blocks = cleaned_data.get("num_blocks")
+
+        # Require approved cost allocation for reservations
+        if project and not has_approved_cost_allocation(project):
+            raise ValidationError(
+                "This project does not have an approved cost allocation. "
+                "Please submit cost allocation details for approval before making reservations."
+            )
 
         if start_date:
             from datetime import date, timedelta

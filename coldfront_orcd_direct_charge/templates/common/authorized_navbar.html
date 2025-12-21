@@ -29,6 +29,9 @@
             {% if perms.coldfront_orcd_direct_charge.can_manage_rentals %}
               <a id="navbar-manage-rentals" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:rental-manager' %}">Manage Rentals</a>
             {% endif %}
+            {% if perms.coldfront_orcd_direct_charge.can_manage_billing %}
+              <a id="navbar-manage-billing" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:pending-cost-allocations' %}">Manage Billing</a>
+            {% endif %}
             {% if settings.ALLOCATION_ACCOUNT_ENABLED  %}
               <a class="dropdown-item" href="{% url 'allocation-account-list' %}">Allocation Accounts</a>
             {% endif %}

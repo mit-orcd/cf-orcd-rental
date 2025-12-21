@@ -12,11 +12,13 @@ from collections import OrderedDict
 from django import template
 
 from coldfront_orcd_direct_charge.models import (
+    ProjectCostAllocation,
     ProjectMemberRole,
     get_user_project_roles,
     can_edit_cost_allocation,
     can_manage_members,
     can_manage_financial_admins,
+    has_approved_cost_allocation,
 )
 
 register = template.Library()
@@ -161,3 +163,45 @@ def user_can_manage_financial_admins(user, project):
         Boolean
     """
     return can_manage_financial_admins(user, project)
+
+
+@register.simple_tag
+def cost_allocation_status(project):
+    """Get the cost allocation status for a project.
+
+    Args:
+        project: The ColdFront Project object
+
+    Returns:
+        String status ('PENDING', 'APPROVED', 'REJECTED') or None if no allocation exists
+    """
+    try:
+        return project.cost_allocation.status
+    except ProjectCostAllocation.DoesNotExist:
+        return None
+
+
+@register.simple_tag
+def project_has_approved_cost_allocation(project):
+    """Check if project has an approved cost allocation.
+
+    Args:
+        project: The ColdFront Project object
+
+    Returns:
+        Boolean
+    """
+    return has_approved_cost_allocation(project)
+
+
+@register.simple_tag
+def user_can_manage_billing(user):
+    """Check if user has billing manager permission.
+
+    Args:
+        user: The Django User object
+
+    Returns:
+        Boolean
+    """
+    return user.has_perm("coldfront_orcd_direct_charge.can_manage_billing")

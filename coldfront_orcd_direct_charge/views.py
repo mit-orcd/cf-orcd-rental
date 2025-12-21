@@ -6,6 +6,8 @@ import calendar
 import logging
 from datetime import date, datetime, time, timedelta
 
+from django.utils import timezone
+
 logger = logging.getLogger(__name__)
 
 from django.contrib import messages
@@ -34,6 +36,7 @@ from coldfront_orcd_direct_charge.models import (
     UserMaintenanceStatus,
     can_edit_cost_allocation,
     can_use_for_maintenance_fee,
+    has_approved_cost_allocation,
 )
 
 
@@ -524,13 +527,119 @@ class ProjectCostAllocationView(LoginRequiredMixin, TemplateView):
         formset = context["formset"]
 
         if form.is_valid() and formset.is_valid():
-            form.save()
+            # Save allocation and reset status to PENDING for approval
+            allocation = form.save(commit=False)
+            allocation.status = ProjectCostAllocation.StatusChoices.PENDING
+            allocation.reviewed_by = None
+            allocation.reviewed_at = None
+            allocation.review_notes = ""
+            allocation.save()
             formset.save()
-            messages.success(request, "Cost allocation updated successfully.")
+            logger.info(
+                f"Cost allocation submitted for approval: project={self.project.pk}, "
+                f"submitted_by={request.user.username}"
+            )
+            messages.info(
+                request,
+                "Cost allocation submitted for approval. "
+                "A Billing Manager will review your submission."
+            )
             return redirect("project-detail", pk=self.project.pk)
 
         # Re-render with errors
         return self.render_to_response(context)
+
+
+# =============================================================================
+# Billing Manager Views
+# =============================================================================
+
+
+class PendingCostAllocationsView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """List all cost allocations pending approval.
+
+    Only accessible to users with can_manage_billing permission (Billing Managers).
+    """
+
+    template_name = "coldfront_orcd_direct_charge/pending_cost_allocations.html"
+    permission_required = "coldfront_orcd_direct_charge.can_manage_billing"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Get pending allocations with related data
+        pending_allocations = ProjectCostAllocation.objects.filter(
+            status=ProjectCostAllocation.StatusChoices.PENDING
+        ).select_related("project", "project__pi").prefetch_related("cost_objects").order_by("-modified")
+
+        context["pending_allocations"] = pending_allocations
+        context["pending_count"] = pending_allocations.count()
+
+        return context
+
+
+class CostAllocationApprovalView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """Review and approve/reject a cost allocation.
+
+    Only accessible to users with can_manage_billing permission (Billing Managers).
+    """
+
+    template_name = "coldfront_orcd_direct_charge/cost_allocation_review.html"
+    permission_required = "coldfront_orcd_direct_charge.can_manage_billing"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.allocation = get_object_or_404(ProjectCostAllocation, pk=kwargs.get("pk"))
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["allocation"] = self.allocation
+        context["project"] = self.allocation.project
+        context["cost_objects"] = self.allocation.cost_objects.all()
+        context["total_percentage"] = self.allocation.total_percentage()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get("action")
+        review_notes = request.POST.get("review_notes", "").strip()
+
+        if action == "approve":
+            self.allocation.status = ProjectCostAllocation.StatusChoices.APPROVED
+            self.allocation.reviewed_by = request.user
+            self.allocation.reviewed_at = timezone.now()
+            self.allocation.review_notes = review_notes
+            self.allocation.save()
+            logger.info(
+                f"Cost allocation approved: project={self.allocation.project.pk}, "
+                f"approved_by={request.user.username}"
+            )
+            messages.success(
+                request,
+                f"Cost allocation for '{self.allocation.project.title}' has been approved."
+            )
+        elif action == "reject":
+            if not review_notes:
+                messages.error(request, "Please provide a reason for rejection.")
+                return self.render_to_response(self.get_context_data(**kwargs))
+
+            self.allocation.status = ProjectCostAllocation.StatusChoices.REJECTED
+            self.allocation.reviewed_by = request.user
+            self.allocation.reviewed_at = timezone.now()
+            self.allocation.review_notes = review_notes
+            self.allocation.save()
+            logger.info(
+                f"Cost allocation rejected: project={self.allocation.project.pk}, "
+                f"rejected_by={request.user.username}, reason={review_notes}"
+            )
+            messages.warning(
+                request,
+                f"Cost allocation for '{self.allocation.project.title}' has been rejected."
+            )
+        else:
+            messages.error(request, "Invalid action.")
+            return self.render_to_response(self.get_context_data(**kwargs))
+
+        return redirect("coldfront_orcd_direct_charge:pending-cost-allocations")
 
 
 # =============================================================================

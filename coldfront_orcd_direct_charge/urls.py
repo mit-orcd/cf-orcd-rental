@@ -23,6 +23,9 @@ urlpatterns = [
     path("user/update-maintenance-status/", views.update_maintenance_status, name="update-maintenance-status"),
     # Project cost allocation
     path("project/<int:pk>/cost-allocation/", views.ProjectCostAllocationView.as_view(), name="project-cost-allocation"),
+    # Billing Manager views
+    path("billing/pending/", views.PendingCostAllocationsView.as_view(), name="pending-cost-allocations"),
+    path("billing/allocation/<int:pk>/review/", views.CostAllocationApprovalView.as_view(), name="cost-allocation-review"),
     # Project member management
     path("project/<int:pk>/members/", views.ProjectMembersView.as_view(), name="project-members"),
     path("project/<int:pk>/members/add/", views.AddMemberView.as_view(), name="add-member"),

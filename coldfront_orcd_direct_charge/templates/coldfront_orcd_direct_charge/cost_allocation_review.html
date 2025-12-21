@@ -1,0 +1,159 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}
+Review Cost Allocation - {{ project.title }}
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h2><i class="fas fa-file-invoice-dollar"></i> Review Cost Allocation</h2>
+  <p class="text-muted">{{ project.title }}</p>
+  <hr>
+</div>
+
+<div class="mb-3">
+  <a href="{% url 'coldfront_orcd_direct_charge:pending-cost-allocations' %}" class="btn btn-secondary">
+    <i class="fas fa-arrow-left"></i> Back to Pending Allocations
+  </a>
+</div>
+
+<div class="row">
+  <div class="col-md-8">
+    <!-- Project Information -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-project-diagram"></i> Project Information</h5>
+      </div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-3">Project Title</dt>
+          <dd class="col-sm-9">
+            <a href="{% url 'project-detail' project.pk %}">{{ project.title }}</a>
+          </dd>
+          
+          <dt class="col-sm-3">Owner</dt>
+          <dd class="col-sm-9">
+            {{ project.pi.username }}
+            {% if project.pi.first_name %}
+              ({{ project.pi.first_name }} {{ project.pi.last_name }})
+            {% endif %}
+            <br><small class="text-muted">{{ project.pi.email }}</small>
+          </dd>
+          
+          <dt class="col-sm-3">Status</dt>
+          <dd class="col-sm-9">
+            {% if allocation.status == 'PENDING' %}
+              <span class="badge badge-warning">Pending Approval</span>
+            {% elif allocation.status == 'APPROVED' %}
+              <span class="badge badge-success">Approved</span>
+            {% elif allocation.status == 'REJECTED' %}
+              <span class="badge badge-danger">Rejected</span>
+            {% endif %}
+          </dd>
+          
+          <dt class="col-sm-3">Submitted</dt>
+          <dd class="col-sm-9">{{ allocation.modified|date:"M d, Y H:i" }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <!-- Cost Allocation Details -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-calculator"></i> Cost Allocation Details</h5>
+      </div>
+      <div class="card-body">
+        {% if allocation.notes %}
+        <div class="mb-3">
+          <strong>Notes:</strong>
+          <p class="mb-0">{{ allocation.notes }}</p>
+        </div>
+        {% endif %}
+
+        <h6>Cost Objects</h6>
+        {% if cost_objects %}
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Cost Object ID</th>
+              <th class="text-right">Percentage</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for co in cost_objects %}
+            <tr>
+              <td><code>{{ co.cost_object }}</code></td>
+              <td class="text-right">{{ co.percentage }}%</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="{% if total_percentage == 100 %}table-success{% else %}table-warning{% endif %}">
+              <th>Total</th>
+              <th class="text-right">
+                {{ total_percentage }}%
+                {% if total_percentage != 100 %}
+                  <i class="fas fa-exclamation-triangle text-warning" 
+                     title="Total should equal 100%"></i>
+                {% endif %}
+              </th>
+            </tr>
+          </tfoot>
+        </table>
+        {% else %}
+        <p class="text-muted">No cost objects defined.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <!-- Review Actions -->
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-gavel"></i> Review Decision</h5>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          
+          <div class="form-group">
+            <label for="review_notes">Notes (required for rejection)</label>
+            <textarea name="review_notes" id="review_notes" class="form-control" rows="4"
+                      placeholder="Add notes about your decision..."></textarea>
+          </div>
+
+          <div class="d-flex flex-column">
+            <button type="submit" name="action" value="approve" class="btn btn-success btn-block mb-2">
+              <i class="fas fa-check"></i> Approve
+            </button>
+            <button type="submit" name="action" value="reject" class="btn btn-danger btn-block">
+              <i class="fas fa-times"></i> Reject
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% if allocation.reviewed_by %}
+    <!-- Previous Review Info -->
+    <div class="card mt-3">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="fas fa-history"></i> Previous Review</h6>
+      </div>
+      <div class="card-body">
+        <small class="text-muted">
+          Reviewed by {{ allocation.reviewed_by.username }}<br>
+          on {{ allocation.reviewed_at|date:"M d, Y H:i" }}
+        </small>
+        {% if allocation.review_notes %}
+        <p class="mt-2 mb-0"><small>{{ allocation.review_notes }}</small></p>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

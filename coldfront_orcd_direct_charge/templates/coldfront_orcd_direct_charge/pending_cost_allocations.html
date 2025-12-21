@@ -1,0 +1,84 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}
+Pending Cost Allocations - Billing Manager
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h2><i class="fas fa-file-invoice-dollar"></i> Pending Cost Allocations</h2>
+  <p class="text-muted">Review and approve cost allocation submissions</p>
+  <hr>
+</div>
+
+{% if pending_allocations %}
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0">
+      <i class="fas fa-clock"></i> Pending Review
+      <span class="badge badge-warning ml-2">{{ pending_count }}</span>
+    </h5>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead class="thead-light">
+        <tr>
+          <th>Project</th>
+          <th>Owner</th>
+          <th>Cost Objects</th>
+          <th>Submitted</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for allocation in pending_allocations %}
+        <tr>
+          <td>
+            <a href="{% url 'project-detail' allocation.project.pk %}">
+              {{ allocation.project.title }}
+            </a>
+          </td>
+          <td>
+            {{ allocation.project.pi.username }}
+            {% if allocation.project.pi.first_name %}
+              <br><small class="text-muted">{{ allocation.project.pi.first_name }} {{ allocation.project.pi.last_name }}</small>
+            {% endif %}
+          </td>
+          <td>
+            {% for co in allocation.cost_objects.all %}
+              <span class="badge badge-light">{{ co.cost_object }}: {{ co.percentage }}%</span>
+            {% empty %}
+              <span class="text-muted">No cost objects</span>
+            {% endfor %}
+          </td>
+          <td>
+            {{ allocation.modified|date:"M d, Y" }}
+            <br><small class="text-muted">{{ allocation.modified|timesince }} ago</small>
+          </td>
+          <td>
+            <a href="{% url 'coldfront_orcd_direct_charge:cost-allocation-review' allocation.pk %}" 
+               class="btn btn-primary btn-sm">
+              <i class="fas fa-eye"></i> Review
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-success">
+  <i class="fas fa-check-circle"></i>
+  <strong>All caught up!</strong> There are no cost allocations pending review.
+</div>
+{% endif %}
+
+<div class="mt-4">
+  <a href="{% url 'coldfront_orcd_direct_charge:node-instance-list' %}" class="btn btn-secondary">
+    <i class="fas fa-arrow-left"></i> Back to Dashboard
+  </a>
+</div>
+{% endblock %}

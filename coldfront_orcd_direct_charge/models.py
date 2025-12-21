@@ -421,10 +421,23 @@ class ProjectCostAllocation(TimeStampedModel):
     Each project can have one cost allocation configuration, which includes
     notes about the allocation and links to one or more cost objects.
 
+    Cost allocations require approval from a Billing Manager before the project
+    can be used for reservations. When created or modified, allocations are set
+    to PENDING status and must be approved.
+
     Attributes:
         project (Project): The project this cost allocation belongs to
         notes (str): Notes about the cost allocation for this project
+        status (str): Approval status (PENDING, APPROVED, REJECTED)
+        reviewed_by (User): The Billing Manager who reviewed this allocation
+        reviewed_at (datetime): When the allocation was reviewed
+        review_notes (str): Notes from the reviewer
     """
+
+    class StatusChoices(models.TextChoices):
+        PENDING = "PENDING", "Pending Approval"
+        APPROVED = "APPROVED", "Approved"
+        REJECTED = "REJECTED", "Rejected"
 
     project = models.OneToOneField(
         "project.Project",
@@ -436,10 +449,36 @@ class ProjectCostAllocation(TimeStampedModel):
         blank=True,
         help_text="Notes about the cost allocation for this project",
     )
+    status = models.CharField(
+        max_length=16,
+        choices=StatusChoices.choices,
+        default=StatusChoices.PENDING,
+        help_text="Approval status of this cost allocation",
+    )
+    reviewed_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_cost_allocations",
+        help_text="The Billing Manager who reviewed this allocation",
+    )
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the allocation was reviewed",
+    )
+    review_notes = models.TextField(
+        blank=True,
+        help_text="Notes from the Billing Manager about the review decision",
+    )
 
     class Meta:
         verbose_name = "Project Cost Allocation"
         verbose_name_plural = "Project Cost Allocations"
+        permissions = [
+            ("can_manage_billing", "Can approve/reject cost allocations"),
+        ]
 
     def __str__(self):
         return f"Cost Allocation for {self.project.title}"
@@ -447,6 +486,10 @@ class ProjectCostAllocation(TimeStampedModel):
     def total_percentage(self):
         """Calculate the total percentage across all cost objects."""
         return sum(co.percentage for co in self.cost_objects.all())
+
+    def is_approved(self):
+        """Check if this allocation is approved."""
+        return self.status == self.StatusChoices.APPROVED
 
 
 class ProjectCostObject(TimeStampedModel):
@@ -721,3 +764,22 @@ def get_project_members_for_reservation(project):
         users.add(member_role.user)
 
     return list(users)
+
+
+def has_approved_cost_allocation(project):
+    """Check if a project has an approved cost allocation.
+
+    Reservations and billing require an approved cost allocation.
+    Projects without a cost allocation or with pending/rejected allocations
+    cannot be used for reservations.
+
+    Args:
+        project: The ColdFront Project object
+
+    Returns:
+        bool: True if project has an approved cost allocation
+    """
+    try:
+        return project.cost_allocation.status == ProjectCostAllocation.StatusChoices.APPROVED
+    except ProjectCostAllocation.DoesNotExist:
+        return False
