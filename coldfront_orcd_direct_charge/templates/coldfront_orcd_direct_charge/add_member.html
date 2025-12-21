@@ -29,13 +29,18 @@ Add Member - {{ project.title }}
       
       <div class="form-group">
         <label for="id_username">Username</label>
-        {{ form.username }}
+        <div class="position-relative">
+          {{ form.username }}
+          <div id="username-suggestions" class="list-group position-absolute w-100 shadow-sm" 
+               style="z-index: 1000; display: none; max-height: 300px; overflow-y: auto;">
+          </div>
+        </div>
         {% if form.username.errors %}
           <div class="invalid-feedback d-block">
             {{ form.username.errors.0 }}
           </div>
         {% endif %}
-        <small class="form-text text-muted">{{ form.username.help_text }}</small>
+        <small class="form-text text-muted">{{ form.username.help_text }} Start typing to see suggestions.</small>
       </div>
       
       <div class="form-group">
@@ -82,4 +87,100 @@ Add Member - {{ project.title }}
     </dl>
   </div>
 </div>
+{% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+<script>
+(function() {
+  let debounceTimer;
+  const usernameInput = document.getElementById('id_username');
+  const suggestions = document.getElementById('username-suggestions');
+  const projectId = {{ project.pk }};
+
+  if (!usernameInput || !suggestions) return;
+
+  usernameInput.addEventListener('input', function() {
+    clearTimeout(debounceTimer);
+    const query = this.value.trim();
+    
+    if (query.length < 2) {
+      suggestions.style.display = 'none';
+      return;
+    }
+    
+    debounceTimer = setTimeout(() => {
+      fetch(`/nodes/api/users/search/?q=${encodeURIComponent(query)}&project_id=${projectId}`)
+        .then(response => response.json())
+        .then(users => {
+          suggestions.innerHTML = '';
+          if (users.length === 0) {
+            // Show "no results" message
+            const noResults = document.createElement('div');
+            noResults.className = 'list-group-item text-muted';
+            noResults.textContent = 'No matching users found';
+            suggestions.appendChild(noResults);
+            suggestions.style.display = 'block';
+            return;
+          }
+          users.forEach(user => {
+            const item = document.createElement('a');
+            item.className = 'list-group-item list-group-item-action';
+            item.href = '#';
+            const fullName = (user.first_name + ' ' + user.last_name).trim();
+            const nameDisplay = fullName ? ` - ${fullName}` : '';
+            const emailDisplay = user.email ? ` <small class="text-muted">(${user.email})</small>` : '';
+            item.innerHTML = `<strong>${user.username}</strong>${nameDisplay}${emailDisplay}`;
+            item.addEventListener('click', (e) => {
+              e.preventDefault();
+              usernameInput.value = user.username;
+              suggestions.style.display = 'none';
+            });
+            suggestions.appendChild(item);
+          });
+          suggestions.style.display = 'block';
+        })
+        .catch(error => {
+          console.error('User search error:', error);
+          suggestions.style.display = 'none';
+        });
+    }, 300);  // 300ms debounce
+  });
+
+  // Hide suggestions when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!usernameInput.contains(e.target) && !suggestions.contains(e.target)) {
+      suggestions.style.display = 'none';
+    }
+  });
+
+  // Handle keyboard navigation
+  usernameInput.addEventListener('keydown', function(e) {
+    const items = suggestions.querySelectorAll('.list-group-item-action');
+    if (items.length === 0) return;
+
+    const active = suggestions.querySelector('.list-group-item-action.active');
+    let index = Array.from(items).indexOf(active);
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (active) active.classList.remove('active');
+      index = (index + 1) % items.length;
+      items[index].classList.add('active');
+      items[index].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (active) active.classList.remove('active');
+      index = index <= 0 ? items.length - 1 : index - 1;
+      items[index].classList.add('active');
+      items[index].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && active) {
+      e.preventDefault();
+      active.click();
+    } else if (e.key === 'Escape') {
+      suggestions.style.display = 'none';
+    }
+  });
+})();
+</script>
 {% endblock %}

@@ -2,12 +2,16 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+from django.contrib.auth.models import User
+from django.db.models import Q
 from django_filters import rest_framework as filters
 from rest_framework import permissions, viewsets
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from coldfront_orcd_direct_charge.api.serializers import ReservationSerializer
-from coldfront_orcd_direct_charge.models import Reservation
+from coldfront_orcd_direct_charge.models import ProjectMemberRole, Reservation
 
 
 class HasManageRentalsPermission(permissions.BasePermission):
@@ -66,3 +70,66 @@ class ReservationViewSet(viewsets.ReadOnlyModelViewSet):
             "project",
             "requesting_user",
         ).order_by("-created")
+
+
+class UserSearchView(APIView):
+    """Search users by username, first name, last name, or email.
+
+    Used for autocomplete in the Add Member form.
+
+    Query parameters:
+    - q: Search query (minimum 2 characters)
+    - project_id: Optional project ID to exclude owner and existing members
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        query = request.GET.get("q", "").strip()
+        project_id = request.GET.get("project_id")
+
+        # Require at least 2 characters
+        if len(query) < 2:
+            return Response([])
+
+        # Search users by username, first name, last name, or email
+        users = User.objects.filter(
+            Q(username__icontains=query)
+            | Q(first_name__icontains=query)
+            | Q(last_name__icontains=query)
+            | Q(email__icontains=query),
+            is_active=True,
+        )
+
+        # Optionally exclude users already in the project
+        if project_id:
+            try:
+                from coldfront.core.project.models import Project
+
+                project = Project.objects.get(pk=project_id)
+                exclude_ids = [project.pi_id]  # Exclude owner
+                # Exclude users who already have any role
+                exclude_ids.extend(
+                    ProjectMemberRole.objects.filter(project=project)
+                    .values_list("user_id", flat=True)
+                    .distinct()
+                )
+                users = users.exclude(id__in=exclude_ids)
+            except Project.DoesNotExist:
+                pass
+
+        # Limit results
+        users = users[:10]
+
+        return Response(
+            [
+                {
+                    "username": u.username,
+                    "first_name": u.first_name,
+                    "last_name": u.last_name,
+                    "email": u.email,
+                    "display": f"{u.username} - {u.first_name} {u.last_name}",
+                }
+                for u in users
+            ]
+        )
