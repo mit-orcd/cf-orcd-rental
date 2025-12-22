@@ -1,0 +1,41 @@
+{% extends "common/base.html" %}
+{% load common_tags %}
+
+{% block content %}
+<div class="row mt-4">
+  <div class="col-lg-8 offset-lg-2">
+    <h2 class="text-center">Log In To MIT ORCD Rental Portal</h2>
+    <hr>
+
+    <p>
+      <a class="btn btn-primary btn-block" href="{% url 'login' %}" role="button">
+        <i class="fas fa-sign-in-alt" aria-hidden="true"></i> Log In
+      </a>
+    </p>
+
+    <div class="card bg-light mt-4">
+      <div class="card-body">
+        <h5 class="card-title">About the Rental Portal</h5>
+        <ol class="mb-0">
+          <li class="mb-2">The Rental Portal lets you rent dedicated GPU and CPU resources 
+              and rent elevated levels of priority on our clusters.</li>
+          <li class="mb-2">To get started, the first step is to subscribe to an account 
+              maintenance fee level.</li>
+          <li class="mb-2">Subscribing to an account maintenance fee provides access to 
+              increased resources for preparing work for dedicated rentals.</li>
+          <li class="mb-0">Subscribed accounts are eligible to use direct charge rental 
+              services.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+  {{ block.super }}
+  <script>
+    $("#navbar-main > ul > li.active").removeClass("active");
+    $("#navbar-home").addClass("active");
+  </script>
+{% endblock %}
