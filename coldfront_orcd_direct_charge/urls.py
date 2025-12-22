@@ -26,6 +26,12 @@ urlpatterns = [
     # Billing Manager views
     path("billing/pending/", views.PendingCostAllocationsView.as_view(), name="pending-cost-allocations"),
     path("billing/allocation/<int:pk>/review/", views.CostAllocationApprovalView.as_view(), name="cost-allocation-review"),
+    # Invoice Preparation views
+    path("billing/invoice/", views.InvoicePreparationView.as_view(), name="invoice-preparation"),
+    path("billing/invoice/<int:year>/<int:month>/", views.InvoiceDetailView.as_view(), name="invoice-detail"),
+    path("billing/invoice/<int:year>/<int:month>/edit/", views.InvoiceEditView.as_view(), name="invoice-edit"),
+    path("billing/invoice/<int:year>/<int:month>/export/", views.InvoiceExportView.as_view(), name="invoice-export"),
+    path("billing/invoice/<int:year>/<int:month>/override/<int:override_id>/delete/", views.InvoiceDeleteOverrideView.as_view(), name="invoice-delete-override"),
     # Project member management
     path("project/<int:pk>/members/", views.ProjectMembersView.as_view(), name="project-members"),
     path("project/<int:pk>/members/add/", views.AddMemberView.as_view(), name="add-member"),

@@ -592,6 +592,262 @@ class ProjectMemberRole(TimeStampedModel):
 
 
 # =============================================================================
+# Invoice Preparation Models
+# =============================================================================
+
+
+class CostAllocationSnapshot(TimeStampedModel):
+    """Captures the cost object split at approval time for historical billing accuracy.
+
+    When a ProjectCostAllocation is approved, a snapshot is created to preserve
+    the exact cost object percentages that were in effect. This allows accurate
+    billing even if the allocation is later modified.
+
+    Attributes:
+        allocation (ProjectCostAllocation): The cost allocation this is a snapshot of
+        approved_at (datetime): When this split was approved
+        approved_by (User): The Billing Manager who approved this allocation
+        superseded_at (datetime): When this snapshot was replaced by a new approval
+    """
+
+    allocation = models.ForeignKey(
+        ProjectCostAllocation,
+        on_delete=models.CASCADE,
+        related_name="snapshots",
+        help_text="The cost allocation this is a snapshot of",
+    )
+    approved_at = models.DateTimeField(
+        help_text="When this cost allocation split was approved",
+    )
+    approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="approved_cost_snapshots",
+        help_text="The Billing Manager who approved this allocation",
+    )
+    superseded_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this snapshot was replaced by a new approval (null if current)",
+    )
+
+    class Meta:
+        ordering = ["-approved_at"]
+        verbose_name = "Cost Allocation Snapshot"
+        verbose_name_plural = "Cost Allocation Snapshots"
+
+    def __str__(self):
+        status = "current" if self.superseded_at is None else "superseded"
+        return f"Snapshot for {self.allocation.project.title} ({status})"
+
+    @classmethod
+    def get_active_snapshot_for_date(cls, project, target_date):
+        """Get the cost allocation snapshot that was active on a specific date.
+
+        Args:
+            project: The ColdFront Project object
+            target_date: The date to find the active snapshot for
+
+        Returns:
+            CostAllocationSnapshot or None if no snapshot was active
+        """
+        from django.utils import timezone
+
+        # Convert date to datetime for comparison
+        if hasattr(target_date, 'date'):
+            target_datetime = target_date
+        else:
+            target_datetime = timezone.make_aware(
+                datetime.combine(target_date, time(0, 0))
+            )
+
+        try:
+            allocation = project.cost_allocation
+        except ProjectCostAllocation.DoesNotExist:
+            return None
+
+        # Find snapshot that was approved before target date and not superseded before it
+        return cls.objects.filter(
+            allocation=allocation,
+            approved_at__lte=target_datetime,
+        ).filter(
+            models.Q(superseded_at__isnull=True) |
+            models.Q(superseded_at__gt=target_datetime)
+        ).order_by('-approved_at').first()
+
+
+class CostObjectSnapshot(TimeStampedModel):
+    """Individual cost objects within a snapshot.
+
+    Stores the cost object identifier and percentage at the time of approval.
+
+    Attributes:
+        snapshot (CostAllocationSnapshot): The parent snapshot
+        cost_object (str): Cost object identifier
+        percentage (Decimal): Percentage of billing allocated to this cost object
+    """
+
+    snapshot = models.ForeignKey(
+        CostAllocationSnapshot,
+        on_delete=models.CASCADE,
+        related_name="cost_objects",
+        help_text="The snapshot this cost object belongs to",
+    )
+    cost_object = models.CharField(
+        max_length=64,
+        help_text="Cost object identifier",
+    )
+    percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        help_text="Percentage of billing allocated to this cost object",
+    )
+
+    class Meta:
+        ordering = ["-percentage", "cost_object"]
+        verbose_name = "Cost Object Snapshot"
+        verbose_name_plural = "Cost Object Snapshots"
+
+    def __str__(self):
+        return f"{self.cost_object}: {self.percentage}%"
+
+
+class InvoicePeriod(TimeStampedModel):
+    """Tracks the status and metadata for a billing month.
+
+    Each invoice period represents a calendar month and tracks whether
+    the invoice has been finalized (locked from further edits).
+
+    Attributes:
+        year (int): The year of the invoice period
+        month (int): The month of the invoice period (1-12)
+        status (str): DRAFT or FINALIZED
+        finalized_by (User): Who finalized the invoice
+        finalized_at (datetime): When the invoice was finalized
+        notes (str): Optional notes about the invoice period
+    """
+
+    class StatusChoices(models.TextChoices):
+        DRAFT = "DRAFT", "Draft"
+        FINALIZED = "FINALIZED", "Finalized"
+
+    year = models.IntegerField(
+        help_text="The year of the invoice period",
+    )
+    month = models.IntegerField(
+        help_text="The month of the invoice period (1-12)",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=StatusChoices.choices,
+        default=StatusChoices.DRAFT,
+        help_text="Status of the invoice period",
+    )
+    finalized_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="finalized_invoices",
+        help_text="The user who finalized this invoice",
+    )
+    finalized_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the invoice was finalized",
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Optional notes about the invoice period",
+    )
+
+    class Meta:
+        unique_together = ("year", "month")
+        ordering = ["-year", "-month"]
+        verbose_name = "Invoice Period"
+        verbose_name_plural = "Invoice Periods"
+        permissions = [
+            ("can_manage_invoices", "Can manage invoice preparation"),
+        ]
+
+    def __str__(self):
+        import calendar
+        return f"{calendar.month_name[self.month]} {self.year} ({self.get_status_display()})"
+
+    @property
+    def is_finalized(self):
+        """Check if this invoice period is finalized."""
+        return self.status == self.StatusChoices.FINALIZED
+
+
+class InvoiceLineOverride(TimeStampedModel):
+    """Stores manual overrides for invoice line items with audit trail.
+
+    When a Billing Manager needs to adjust a calculated value, the override
+    is stored here along with the original value and a required explanation.
+
+    Attributes:
+        invoice_period (InvoicePeriod): The invoice period this override belongs to
+        reservation (Reservation): The reservation being overridden
+        override_type (str): Type of override (HOURS, COST_SPLIT, EXCLUDE)
+        original_value (dict): The original calculated values
+        override_value (dict): The overridden values
+        notes (str): Required explanation for the override
+        created_by (User): Who created the override
+    """
+
+    class OverrideTypeChoices(models.TextChoices):
+        HOURS = "HOURS", "Hours Override"
+        COST_SPLIT = "COST_SPLIT", "Cost Split Override"
+        EXCLUDE = "EXCLUDE", "Exclude from Invoice"
+
+    invoice_period = models.ForeignKey(
+        InvoicePeriod,
+        on_delete=models.CASCADE,
+        related_name="overrides",
+        help_text="The invoice period this override belongs to",
+    )
+    reservation = models.ForeignKey(
+        Reservation,
+        on_delete=models.CASCADE,
+        related_name="invoice_overrides",
+        help_text="The reservation being overridden",
+    )
+    override_type = models.CharField(
+        max_length=16,
+        choices=OverrideTypeChoices.choices,
+        help_text="Type of override being applied",
+    )
+    original_value = models.JSONField(
+        help_text="The original calculated values before override",
+    )
+    override_value = models.JSONField(
+        help_text="The overridden values",
+    )
+    notes = models.TextField(
+        help_text="Required explanation for why this override was made",
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="invoice_overrides_created",
+        help_text="The user who created this override",
+    )
+
+    class Meta:
+        ordering = ["-created"]
+        verbose_name = "Invoice Line Override"
+        verbose_name_plural = "Invoice Line Overrides"
+        # Only one override per reservation per invoice period
+        unique_together = ("invoice_period", "reservation")
+
+    def __str__(self):
+        return f"Override for Res #{self.reservation.pk} ({self.get_override_type_display()})"
+
+
+# =============================================================================
 # Role Permission Helper Functions
 # =============================================================================
 

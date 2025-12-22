@@ -1,0 +1,91 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}
+Invoice Preparation - Billing Manager
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h2><i class="fas fa-file-invoice-dollar"></i> Billing Manager</h2>
+  <p class="text-muted">Manage cost allocations and invoice preparation</p>
+</div>
+
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <a class="nav-link" href="{% url 'coldfront_orcd_direct_charge:pending-cost-allocations' %}">
+      <i class="fas fa-clock"></i> Pending Cost Allocations
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link active" href="{% url 'coldfront_orcd_direct_charge:invoice-preparation' %}">
+      <i class="fas fa-file-invoice"></i> Invoice Preparation
+    </a>
+  </li>
+</ul>
+
+{% if invoice_months %}
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0">
+      <i class="fas fa-calendar-alt"></i> Months with Completed Reservations
+    </h5>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead class="thead-light">
+        <tr>
+          <th>Month</th>
+          <th>Status</th>
+          <th>Overrides</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in invoice_months %}
+        <tr>
+          <td>
+            <strong>{{ m.month_name }} {{ m.year }}</strong>
+          </td>
+          <td>
+            {% if m.invoice_period %}
+              {% if m.invoice_period.status == 'FINALIZED' %}
+                <span class="badge badge-success">
+                  <i class="fas fa-lock"></i> {{ m.status }}
+                </span>
+              {% else %}
+                <span class="badge badge-warning">{{ m.status }}</span>
+              {% endif %}
+            {% else %}
+              <span class="badge badge-secondary">{{ m.status }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if m.override_count > 0 %}
+              <span class="badge badge-info">{{ m.override_count }} override{{ m.override_count|pluralize }}</span>
+            {% else %}
+              <span class="text-muted">None</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'coldfront_orcd_direct_charge:invoice-detail' year=m.year month=m.month %}" 
+               class="btn btn-primary btn-sm">
+              <i class="fas fa-eye"></i> View Report
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+  <i class="fas fa-info-circle"></i>
+  <strong>No approved reservations yet.</strong>
+  Invoice reports will appear here once reservations have been approved.
+</div>
+{% endif %}
+
+{% endblock %}

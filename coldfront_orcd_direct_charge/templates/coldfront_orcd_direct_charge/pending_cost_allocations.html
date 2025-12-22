@@ -8,10 +8,25 @@ Pending Cost Allocations - Billing Manager
 
 {% block content %}
 <div class="mb-3">
-  <h2><i class="fas fa-file-invoice-dollar"></i> Pending Cost Allocations</h2>
-  <p class="text-muted">Review and approve cost allocation submissions</p>
-  <hr>
+  <h2><i class="fas fa-file-invoice-dollar"></i> Billing Manager</h2>
+  <p class="text-muted">Manage cost allocations and invoice preparation</p>
 </div>
+
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <a class="nav-link active" href="{% url 'coldfront_orcd_direct_charge:pending-cost-allocations' %}">
+      <i class="fas fa-clock"></i> Pending Cost Allocations
+      {% if pending_count > 0 %}
+        <span class="badge badge-warning">{{ pending_count }}</span>
+      {% endif %}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{% url 'coldfront_orcd_direct_charge:invoice-preparation' %}">
+      <i class="fas fa-file-invoice"></i> Invoice Preparation
+    </a>
+  </li>
+</ul>
 
 {% if pending_allocations %}
 <div class="card">

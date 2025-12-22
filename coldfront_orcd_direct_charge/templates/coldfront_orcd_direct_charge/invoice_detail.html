@@ -1,0 +1,187 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}
+Invoice Report - {{ month_name }} {{ year }}
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h2>
+    <i class="fas fa-file-invoice"></i> Invoice Report: {{ month_name }} {{ year }}
+    {% if invoice_period.is_finalized %}
+      <span class="badge badge-success ml-2"><i class="fas fa-lock"></i> Finalized</span>
+    {% else %}
+      <span class="badge badge-warning ml-2">Draft</span>
+    {% endif %}
+  </h2>
+  <p class="text-muted">
+    {{ total_reservations }} reservation{{ total_reservations|pluralize }}
+    {% if excluded_count > 0 %}
+      ({{ excluded_count }} excluded)
+    {% endif %}
+  </p>
+  <hr>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-8">
+    <a href="{% url 'coldfront_orcd_direct_charge:invoice-preparation' %}" class="btn btn-outline-secondary">
+      <i class="fas fa-arrow-left"></i> Back to Month Selection
+    </a>
+    <a href="{% url 'coldfront_orcd_direct_charge:invoice-export' year=year month=month %}" 
+       class="btn btn-outline-primary ml-2">
+      <i class="fas fa-download"></i> Export JSON
+    </a>
+  </div>
+  <div class="col-md-4 text-right">
+    <form method="post" class="d-inline">
+      {% csrf_token %}
+      {% if invoice_period.is_finalized %}
+        <button type="submit" name="action" value="unfinalize" class="btn btn-warning"
+                onclick="return confirm('Are you sure you want to reopen this invoice for editing?');">
+          <i class="fas fa-unlock"></i> Reopen for Editing
+        </button>
+      {% else %}
+        <button type="submit" name="action" value="finalize" class="btn btn-success"
+                onclick="return confirm('Are you sure you want to finalize this invoice? This will lock it from further edits.');">
+          <i class="fas fa-lock"></i> Finalize Invoice
+        </button>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+{% if invoice_period.is_finalized %}
+<div class="alert alert-success">
+  <i class="fas fa-check-circle"></i>
+  <strong>Invoice Finalized</strong> by {{ invoice_period.finalized_by.username }}
+  on {{ invoice_period.finalized_at|date:"M d, Y g:i A" }}
+</div>
+{% endif %}
+
+{% for proj in projects %}
+<div class="card mb-4">
+  <div class="card-header bg-light">
+    <div class="row align-items-center">
+      <div class="col-md-6">
+        <h5 class="mb-0">
+          <i class="fas fa-folder"></i>
+          <a href="{% url 'project-detail' proj.project.pk %}">{{ proj.project.title }}</a>
+        </h5>
+        <small class="text-muted">Owner: {{ proj.project.pi.username }}</small>
+      </div>
+      <div class="col-md-6 text-right">
+        <strong>Total Hours:</strong> {{ proj.total_hours|floatformat:2 }}
+      </div>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <thead class="thead-light">
+        <tr>
+          <th>Reservation</th>
+          <th>Node</th>
+          <th>Dates</th>
+          <th>Hours (this month)</th>
+          <th>Cost Object Breakdown</th>
+          <th>Override</th>
+          {% if not invoice_period.is_finalized %}
+          <th>Actions</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for line in proj.lines %}
+        <tr {% if line.excluded %}class="table-secondary"{% endif %}>
+          <td>
+            #{{ line.reservation.pk }}
+            {% if line.excluded %}
+              <span class="badge badge-dark">Excluded</span>
+            {% endif %}
+          </td>
+          <td>{{ line.reservation.node_instance.associated_resource_address }}</td>
+          <td>
+            {{ line.reservation.start_date|date:"M d" }} - {{ line.reservation.end_date|date:"M d, Y" }}
+          </td>
+          <td>
+            {% if line.excluded %}
+              <span class="text-muted">-</span>
+            {% else %}
+              {{ line.hours_in_month|floatformat:2 }}
+            {% endif %}
+          </td>
+          <td>
+            {% if line.excluded %}
+              <span class="text-muted">-</span>
+            {% else %}
+              {% for co in line.cost_breakdown %}
+                <span class="badge badge-light mr-1">
+                  {{ co.cost_object }}: {{ co.hours|floatformat:2 }}h
+                </span>
+              {% empty %}
+                <span class="text-muted">No cost objects</span>
+              {% endfor %}
+            {% endif %}
+          </td>
+          <td>
+            {% if line.override %}
+              <span class="badge badge-info" 
+                    title="{{ line.override.notes }}"
+                    data-toggle="tooltip">
+                {{ line.override.get_override_type_display }}
+              </span>
+            {% else %}
+              <span class="text-muted">-</span>
+            {% endif %}
+          </td>
+          {% if not invoice_period.is_finalized %}
+          <td>
+            <a href="{% url 'coldfront_orcd_direct_charge:invoice-edit' year=year month=month %}?reservation={{ line.reservation.pk }}" 
+               class="btn btn-sm btn-outline-primary">
+              <i class="fas fa-edit"></i>
+            </a>
+            {% if line.override %}
+            <form method="post" class="d-inline" 
+                  action="{% url 'coldfront_orcd_direct_charge:invoice-delete-override' year=year month=month override_id=line.override.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger"
+                      onclick="return confirm('Delete this override?');">
+                <i class="fas fa-times"></i>
+              </button>
+            </form>
+            {% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer">
+    <strong>Cost Object Totals:</strong>
+    {% for co, hours in proj.cost_totals.items %}
+      <span class="badge badge-primary ml-2">{{ co }}: {{ hours|floatformat:2 }}h</span>
+    {% empty %}
+      <span class="text-muted ml-2">No cost objects</span>
+    {% endfor %}
+  </div>
+</div>
+{% empty %}
+<div class="alert alert-info">
+  <i class="fas fa-info-circle"></i>
+  <strong>No completed reservations for this month.</strong>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+<script>
+  $(function () {
+    $('[data-toggle="tooltip"]').tooltip();
+  });
+</script>
+{% endblock %}

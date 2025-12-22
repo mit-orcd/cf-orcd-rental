@@ -1,0 +1,187 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}
+Edit Invoice Override - {{ month_name }} {{ year }}
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h2>
+    <i class="fas fa-edit"></i> Edit Invoice Override
+  </h2>
+  <p class="text-muted">{{ month_name }} {{ year }}</p>
+  <hr>
+</div>
+
+<div class="row mb-4">
+  <div class="col">
+    <a href="{% url 'coldfront_orcd_direct_charge:invoice-detail' year=year month=month %}" 
+       class="btn btn-outline-secondary">
+      <i class="fas fa-arrow-left"></i> Back to Invoice Report
+    </a>
+  </div>
+</div>
+
+{% if reservation %}
+<div class="card mb-4">
+  <div class="card-header">
+    <h5 class="mb-0">
+      <i class="fas fa-calendar-check"></i> Reservation #{{ reservation.pk }}
+    </h5>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-6">
+        <p><strong>Project:</strong> {{ reservation.project.title }}</p>
+        <p><strong>Node:</strong> {{ reservation.node_instance.associated_resource_address }}</p>
+      </div>
+      <div class="col-md-6">
+        <p><strong>Dates:</strong> {{ reservation.start_date|date:"M d" }} - {{ reservation.end_date|date:"M d, Y" }}</p>
+        <p><strong>Original Hours (this month):</strong> {{ original_hours|floatformat:2 }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if existing_override %}
+<div class="alert alert-info">
+  <i class="fas fa-info-circle"></i>
+  <strong>Existing Override:</strong> {{ existing_override.get_override_type_display }}
+  <br>
+  <small>Created by {{ existing_override.created_by.username }} on {{ existing_override.created|date:"M d, Y g:i A" }}</small>
+  <br>
+  <em>Notes: {{ existing_override.notes }}</em>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0"><i class="fas fa-sliders-h"></i> Create/Update Override</h5>
+  </div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="reservation_id" value="{{ reservation.pk }}">
+
+      <div class="form-group">
+        <label for="override_type"><strong>Override Type</strong></label>
+        <select name="override_type" id="override_type" class="form-control" onchange="toggleOverrideFields()">
+          <option value="EXCLUDE" {% if existing_override.override_type == 'EXCLUDE' %}selected{% endif %}>
+            Exclude from Invoice
+          </option>
+          <option value="HOURS" {% if existing_override.override_type == 'HOURS' %}selected{% endif %}>
+            Override Hours
+          </option>
+          <option value="COST_SPLIT" {% if existing_override.override_type == 'COST_SPLIT' %}selected{% endif %}>
+            Override Cost Split
+          </option>
+        </select>
+      </div>
+
+      <div id="hours_override_fields" class="form-group" style="display: none;">
+        <label for="override_hours"><strong>Override Hours</strong></label>
+        <input type="number" step="0.01" name="override_hours" id="override_hours" 
+               class="form-control" 
+               value="{% if existing_override.override_type == 'HOURS' %}{{ existing_override.override_value.hours }}{% else %}{{ original_hours }}{% endif %}">
+        <small class="form-text text-muted">Original: {{ original_hours|floatformat:2 }} hours</small>
+      </div>
+
+      <div id="cost_split_fields" style="display: none;">
+        <label><strong>Override Cost Split</strong></label>
+        <p class="text-muted">Enter hours for each cost object. Total should equal the hours for this month.</p>
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Cost Object</th>
+              <th>Current %</th>
+              <th>Override Hours</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for co in cost_objects %}
+            <tr>
+              <td>{{ co.cost_object }}</td>
+              <td>{{ co.percentage }}%</td>
+              <td>
+                <input type="number" step="0.01" name="cost_object_{{ co.cost_object }}" 
+                       class="form-control form-control-sm cost-object-hours"
+                       value="{% widthratio co.percentage 100 original_hours %}">
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="3" class="text-muted">No cost objects defined for this project</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th colspan="2">Total:</th>
+              <th><span id="cost_split_total">0.00</span> hours</th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="form-group">
+        <label for="notes"><strong>Notes (Required)</strong></label>
+        <textarea name="notes" id="notes" class="form-control" rows="3" required
+                  placeholder="Explain why this override is necessary...">{% if existing_override %}{{ existing_override.notes }}{% endif %}</textarea>
+        <small class="form-text text-muted">
+          This note will be recorded for audit purposes.
+        </small>
+      </div>
+
+      <div class="form-group">
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save"></i> Save Override
+        </button>
+        <a href="{% url 'coldfront_orcd_direct_charge:invoice-detail' year=year month=month %}" 
+           class="btn btn-secondary">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% else %}
+<div class="alert alert-warning">
+  <i class="fas fa-exclamation-triangle"></i>
+  <strong>No reservation selected.</strong>
+  Please select a reservation from the invoice report to edit.
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+<script>
+function toggleOverrideFields() {
+  var type = document.getElementById('override_type').value;
+  document.getElementById('hours_override_fields').style.display = (type === 'HOURS') ? 'block' : 'none';
+  document.getElementById('cost_split_fields').style.display = (type === 'COST_SPLIT') ? 'block' : 'none';
+}
+
+function updateCostSplitTotal() {
+  var inputs = document.querySelectorAll('.cost-object-hours');
+  var total = 0;
+  inputs.forEach(function(input) {
+    total += parseFloat(input.value) || 0;
+  });
+  document.getElementById('cost_split_total').textContent = total.toFixed(2);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  toggleOverrideFields();
+  updateCostSplitTotal();
+
+  document.querySelectorAll('.cost-object-hours').forEach(function(input) {
+    input.addEventListener('input', updateCostSplitTotal);
+  });
+});
+</script>
+{% endblock %}
