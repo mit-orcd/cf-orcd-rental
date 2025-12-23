@@ -763,10 +763,28 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVie
         else:
             month_end = date(year, month + 1, 1) - timedelta(days=1)
 
+        # Get filter parameters
+        owner_filter = self.request.GET.get("owner", "")
+        title_filter = self.request.GET.get("title", "")
+
+        # Get distinct owners for dropdown (before filtering)
+        all_owners = Reservation.objects.filter(
+            status=Reservation.StatusChoices.APPROVED
+        ).values_list("project__pi__username", flat=True).distinct().order_by("project__pi__username")
+        context["owners"] = list(all_owners)
+        context["owner_filter"] = owner_filter
+        context["title_filter"] = title_filter
+
         # Get all approved reservations that overlap this month (including future)
         all_reservations = Reservation.objects.filter(
             status=Reservation.StatusChoices.APPROVED,
         ).select_related("project", "project__pi", "node_instance")
+
+        # Apply filters
+        if owner_filter:
+            all_reservations = all_reservations.filter(project__pi__username=owner_filter)
+        if title_filter:
+            all_reservations = all_reservations.filter(project__title__icontains=title_filter)
 
         # Filter to reservations that overlap with this month
         reservations = []
