@@ -246,3 +246,217 @@ def check_maintenance_on_role_delete(sender, instance, **kwargs):
         instance.user.username, instance.project.title
     )
     reset_maintenance_if_billing_project(instance.user, instance.project)
+
+
+# =============================================================================
+# Authentication Signal Handlers
+# Log user login, logout, and failed login attempts
+# =============================================================================
+
+from django.contrib.auth.signals import user_logged_in, user_logged_out, user_login_failed
+
+
+@receiver(user_logged_in)
+def log_user_login(sender, request, user, **kwargs):
+    """Log successful user login."""
+    from coldfront_orcd_direct_charge.models import ActivityLog, log_activity
+
+    log_activity(
+        action="auth.login",
+        category=ActivityLog.ActionCategory.AUTH,
+        description=f"User {user.username} logged in",
+        user=user,
+        request=request,
+        extra_data={"username": user.username},
+    )
+
+
+@receiver(user_logged_out)
+def log_user_logout(sender, request, user, **kwargs):
+    """Log user logout."""
+    from coldfront_orcd_direct_charge.models import ActivityLog, log_activity
+
+    if user:
+        log_activity(
+            action="auth.logout",
+            category=ActivityLog.ActionCategory.AUTH,
+            description=f"User {user.username} logged out",
+            user=user,
+            request=request,
+            extra_data={"username": user.username},
+        )
+
+
+@receiver(user_login_failed)
+def log_user_login_failed(sender, credentials, request, **kwargs):
+    """Log failed login attempts."""
+    from coldfront_orcd_direct_charge.models import ActivityLog, log_activity
+
+    username = credentials.get("username", "unknown")
+    log_activity(
+        action="auth.login_failed",
+        category=ActivityLog.ActionCategory.AUTH,
+        description=f"Failed login attempt for {username}",
+        request=request,
+        extra_data={"attempted_username": username},
+    )
+
+
+# =============================================================================
+# Activity Logging Signal Handlers
+# Log key model changes for audit trail
+# =============================================================================
+
+
+def connect_activity_log_signals():
+    """
+    Connect signal handlers for activity logging.
+
+    This is called from apps.py to avoid circular imports.
+    """
+    from coldfront_orcd_direct_charge.models import (
+        Reservation,
+        ProjectMemberRole,
+        ProjectCostAllocation,
+        UserMaintenanceStatus,
+    )
+
+    post_save.connect(log_reservation_change, sender=Reservation)
+    post_save.connect(log_member_role_change, sender=ProjectMemberRole)
+    post_delete.connect(log_member_role_delete, sender=ProjectMemberRole)
+    post_save.connect(log_cost_allocation_change, sender=ProjectCostAllocation)
+    post_save.connect(log_maintenance_status_change, sender=UserMaintenanceStatus)
+
+
+def log_reservation_change(sender, instance, created, **kwargs):
+    """Log reservation creation and status changes."""
+    from coldfront_orcd_direct_charge.models import ActivityLog, log_activity
+
+    if created:
+        log_activity(
+            action="reservation.created",
+            category=ActivityLog.ActionCategory.RESERVATION,
+            description=f"Reservation #{instance.pk} created for project {instance.project.title}",
+            user=instance.requesting_user,
+            target=instance,
+            extra_data={
+                "status": instance.status,
+                "project_id": instance.project.pk,
+                "project_title": instance.project.title,
+                "node": instance.node_instance.associated_resource_address,
+                "start_date": str(instance.start_date),
+                "num_blocks": instance.num_blocks,
+            },
+        )
+    else:
+        # Log status changes - these are also handled in views for more context
+        # This catches any other updates
+        log_activity(
+            action="reservation.updated",
+            category=ActivityLog.ActionCategory.RESERVATION,
+            description=f"Reservation #{instance.pk} updated (status: {instance.get_status_display()})",
+            target=instance,
+            extra_data={
+                "status": instance.status,
+                "project_id": instance.project.pk,
+            },
+        )
+
+
+def log_member_role_change(sender, instance, created, **kwargs):
+    """Log member role additions."""
+    from coldfront_orcd_direct_charge.models import ActivityLog, log_activity
+
+    if created:
+        log_activity(
+            action="member.role_added",
+            category=ActivityLog.ActionCategory.MEMBER,
+            description=f"Role {instance.get_role_display()} added for {instance.user.username} in {instance.project.title}",
+            target=instance,
+            extra_data={
+                "user_id": instance.user.pk,
+                "username": instance.user.username,
+                "project_id": instance.project.pk,
+                "project_title": instance.project.title,
+                "role": instance.role,
+            },
+        )
+
+
+def log_member_role_delete(sender, instance, **kwargs):
+    """Log member role removals."""
+    from coldfront_orcd_direct_charge.models import ActivityLog, log_activity
+
+    log_activity(
+        action="member.role_removed",
+        category=ActivityLog.ActionCategory.MEMBER,
+        description=f"Role {instance.get_role_display()} removed for {instance.user.username} from {instance.project.title}",
+        target=instance.project,
+        extra_data={
+            "user_id": instance.user.pk,
+            "username": instance.user.username,
+            "project_id": instance.project.pk,
+            "project_title": instance.project.title,
+            "role": instance.role,
+        },
+    )
+
+
+def log_cost_allocation_change(sender, instance, created, **kwargs):
+    """Log cost allocation changes."""
+    from coldfront_orcd_direct_charge.models import ActivityLog, log_activity
+
+    if created:
+        log_activity(
+            action="cost_allocation.created",
+            category=ActivityLog.ActionCategory.COST_ALLOCATION,
+            description=f"Cost allocation created for project {instance.project.title}",
+            target=instance,
+            extra_data={
+                "project_id": instance.project.pk,
+                "project_title": instance.project.title,
+                "status": instance.status,
+            },
+        )
+    else:
+        log_activity(
+            action="cost_allocation.updated",
+            category=ActivityLog.ActionCategory.COST_ALLOCATION,
+            description=f"Cost allocation updated for project {instance.project.title} (status: {instance.get_status_display()})",
+            target=instance,
+            extra_data={
+                "project_id": instance.project.pk,
+                "project_title": instance.project.title,
+                "status": instance.status,
+            },
+        )
+
+
+def log_maintenance_status_change(sender, instance, created, **kwargs):
+    """Log maintenance status changes."""
+    from coldfront_orcd_direct_charge.models import ActivityLog, log_activity
+
+    if created:
+        log_activity(
+            action="maintenance.created",
+            category=ActivityLog.ActionCategory.MAINTENANCE,
+            description=f"Maintenance status created for {instance.user.username}",
+            user=instance.user,
+            target=instance,
+            extra_data={
+                "status": instance.status,
+            },
+        )
+    else:
+        billing_project = instance.billing_project.title if instance.billing_project else None
+        log_activity(
+            action="maintenance.updated",
+            category=ActivityLog.ActionCategory.MAINTENANCE,
+            description=f"Maintenance status updated for {instance.user.username}: {instance.get_status_display()}",
+            user=instance.user,
+            target=instance,
+            extra_data={
+                "status": instance.status,
+                "billing_project": billing_project,
+            },
+        )

@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.core.exceptions import PermissionDenied
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, DetailView, CreateView, View
@@ -38,9 +40,12 @@ from coldfront_orcd_direct_charge.models import (
     CostObjectSnapshot,
     InvoicePeriod,
     InvoiceLineOverride,
+    ActivityLog,
     can_edit_cost_allocation,
     can_use_for_maintenance_fee,
+    can_view_activity_log,
     has_approved_cost_allocation,
+    log_activity,
 )
 
 
@@ -350,6 +355,20 @@ class ReservationApproveView(LoginRequiredMixin, PermissionRequiredMixin, View):
         reservation.status = Reservation.StatusChoices.APPROVED
         reservation.save()
 
+        # Log the approval action
+        log_activity(
+            action="reservation.approved",
+            category=ActivityLog.ActionCategory.RESERVATION,
+            description=f"Reservation #{reservation.pk} approved by {request.user.username}",
+            request=request,
+            target=reservation,
+            extra_data={
+                "project_id": reservation.project.pk,
+                "project_title": reservation.project.title,
+                "node": reservation.node_instance.associated_resource_address,
+            },
+        )
+
         messages.success(
             request,
             f"Reservation for {reservation.node_instance.associated_resource_address} approved."
@@ -374,6 +393,21 @@ class ReservationDeclineView(LoginRequiredMixin, PermissionRequiredMixin, View):
             reservation.status = Reservation.StatusChoices.DECLINED
             reservation.manager_notes = form.cleaned_data.get("manager_notes", "")
             reservation.save()
+
+            # Log the decline action
+            log_activity(
+                action="reservation.declined",
+                category=ActivityLog.ActionCategory.RESERVATION,
+                description=f"Reservation #{reservation.pk} declined by {request.user.username}",
+                request=request,
+                target=reservation,
+                extra_data={
+                    "project_id": reservation.project.pk,
+                    "project_title": reservation.project.title,
+                    "node": reservation.node_instance.associated_resource_address,
+                    "manager_notes": reservation.manager_notes,
+                },
+            )
 
             messages.success(
                 request,
@@ -641,6 +675,21 @@ class CostAllocationApprovalView(LoginRequiredMixin, PermissionRequiredMixin, Te
                 f"Cost allocation approved: project={self.allocation.project.pk}, "
                 f"approved_by={request.user.username}, snapshot_id={snapshot.pk}"
             )
+
+            # Log to activity log
+            log_activity(
+                action="cost_allocation.approved",
+                category=ActivityLog.ActionCategory.COST_ALLOCATION,
+                description=f"Cost allocation approved for {self.allocation.project.title}",
+                request=request,
+                target=self.allocation,
+                extra_data={
+                    "project_id": self.allocation.project.pk,
+                    "project_title": self.allocation.project.title,
+                    "snapshot_id": snapshot.pk,
+                },
+            )
+
             messages.success(
                 request,
                 f"Cost allocation for '{self.allocation.project.title}' has been approved."
@@ -659,6 +708,21 @@ class CostAllocationApprovalView(LoginRequiredMixin, PermissionRequiredMixin, Te
                 f"Cost allocation rejected: project={self.allocation.project.pk}, "
                 f"rejected_by={request.user.username}, reason={review_notes}"
             )
+
+            # Log to activity log
+            log_activity(
+                action="cost_allocation.rejected",
+                category=ActivityLog.ActionCategory.COST_ALLOCATION,
+                description=f"Cost allocation rejected for {self.allocation.project.title}",
+                request=request,
+                target=self.allocation,
+                extra_data={
+                    "project_id": self.allocation.project.pk,
+                    "project_title": self.allocation.project.title,
+                    "review_notes": review_notes,
+                },
+            )
+
             messages.warning(
                 request,
                 f"Cost allocation for '{self.allocation.project.title}' has been rejected."
@@ -987,6 +1051,17 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVie
             logger.info(
                 f"Invoice period finalized: {year}/{month}, by={request.user.username}"
             )
+
+            # Log to activity log
+            log_activity(
+                action="invoice.finalized",
+                category=ActivityLog.ActionCategory.INVOICE,
+                description=f"Invoice {calendar.month_name[month]} {year} finalized",
+                request=request,
+                target=invoice_period,
+                extra_data={"year": year, "month": month},
+            )
+
             messages.success(request, f"Invoice for {calendar.month_name[month]} {year} has been finalized.")
         elif action == "unfinalize":
             invoice_period.status = InvoicePeriod.StatusChoices.DRAFT
@@ -996,6 +1071,17 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVie
             logger.info(
                 f"Invoice period unfinalized: {year}/{month}, by={request.user.username}"
             )
+
+            # Log to activity log
+            log_activity(
+                action="invoice.reopened",
+                category=ActivityLog.ActionCategory.INVOICE,
+                description=f"Invoice {calendar.month_name[month]} {year} reopened for editing",
+                request=request,
+                target=invoice_period,
+                extra_data={"year": year, "month": month},
+            )
+
             messages.info(request, f"Invoice for {calendar.month_name[month]} {year} has been reopened for editing.")
 
         return redirect("coldfront_orcd_direct_charge:invoice-detail", year=year, month=month)
@@ -1143,12 +1229,28 @@ class InvoiceEditView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView)
             },
         )
 
-        action = "created" if created else "updated"
+        action_str = "created" if created else "updated"
         logger.info(
-            f"Invoice override {action}: reservation={reservation.pk}, "
+            f"Invoice override {action_str}: reservation={reservation.pk}, "
             f"type={override_type}, by={request.user.username}"
         )
-        messages.success(request, f"Override {action} successfully.")
+
+        # Log to activity log
+        log_activity(
+            action=f"invoice.override_{action_str}",
+            category=ActivityLog.ActionCategory.INVOICE,
+            description=f"Override {action_str} for reservation #{reservation.pk}",
+            request=request,
+            target=override,
+            extra_data={
+                "year": year,
+                "month": month,
+                "reservation_id": reservation.pk,
+                "override_type": override_type,
+            },
+        )
+
+        messages.success(request, f"Override {action_str} successfully.")
 
         return redirect("coldfront_orcd_direct_charge:invoice-detail", year=year, month=month)
 
@@ -1230,6 +1332,20 @@ class InvoiceExportView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
             export_data["projects"].append(project_export)
 
+        # Log the export action
+        log_activity(
+            action="invoice.exported",
+            category=ActivityLog.ActionCategory.INVOICE,
+            description=f"Invoice {calendar.month_name[month]} {year} exported as JSON",
+            request=request,
+            target=context["invoice_period"],
+            extra_data={
+                "year": year,
+                "month": month,
+                "total_reservations": context["total_reservations"],
+            },
+        )
+
         response = JsonResponse(export_data, json_dumps_params={"indent": 2})
         response["Content-Disposition"] = f'attachment; filename="invoice_{year}_{month:02d}.json"'
         return response
@@ -1253,12 +1369,28 @@ class InvoiceDeleteOverrideView(LoginRequiredMixin, PermissionRequiredMixin, Vie
             return redirect("coldfront_orcd_direct_charge:invoice-detail", year=year, month=month)
 
         reservation_id = override.reservation_id
+        override_type = override.override_type
         override.delete()
 
         logger.info(
             f"Invoice override deleted: reservation={reservation_id}, "
             f"by={request.user.username}"
         )
+
+        # Log to activity log
+        log_activity(
+            action="invoice.override_deleted",
+            category=ActivityLog.ActionCategory.INVOICE,
+            description=f"Override deleted for reservation #{reservation_id}",
+            request=request,
+            extra_data={
+                "year": year,
+                "month": month,
+                "reservation_id": reservation_id,
+                "override_type": override_type,
+            },
+        )
+
         messages.success(request, "Override deleted successfully.")
 
         return redirect("coldfront_orcd_direct_charge:invoice-detail", year=year, month=month)
@@ -1452,6 +1584,23 @@ class AddMemberView(LoginRequiredMixin, TemplateView):
             role_names = [
                 dict(form.fields["roles"].choices).get(r, r) for r in roles
             ]
+
+            # Log to activity log
+            log_activity(
+                action="member.added",
+                category=ActivityLog.ActionCategory.MEMBER,
+                description=f"User {username} added to {self.project.title} with roles: {', '.join(role_names)}",
+                request=request,
+                target=self.project,
+                extra_data={
+                    "project_id": self.project.pk,
+                    "project_title": self.project.title,
+                    "user_id": user.pk,
+                    "username": username,
+                    "roles": list(roles),
+                },
+            )
+
             messages.success(
                 request,
                 f"Added {username} with role(s): {', '.join(role_names)}"
@@ -1579,6 +1728,22 @@ class UpdateMemberRoleView(LoginRequiredMixin, TemplateView):
             except ProjectUser.DoesNotExist:
                 pass  # No ColdFront ProjectUser record
 
+            # Log to activity log
+            log_activity(
+                action="member.roles_updated",
+                category=ActivityLog.ActionCategory.MEMBER,
+                description=f"Roles updated for {self.target_user.username} in {self.project.title}",
+                request=request,
+                target=self.project,
+                extra_data={
+                    "project_id": self.project.pk,
+                    "project_title": self.project.title,
+                    "user_id": self.target_user.pk,
+                    "username": self.target_user.username,
+                    "new_roles": list(new_roles),
+                },
+            )
+
             # Build message
             if not new_roles and not self.is_owner:
                 messages.success(
@@ -1640,6 +1805,22 @@ class RemoveMemberView(LoginRequiredMixin, View):
 
         # Also remove from ColdFront's ProjectUser
         ProjectUser.objects.filter(project=project, user=target_user).delete()
+
+        # Log to activity log
+        log_activity(
+            action="member.removed",
+            category=ActivityLog.ActionCategory.MEMBER,
+            description=f"User {target_user.username} removed from {project.title}",
+            request=request,
+            target=project,
+            extra_data={
+                "project_id": project.pk,
+                "project_title": project.title,
+                "user_id": target_user.pk,
+                "username": target_user.username,
+                "removed_roles": roles_list,
+            },
+        )
 
         messages.success(request, f"Removed {target_user.username} from the project.")
         return redirect("coldfront_orcd_direct_charge:project-members", pk=project.pk)
@@ -1853,3 +2034,56 @@ class ProjectAddUsersView(LoginRequiredMixin, View):
             messages.info(request, "No members were added.")
 
         return redirect("coldfront_orcd_direct_charge:project-members", pk=pk)
+
+
+# =============================================================================
+# Activity Log View
+# =============================================================================
+
+
+class ActivityLogView(LoginRequiredMixin, TemplateView):
+    """View activity logs. Restricted to Billing/Rental Managers and superusers."""
+
+    template_name = "coldfront_orcd_direct_charge/activity_log.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if not can_view_activity_log(request.user):
+            raise PermissionDenied("You do not have permission to view activity logs.")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Filter parameters
+        category = self.request.GET.get("category", "")
+        user_filter = self.request.GET.get("user", "")
+        action_filter = self.request.GET.get("action", "")
+        date_from = self.request.GET.get("date_from", "")
+        date_to = self.request.GET.get("date_to", "")
+
+        logs = ActivityLog.objects.select_related("user").all()
+
+        if category:
+            logs = logs.filter(category=category)
+        if user_filter:
+            logs = logs.filter(user__username__icontains=user_filter)
+        if action_filter:
+            logs = logs.filter(action__icontains=action_filter)
+        if date_from:
+            logs = logs.filter(timestamp__date__gte=date_from)
+        if date_to:
+            logs = logs.filter(timestamp__date__lte=date_to)
+
+        # Paginate (50 per page)
+        paginator = Paginator(logs, 50)
+        page = self.request.GET.get("page", 1)
+        context["logs"] = paginator.get_page(page)
+        context["categories"] = ActivityLog.ActionCategory.choices
+        context["filters"] = {
+            "category": category,
+            "user": user_filter,
+            "action": action_filter,
+            "date_from": date_from,
+            "date_to": date_to,
+        }
+        return context

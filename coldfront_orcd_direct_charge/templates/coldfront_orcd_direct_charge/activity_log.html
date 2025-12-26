@@ -1,0 +1,180 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}
+Activity Log
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h2>
+    <i class="fas fa-history"></i> Activity Log
+  </h2>
+  <p class="text-muted">
+    Audit trail of all actions on the system
+  </p>
+  <hr>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+  <div class="card-header" style="cursor: pointer;" data-toggle="collapse" data-target="#filterPanel">
+    <i class="fas fa-filter"></i> Filters
+    {% if filters.category or filters.user or filters.action or filters.date_from or filters.date_to %}
+      <span class="badge badge-primary ml-2">Active</span>
+    {% endif %}
+  </div>
+  <div id="filterPanel" class="collapse {% if filters.category or filters.user or filters.action or filters.date_from or filters.date_to %}show{% endif %}">
+    <div class="card-body">
+      <form method="get">
+        <div class="row">
+          <div class="col-md-3">
+            <div class="form-group">
+              <label for="category">Category:</label>
+              <select name="category" id="category" class="form-control">
+                <option value="">All Categories</option>
+                {% for value, label in categories %}
+                  <option value="{{ value }}" {% if value == filters.category %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="form-group">
+              <label for="user">User:</label>
+              <input type="text" name="user" id="user" class="form-control" 
+                     value="{{ filters.user }}" placeholder="Username">
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="form-group">
+              <label for="action">Action:</label>
+              <input type="text" name="action" id="action" class="form-control" 
+                     value="{{ filters.action }}" placeholder="e.g. approved">
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="form-group">
+              <label for="date_from">From Date:</label>
+              <input type="date" name="date_from" id="date_from" class="form-control" 
+                     value="{{ filters.date_from }}">
+            </div>
+          </div>
+          <div class="col-md-2">
+            <div class="form-group">
+              <label for="date_to">To Date:</label>
+              <input type="date" name="date_to" id="date_to" class="form-control" 
+                     value="{{ filters.date_to }}">
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-search"></i> Apply Filters
+        </button>
+        <a href="{% url 'coldfront_orcd_direct_charge:activity-log' %}" class="btn btn-secondary">
+          Clear
+        </a>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Results -->
+<div class="card">
+  <div class="card-header bg-light">
+    <strong>{{ logs.paginator.count }}</strong> log entries
+    {% if logs.paginator.num_pages > 1 %}
+      (Page {{ logs.number }} of {{ logs.paginator.num_pages }})
+    {% endif %}
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-hover mb-0">
+      <thead class="thead-light">
+        <tr>
+          <th style="width: 160px;">Timestamp</th>
+          <th style="width: 120px;">User</th>
+          <th style="width: 120px;">Category</th>
+          <th style="width: 180px;">Action</th>
+          <th>Description</th>
+          <th style="width: 120px;">IP Address</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>
+            <small>{{ log.timestamp|date:"M d, Y" }}<br>{{ log.timestamp|time:"g:i:s A" }}</small>
+          </td>
+          <td>
+            {% if log.user %}
+              <a href="{% url 'user-profile' log.user.username %}" style="word-break: break-all;">{{ log.user.username }}</a>
+            {% else %}
+              <span class="text-muted">System</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge badge-secondary">{{ log.get_category_display }}</span>
+          </td>
+          <td>
+            <code style="word-break: break-all;">{{ log.action }}</code>
+          </td>
+          <td>
+            {{ log.description }}
+            {% if log.target_repr %}
+              <br><small class="text-muted">Target: {{ log.target_repr }}</small>
+            {% endif %}
+          </td>
+          <td>
+            <small class="text-muted">{{ log.ip_address|default:"-" }}</small>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center text-muted py-4">
+            <i class="fas fa-inbox"></i> No activity logs found
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if logs.paginator.num_pages > 1 %}
+  <div class="card-footer">
+    <nav aria-label="Activity log pagination">
+      <ul class="pagination mb-0 justify-content-center">
+        {% if logs.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?page=1{% if filters.category %}&category={{ filters.category }}{% endif %}{% if filters.user %}&user={{ filters.user }}{% endif %}{% if filters.action %}&action={{ filters.action }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}">
+              <i class="fas fa-angle-double-left"></i>
+            </a>
+          </li>
+          <li class="page-item">
+            <a class="page-link" href="?page={{ logs.previous_page_number }}{% if filters.category %}&category={{ filters.category }}{% endif %}{% if filters.user %}&user={{ filters.user }}{% endif %}{% if filters.action %}&action={{ filters.action }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}">
+              <i class="fas fa-angle-left"></i>
+            </a>
+          </li>
+        {% endif %}
+        
+        <li class="page-item disabled">
+          <span class="page-link">Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span>
+        </li>
+        
+        {% if logs.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ logs.next_page_number }}{% if filters.category %}&category={{ filters.category }}{% endif %}{% if filters.user %}&user={{ filters.user }}{% endif %}{% if filters.action %}&action={{ filters.action }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}">
+              <i class="fas fa-angle-right"></i>
+            </a>
+          </li>
+          <li class="page-item">
+            <a class="page-link" href="?page={{ logs.paginator.num_pages }}{% if filters.category %}&category={{ filters.category }}{% endif %}{% if filters.user %}&user={{ filters.user }}{% endif %}{% if filters.action %}&action={{ filters.action }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}">
+              <i class="fas fa-angle-double-right"></i>
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

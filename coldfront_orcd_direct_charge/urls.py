@@ -32,6 +32,8 @@ urlpatterns = [
     path("billing/invoice/<int:year>/<int:month>/edit/", views.InvoiceEditView.as_view(), name="invoice-edit"),
     path("billing/invoice/<int:year>/<int:month>/export/", views.InvoiceExportView.as_view(), name="invoice-export"),
     path("billing/invoice/<int:year>/<int:month>/override/<int:override_id>/delete/", views.InvoiceDeleteOverrideView.as_view(), name="invoice-delete-override"),
+    # Activity Log
+    path("activity-log/", views.ActivityLogView.as_view(), name="activity-log"),
     # Project member management
     path("project/<int:pk>/members/", views.ProjectMembersView.as_view(), name="project-members"),
     path("project/<int:pk>/members/add/", views.AddMemberView.as_view(), name="add-member"),

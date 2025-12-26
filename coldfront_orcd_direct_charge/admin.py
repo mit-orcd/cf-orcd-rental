@@ -4,6 +4,7 @@
 
 from django.contrib import admin
 from coldfront_orcd_direct_charge.models import (
+    ActivityLog,
     NodeType,
     GpuNodeInstance,
     CpuNodeInstance,
@@ -169,3 +170,67 @@ class ReservationAdmin(admin.ModelAdmin):
             status=Reservation.StatusChoices.DECLINED
         )
         self.message_user(request, f"{count} reservation(s) declined.")
+
+
+@admin.register(ActivityLog)
+class ActivityLogAdmin(admin.ModelAdmin):
+    """Admin for viewing activity logs (read-only)."""
+
+    list_display = (
+        "timestamp",
+        "user_display",
+        "action",
+        "category",
+        "target_repr",
+        "ip_address",
+    )
+    list_filter = ("category", "action", "timestamp")
+    search_fields = ("user__username", "description", "target_repr", "action")
+    readonly_fields = (
+        "timestamp",
+        "user",
+        "action",
+        "category",
+        "description",
+        "target_type",
+        "target_id",
+        "target_repr",
+        "ip_address",
+        "user_agent",
+        "extra_data",
+    )
+    date_hierarchy = "timestamp"
+    ordering = ("-timestamp",)
+
+    fieldsets = (
+        ("Action", {
+            "fields": ("timestamp", "user", "action", "category", "description")
+        }),
+        ("Target", {
+            "fields": ("target_type", "target_id", "target_repr")
+        }),
+        ("Request Context", {
+            "fields": ("ip_address", "user_agent"),
+            "classes": ("collapse",)
+        }),
+        ("Extra Data", {
+            "fields": ("extra_data",),
+            "classes": ("collapse",)
+        }),
+    )
+
+    @admin.display(description="User")
+    def user_display(self, obj):
+        return obj.user.username if obj.user else "System"
+
+    def has_add_permission(self, request):
+        """Logs are created programmatically only."""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Logs are immutable."""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """Only superusers can delete logs."""
+        return request.user.is_superuser

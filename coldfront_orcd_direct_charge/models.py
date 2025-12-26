@@ -1039,3 +1039,190 @@ def has_approved_cost_allocation(project):
         return project.cost_allocation.status == ProjectCostAllocation.StatusChoices.APPROVED
     except ProjectCostAllocation.DoesNotExist:
         return False
+
+
+# =============================================================================
+# Activity Log Model and Helpers
+# =============================================================================
+
+
+class ActivityLog(models.Model):
+    """Audit log for all user activity on the site."""
+
+    class ActionCategory(models.TextChoices):
+        AUTH = "auth", "Authentication"
+        RESERVATION = "reservation", "Reservation"
+        PROJECT = "project", "Project"
+        MEMBER = "member", "Member Management"
+        COST_ALLOCATION = "cost_allocation", "Cost Allocation"
+        BILLING = "billing", "Billing"
+        INVOICE = "invoice", "Invoice"
+        MAINTENANCE = "maintenance", "Maintenance Status"
+        API = "api", "API Access"
+        VIEW = "view", "Page View"
+
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activity_logs",
+        help_text="The user who performed this action",
+    )
+    action = models.CharField(
+        max_length=100,
+        db_index=True,
+        help_text="Machine-readable action identifier (e.g., reservation.approved)",
+    )
+    category = models.CharField(
+        max_length=30,
+        choices=ActionCategory.choices,
+        db_index=True,
+        help_text="Category of the action for filtering",
+    )
+    description = models.TextField(
+        help_text="Human-readable description of the action",
+    )
+
+    # Target object (generic foreign key pattern)
+    target_type = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Class name of the target object (e.g., Reservation, Project)",
+    )
+    target_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Primary key of the target object",
+    )
+    target_repr = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="String representation of the target object",
+    )
+
+    # Request context
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="IP address of the request",
+    )
+    user_agent = models.TextField(
+        blank=True,
+        help_text="Browser/client user agent string",
+    )
+
+    # Additional data (JSON)
+    extra_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Additional structured data about the action",
+    )
+
+    class Meta:
+        ordering = ["-timestamp"]
+        verbose_name = "Activity Log"
+        verbose_name_plural = "Activity Logs"
+        indexes = [
+            models.Index(fields=["user", "-timestamp"]),
+            models.Index(fields=["category", "-timestamp"]),
+            models.Index(fields=["action", "-timestamp"]),
+        ]
+
+    def __str__(self):
+        user_str = self.user.username if self.user else "Anonymous"
+        return f"{self.timestamp:%Y-%m-%d %H:%M} - {user_str} - {self.action}"
+
+
+def get_client_ip(request):
+    """Extract client IP address from request, handling proxies."""
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(",")[0].strip()
+    else:
+        ip = request.META.get("REMOTE_ADDR")
+    return ip
+
+
+def log_activity(
+    action,
+    category,
+    description,
+    user=None,
+    request=None,
+    target=None,
+    extra_data=None,
+):
+    """Log an activity to the ActivityLog.
+
+    Args:
+        action: Machine-readable action identifier (e.g., "reservation.approved")
+        category: ActionCategory choice value
+        description: Human-readable description
+        user: User who performed the action (optional, extracted from request if available)
+        request: HTTP request object (optional, used for IP/user-agent)
+        target: Target model instance (optional)
+        extra_data: Additional JSON data (optional)
+
+    Returns:
+        ActivityLog instance
+    """
+    ip_address = None
+    user_agent = ""
+
+    if request:
+        user = user or getattr(request, "user", None)
+        ip_address = get_client_ip(request)
+        user_agent = request.META.get("HTTP_USER_AGENT", "")[:500]
+
+    if user and not user.is_authenticated:
+        user = None
+
+    target_type = ""
+    target_id = None
+    target_repr = ""
+    if target:
+        target_type = target.__class__.__name__
+        target_id = getattr(target, "pk", None)
+        target_repr = str(target)[:255]
+
+    try:
+        return ActivityLog.objects.create(
+            user=user,
+            action=action,
+            category=category,
+            description=description,
+            target_type=target_type,
+            target_id=target_id,
+            target_repr=target_repr,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            extra_data=extra_data or {},
+        )
+    except Exception as e:
+        logger.error(f"Failed to log activity: {e}")
+        return None
+
+
+def can_view_activity_log(user):
+    """Check if user can view activity logs.
+
+    Access is restricted to:
+    - Superusers
+    - Users with can_manage_billing permission (Billing Managers)
+    - Users with can_manage_rentals permission (Rental Managers)
+
+    Args:
+        user: Django User object
+
+    Returns:
+        bool: True if user can view activity logs
+    """
+    if not user or not user.is_authenticated:
+        return False
+    return (
+        user.is_superuser
+        or user.has_perm("coldfront_orcd_direct_charge.can_manage_billing")
+        or user.has_perm("coldfront_orcd_direct_charge.can_manage_rentals")
+    )

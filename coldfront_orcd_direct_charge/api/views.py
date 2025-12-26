@@ -16,12 +16,15 @@ from rest_framework.views import APIView
 
 from coldfront_orcd_direct_charge.api.serializers import ReservationSerializer
 from coldfront_orcd_direct_charge.models import (
+    ActivityLog,
     CostAllocationSnapshot,
     InvoiceLineOverride,
     InvoicePeriod,
     ProjectCostAllocation,
     ProjectMemberRole,
     Reservation,
+    can_view_activity_log,
+    log_activity,
 )
 
 
@@ -202,6 +205,15 @@ class InvoiceListView(APIView):
                 "override_count": override_count,
             })
 
+        # Log the API access
+        log_activity(
+            action="api.invoice_list",
+            category=ActivityLog.ActionCategory.API,
+            description="API: Invoice list retrieved",
+            request=request,
+            extra_data={"result_count": len(invoice_months)},
+        )
+
         return Response(invoice_months)
 
 
@@ -372,6 +384,19 @@ class InvoiceReportView(APIView):
 
             export_data["projects"].append(project_export)
 
+        # Log the API access
+        log_activity(
+            action="api.invoice_report",
+            category=ActivityLog.ActionCategory.API,
+            description=f"API: Invoice {calendar.month_name[month]} {year} retrieved",
+            request=request,
+            extra_data={
+                "year": year,
+                "month": month,
+                "total_reservations": total_reservations,
+            },
+        )
+
         return Response(export_data)
 
     def _calculate_hours_for_month(self, reservation, year, month):
@@ -451,3 +476,85 @@ class InvoiceReportView(APIView):
 
         delta = effective_end - effective_start
         return delta.total_seconds() / 3600
+
+
+class HasActivityLogPermission(permissions.BasePermission):
+    """Permission check for viewing activity logs."""
+
+    def has_permission(self, request, view):
+        return can_view_activity_log(request.user)
+
+
+class ActivityLogAPIView(APIView):
+    """API endpoint for querying activity logs.
+
+    GET /api/activity-log/
+
+    Query parameters:
+    - category: Filter by action category
+    - user: Filter by username (exact match)
+    - action: Filter by action (contains)
+    - date_from: Filter by start date (YYYY-MM-DD)
+    - date_to: Filter by end date (YYYY-MM-DD)
+    - limit: Maximum number of results (default 100, max 1000)
+
+    Requires authentication and Billing/Rental Manager permission.
+    """
+
+    permission_classes = [IsAuthenticated, HasActivityLogPermission]
+
+    def get(self, request):
+        logs = ActivityLog.objects.select_related("user").all()
+
+        # Apply filters from query params
+        category = request.GET.get("category")
+        user = request.GET.get("user")
+        action = request.GET.get("action")
+        date_from = request.GET.get("date_from")
+        date_to = request.GET.get("date_to")
+        limit = min(int(request.GET.get("limit", 100)), 1000)
+
+        if category:
+            logs = logs.filter(category=category)
+        if user:
+            logs = logs.filter(user__username=user)
+        if action:
+            logs = logs.filter(action__icontains=action)
+        if date_from:
+            logs = logs.filter(timestamp__date__gte=date_from)
+        if date_to:
+            logs = logs.filter(timestamp__date__lte=date_to)
+
+        logs = logs[:limit]
+
+        # Log the API access
+        log_activity(
+            action="api.activity_log",
+            category=ActivityLog.ActionCategory.API,
+            description="API: Activity log retrieved",
+            request=request,
+            extra_data={
+                "filters": {
+                    "category": category,
+                    "user": user,
+                    "action": action,
+                    "date_from": date_from,
+                    "date_to": date_to,
+                    "limit": limit,
+                },
+                "result_count": len(logs),
+            },
+        )
+
+        return Response([{
+            "timestamp": log.timestamp.isoformat(),
+            "user": log.user.username if log.user else None,
+            "action": log.action,
+            "category": log.category,
+            "description": log.description,
+            "target_type": log.target_type,
+            "target_id": log.target_id,
+            "target_repr": log.target_repr,
+            "ip_address": log.ip_address,
+            "extra_data": log.extra_data,
+        } for log in logs])
