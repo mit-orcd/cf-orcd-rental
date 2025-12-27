@@ -26,6 +26,7 @@
             <a id="navbar-allocation" class="dropdown-item" href="{% url 'allocation-list' %}">Allocations</a>
             <a id="navbar-resource" class="dropdown-item" href="{% url 'resource-list' %}">Resources</a>
             <a id="navbar-node-instances" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:node-instance-list' %}">Node Instances</a>
+            <a id="navbar-my-reservations" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:my-reservations' %}">My Reservations</a>
             {% if perms.coldfront_orcd_direct_charge.can_manage_rentals %}
               <a id="navbar-manage-rentals" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:rental-manager' %}">Manage Rentals</a>
             {% endif %}

@@ -1,0 +1,304 @@
+{% extends "common/base.html" %}
+{% load static %}
+{% load project_roles %}
+
+{% block title %}
+My Reservations
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h2>
+    <i class="fas fa-calendar-alt"></i> My Reservations
+  </h2>
+  <p class="text-muted">
+    Reservations from projects where you have a role
+  </p>
+  <hr>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+  <div class="col-md-3">
+    <div class="card text-white bg-success">
+      <div class="card-body text-center">
+        <h3 class="mb-0">{{ upcoming_count }}</h3>
+        <small>Upcoming</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-warning">
+      <div class="card-body text-center">
+        <h3 class="mb-0">{{ pending_count }}</h3>
+        <small>Pending</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-secondary">
+      <div class="card-body text-center">
+        <h3 class="mb-0">{{ past_count }}</h3>
+        <small>Past</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-dark">
+      <div class="card-body text-center">
+        <h3 class="mb-0">{{ declined_cancelled_count }}</h3>
+        <small>Declined/Cancelled</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Navigation Tabs -->
+<ul class="nav nav-tabs" id="reservationTabs" role="tablist">
+  <li class="nav-item">
+    <a class="nav-link active" id="upcoming-tab" data-toggle="tab" href="#upcoming" role="tab">
+      <i class="fas fa-clock"></i> Upcoming
+      {% if upcoming_count > 0 %}<span class="badge badge-success ml-1">{{ upcoming_count }}</span>{% endif %}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" id="pending-tab" data-toggle="tab" href="#pending" role="tab">
+      <i class="fas fa-hourglass-half"></i> Pending
+      {% if pending_count > 0 %}<span class="badge badge-warning ml-1">{{ pending_count }}</span>{% endif %}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" id="past-tab" data-toggle="tab" href="#past" role="tab">
+      <i class="fas fa-history"></i> Past
+      {% if past_count > 0 %}<span class="badge badge-secondary ml-1">{{ past_count }}</span>{% endif %}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" id="declined-tab" data-toggle="tab" href="#declined" role="tab">
+      <i class="fas fa-times-circle"></i> Declined/Cancelled
+      {% if declined_cancelled_count > 0 %}<span class="badge badge-dark ml-1">{{ declined_cancelled_count }}</span>{% endif %}
+    </a>
+  </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content" id="reservationTabContent">
+  <!-- Upcoming Tab -->
+  <div class="tab-pane fade show active" id="upcoming" role="tabpanel">
+    {% if upcoming %}
+    <div class="table-responsive">
+      <table class="table table-hover mt-3">
+        <thead class="thead-light">
+          <tr>
+            <th>Project</th>
+            <th>Node</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Hours</th>
+            <th>Requested By</th>
+            <th>Your Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for res in upcoming %}
+          <tr>
+            <td>
+              <a href="{% url 'project-detail' res.project.pk %}">{{ res.project.title }}</a>
+            </td>
+            <td><code>{{ res.node_instance.associated_resource_address }}</code></td>
+            <td>
+              <span data-toggle="tooltip" title="{{ res.start_datetime|date:'l, F j, Y' }}">
+                {{ res.start_datetime|date:"M j, g:i A" }}
+              </span>
+            </td>
+            <td>
+              <span data-toggle="tooltip" title="{{ res.end_datetime|date:'l, F j, Y' }}">
+                {{ res.end_datetime|date:"M j, g:i A" }}
+              </span>
+            </td>
+            <td>{{ res.billable_hours }}h</td>
+            <td>{{ res.requesting_user.username }}</td>
+            <td>
+              {% get_user_roles request.user res.project as user_roles %}
+              {% for role in user_roles %}
+                <span class="badge badge-info">{{ role|title }}</span>
+              {% endfor %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info mt-3">
+      <i class="fas fa-info-circle"></i> No upcoming reservations.
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Pending Tab -->
+  <div class="tab-pane fade" id="pending" role="tabpanel">
+    {% if pending %}
+    <div class="table-responsive">
+      <table class="table table-hover mt-3">
+        <thead class="thead-light">
+          <tr>
+            <th>Project</th>
+            <th>Node</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Hours</th>
+            <th>Requested By</th>
+            <th>Your Role</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for res in pending %}
+          <tr>
+            <td>
+              <a href="{% url 'project-detail' res.project.pk %}">{{ res.project.title }}</a>
+            </td>
+            <td><code>{{ res.node_instance.associated_resource_address }}</code></td>
+            <td>{{ res.start_datetime|date:"M j, g:i A" }}</td>
+            <td>{{ res.end_datetime|date:"M j, g:i A" }}</td>
+            <td>{{ res.billable_hours }}h</td>
+            <td>{{ res.requesting_user.username }}</td>
+            <td>
+              {% get_user_roles request.user res.project as user_roles %}
+              {% for role in user_roles %}
+                <span class="badge badge-info">{{ role|title }}</span>
+              {% endfor %}
+            </td>
+            <td><span class="badge badge-warning">Pending</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info mt-3">
+      <i class="fas fa-info-circle"></i> No pending reservations.
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Past Tab -->
+  <div class="tab-pane fade" id="past" role="tabpanel">
+    {% if past %}
+    <div class="table-responsive">
+      <table class="table table-hover mt-3">
+        <thead class="thead-light">
+          <tr>
+            <th>Project</th>
+            <th>Node</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Hours</th>
+            <th>Requested By</th>
+            <th>Your Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for res in past %}
+          <tr class="text-muted">
+            <td>
+              <a href="{% url 'project-detail' res.project.pk %}">{{ res.project.title }}</a>
+            </td>
+            <td><code>{{ res.node_instance.associated_resource_address }}</code></td>
+            <td>{{ res.start_datetime|date:"M j, g:i A" }}</td>
+            <td>{{ res.end_datetime|date:"M j, g:i A" }}</td>
+            <td>{{ res.billable_hours }}h</td>
+            <td>{{ res.requesting_user.username }}</td>
+            <td>
+              {% get_user_roles request.user res.project as user_roles %}
+              {% for role in user_roles %}
+                <span class="badge badge-secondary">{{ role|title }}</span>
+              {% endfor %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info mt-3">
+      <i class="fas fa-info-circle"></i> No past reservations.
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Declined/Cancelled Tab -->
+  <div class="tab-pane fade" id="declined" role="tabpanel">
+    {% if declined_cancelled %}
+    <div class="table-responsive">
+      <table class="table table-hover mt-3">
+        <thead class="thead-light">
+          <tr>
+            <th>Project</th>
+            <th>Node</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Requested By</th>
+            <th>Status</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for res in declined_cancelled %}
+          <tr class="text-muted">
+            <td>
+              <a href="{% url 'project-detail' res.project.pk %}">{{ res.project.title }}</a>
+            </td>
+            <td><code>{{ res.node_instance.associated_resource_address }}</code></td>
+            <td>{{ res.start_datetime|date:"M j, g:i A" }}</td>
+            <td>{{ res.end_datetime|date:"M j, g:i A" }}</td>
+            <td>{{ res.requesting_user.username }}</td>
+            <td>
+              {% if res.status == 'DECLINED' %}
+                <span class="badge badge-danger">Declined</span>
+              {% else %}
+                <span class="badge badge-dark">Cancelled</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if res.manager_notes %}
+                <small>{{ res.manager_notes|truncatechars:50 }}</small>
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info mt-3">
+      <i class="fas fa-info-circle"></i> No declined or cancelled reservations.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if total_reservations == 0 %}
+<div class="text-center py-5">
+  <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+  <h4 class="text-muted">No Reservations Yet</h4>
+  <p class="text-muted">You don't have any reservations from your projects.</p>
+  <a href="{% url 'coldfront_orcd_direct_charge:renting-calendar' %}" class="btn btn-primary">
+    <i class="fas fa-plus"></i> Book a Reservation
+  </a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+<script>
+  $(function () {
+    $('[data-toggle="tooltip"]').tooltip();
+  });
+</script>
+{% endblock %}

@@ -2087,3 +2087,87 @@ class ActivityLogView(LoginRequiredMixin, TemplateView):
             "date_to": date_to,
         }
         return context
+
+
+# =============================================================================
+# My Reservations View
+# =============================================================================
+
+
+class MyReservationsView(LoginRequiredMixin, TemplateView):
+    """Display reservations for projects where the user has a role.
+
+    Shows all reservations from projects where the logged-in user is:
+    - Owner (project.pi)
+    - Financial Admin
+    - Technical Admin
+    - Member
+
+    Reservations are categorized into:
+    - Upcoming: Approved, end date >= today
+    - Pending: Awaiting approval
+    - Past: Approved, already completed
+    - Declined/Cancelled: Rejected or cancelled reservations
+    """
+
+    template_name = "coldfront_orcd_direct_charge/my_reservations.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        # Get projects where user is owner
+        from coldfront.core.project.models import Project
+
+        owned_projects = Project.objects.filter(pi=user)
+
+        # Get projects where user has explicit role
+        from coldfront_orcd_direct_charge.models import ProjectMemberRole
+
+        member_projects = Project.objects.filter(
+            member_roles__user=user
+        ).distinct()
+
+        # Combine all projects
+        all_project_ids = set(owned_projects.values_list("pk", flat=True)) | set(
+            member_projects.values_list("pk", flat=True)
+        )
+
+        # Get reservations for these projects
+        reservations = (
+            Reservation.objects.filter(project_id__in=all_project_ids)
+            .select_related("project", "project__pi", "node_instance", "requesting_user")
+            .order_by("-start_date")
+        )
+
+        today = date.today()
+
+        # Categorize by status
+        context["upcoming"] = [
+            r
+            for r in reservations
+            if r.status == Reservation.StatusChoices.APPROVED and r.end_date >= today
+        ]
+        context["pending"] = [
+            r for r in reservations if r.status == Reservation.StatusChoices.PENDING
+        ]
+        context["past"] = [
+            r
+            for r in reservations
+            if r.status == Reservation.StatusChoices.APPROVED and r.end_date < today
+        ]
+        context["declined_cancelled"] = [
+            r
+            for r in reservations
+            if r.status
+            in [Reservation.StatusChoices.DECLINED, Reservation.StatusChoices.CANCELLED]
+        ]
+
+        # Store total counts
+        context["total_reservations"] = len(reservations)
+        context["upcoming_count"] = len(context["upcoming"])
+        context["pending_count"] = len(context["pending"])
+        context["past_count"] = len(context["past"])
+        context["declined_cancelled_count"] = len(context["declined_cancelled"])
+
+        return context

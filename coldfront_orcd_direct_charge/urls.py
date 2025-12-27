@@ -42,6 +42,8 @@ urlpatterns = [
     # Project add users search (override ColdFront's flow)
     path("project/<int:pk>/add-users-search-results/", views.ProjectAddUsersSearchResultsView.as_view(), name="project-add-users-search-results"),
     path("project/<int:pk>/add-users/", views.ProjectAddUsersView.as_view(), name="project-add-users"),
+    # User's personal views
+    path("my/reservations/", views.MyReservationsView.as_view(), name="my-reservations"),
     # API
     path("api/", include("coldfront_orcd_direct_charge.api.urls")),
 ]

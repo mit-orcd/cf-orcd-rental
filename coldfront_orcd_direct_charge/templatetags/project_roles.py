@@ -205,3 +205,31 @@ def user_can_manage_billing(user):
         Boolean
     """
     return user.has_perm("coldfront_orcd_direct_charge.can_manage_billing")
+
+
+@register.simple_tag
+def get_user_roles(user, project):
+    """Get user's roles in a project for display.
+
+    Returns a list of human-readable role names for the user in the given project.
+    Owner role is implicit via project.pi, other roles are from ProjectMemberRole.
+
+    Args:
+        user: The Django User object
+        project: The ColdFront Project object
+
+    Returns:
+        list: List of role display names (e.g., ["Owner", "Financial Admin"])
+    """
+    roles = get_user_project_roles(user, project)
+
+    # Convert to display names
+    display_names = []
+    for role in roles:
+        if role in ROLE_DISPLAY:
+            display_names.append(ROLE_DISPLAY[role][0])
+        else:
+            # Fallback: convert underscores to spaces and title case
+            display_names.append(role.replace("_", " ").title())
+
+    return display_names
