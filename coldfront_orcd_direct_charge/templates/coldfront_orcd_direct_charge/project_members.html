@@ -37,6 +37,7 @@ Project Members - {{ project.title }}
             <th>Name</th>
             <th>Email</th>
             <th>Roles</th>
+            <th>Account Maintenance</th>
             {% if can_manage_members %}
               <th>Actions</th>
             {% endif %}
@@ -56,6 +57,17 @@ Project Members - {{ project.title }}
                 {% empty %}
                   <span class="text-muted">No roles</span>
                 {% endfor %}
+              </td>
+              <td>
+                {% if member.maintenance_status_raw == 'inactive' %}
+                  <span class="badge badge-light">{{ member.maintenance_status }}</span>
+                {% elif member.maintenance_status_raw == 'basic' %}
+                  <span class="badge badge-info">{{ member.maintenance_status }}</span>
+                {% elif member.maintenance_status_raw == 'advanced' %}
+                  <span class="badge badge-success">{{ member.maintenance_status }}</span>
+                {% else %}
+                  <span class="text-muted">{{ member.maintenance_status }}</span>
+                {% endif %}
               </td>
               {% if can_manage_members %}
                 <td>
@@ -90,7 +102,7 @@ Project Members - {{ project.title }}
             </tr>
           {% empty %}
             <tr>
-              <td colspan="{% if can_manage_members %}5{% else %}4{% endif %}" class="text-center text-muted">
+              <td colspan="{% if can_manage_members %}6{% else %}5{% endif %}" class="text-center text-muted">
                 No members found.
               </td>
             </tr>

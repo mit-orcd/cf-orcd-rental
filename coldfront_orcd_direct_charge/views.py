@@ -1482,6 +1482,17 @@ class ProjectMembersView(LoginRequiredMixin, TemplateView):
                     "is_owner": False,
                 }
 
+        # Add maintenance status for each member
+        for member_data in members_dict.values():
+            user = member_data["user"]
+            try:
+                status = user.maintenance_status
+                member_data["maintenance_status"] = status.get_status_display()
+                member_data["maintenance_status_raw"] = status.status
+            except UserMaintenanceStatus.DoesNotExist:
+                member_data["maintenance_status"] = "Not Set"
+                member_data["maintenance_status_raw"] = None
+
         context["members"] = list(members_dict.values())
         context["can_manage_members"] = can_manage_members(self.request.user, self.project)
         context["can_manage_financial_admins"] = can_manage_financial_admins(self.request.user, self.project)
