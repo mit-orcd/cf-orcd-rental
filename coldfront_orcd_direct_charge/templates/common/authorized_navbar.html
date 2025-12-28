@@ -23,21 +23,16 @@
           <a class="nav-link dropdown-toggle" href="#" data-toggle="dropdown">Project</a>
           <div class="dropdown-menu">
             <a id="navbar-project" class="dropdown-item" href="{% url 'project-list' %}">Projects</a>
-            <a id="navbar-allocation" class="dropdown-item" href="{% url 'allocation-list' %}">Allocations</a>
-            <a id="navbar-resource" class="dropdown-item" href="{% url 'resource-list' %}">Resources</a>
-            <a id="navbar-node-instances" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:node-instance-list' %}">Node Instances</a>
             <a id="navbar-my-reservations" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:my-reservations' %}">My Reservations</a>
-            {% if perms.coldfront_orcd_direct_charge.can_manage_rentals %}
-              <a id="navbar-manage-rentals" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:rental-manager' %}">Manage Rentals</a>
-            {% endif %}
-            {% if perms.coldfront_orcd_direct_charge.can_manage_billing %}
-              <a id="navbar-manage-billing" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:pending-cost-allocations' %}">Manage Billing</a>
-            {% endif %}
-            {% if settings.ALLOCATION_ACCOUNT_ENABLED  %}
-              <a class="dropdown-item" href="{% url 'allocation-account-list' %}">Allocation Accounts</a>
-            {% endif %}
-            {% if request.user.userprofile.is_pi  %}
-              <a id="navbar-user-allocation" class="dropdown-item" href="{% url 'user-list-allocations' %}">User Allocations</a>
+            {% if perms.coldfront_orcd_direct_charge.can_manage_rentals or perms.coldfront_orcd_direct_charge.can_manage_billing %}
+              <div class="dropdown-divider"></div>
+              <h6 class="dropdown-header">Admin Functions</h6>
+              {% if perms.coldfront_orcd_direct_charge.can_manage_rentals %}
+                <a id="navbar-manage-rentals" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:rental-manager' %}">Manage Rentals</a>
+              {% endif %}
+              {% if perms.coldfront_orcd_direct_charge.can_manage_billing %}
+                <a id="navbar-manage-billing" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:pending-cost-allocations' %}">Manage Billing</a>
+              {% endif %}
             {% endif %}
           </div>
         </li>
