@@ -1,0 +1,666 @@
+# Views and URL Routing
+
+This document describes all view classes and URL patterns in the ORCD Direct Charge plugin.
+
+**Sources**:
+- [`coldfront_orcd_direct_charge/views.py`](../coldfront_orcd_direct_charge/views.py)
+- [`coldfront_orcd_direct_charge/urls.py`](../coldfront_orcd_direct_charge/urls.py)
+
+---
+
+## Table of Contents
+
+- [URL Overview](#url-overview)
+- [URL Configuration](#url-configuration)
+- [Node Instance Views](#node-instance-views)
+- [Rental Calendar Views](#rental-calendar-views)
+- [Rental Manager Views](#rental-manager-views)
+- [User Views](#user-views)
+- [Project Cost Allocation Views](#project-cost-allocation-views)
+- [Billing Manager Views](#billing-manager-views)
+- [Invoice Views](#invoice-views)
+- [Member Management Views](#member-management-views)
+- [Activity Log Views](#activity-log-views)
+- [Template Override Views](#template-override-views)
+
+---
+
+## URL Overview
+
+All plugin URLs are prefixed with `/nodes/` (configured in ColdFront's `urls.py`).
+
+| Category | URL Pattern | Description |
+|----------|-------------|-------------|
+| **Node Instances** | `/nodes/` | List all nodes |
+| | `/nodes/gpu/<pk>/` | GPU node detail |
+| | `/nodes/cpu/<pk>/` | CPU node detail |
+| **Rental Calendar** | `/nodes/renting/` | Availability calendar |
+| | `/nodes/renting/request/` | Submit reservation |
+| **Rental Management** | `/nodes/renting/manage/` | Manager dashboard |
+| | `/nodes/renting/manage/<pk>/approve/` | Approve reservation |
+| | `/nodes/renting/manage/<pk>/decline/` | Decline reservation |
+| | `/nodes/renting/manage/<pk>/metadata/` | Add metadata |
+| **User** | `/nodes/user/update-maintenance-status/` | AJAX maintenance update |
+| **Cost Allocation** | `/nodes/project/<pk>/cost-allocation/` | Edit cost allocation |
+| **Billing** | `/nodes/billing/pending/` | Pending allocations |
+| | `/nodes/billing/allocation/<pk>/review/` | Review allocation |
+| **Invoice** | `/nodes/billing/invoice/` | Month selector |
+| | `/nodes/billing/invoice/<year>/<month>/` | Invoice detail |
+| | `/nodes/billing/invoice/<year>/<month>/edit/` | Edit overrides |
+| | `/nodes/billing/invoice/<year>/<month>/export/` | Export JSON |
+| **Members** | `/nodes/project/<pk>/members/` | List members |
+| | `/nodes/project/<pk>/members/add/` | Add member |
+| | `/nodes/project/<pk>/members/<user_pk>/update/` | Update roles |
+| | `/nodes/project/<pk>/members/<user_pk>/remove/` | Remove member |
+| **Activity Log** | `/nodes/activity-log/` | View activity log |
+| **API** | `/nodes/api/...` | REST API endpoints |
+
+---
+
+## URL Configuration
+
+### Main URL Configuration
+
+**File**: [`urls.py`](../coldfront_orcd_direct_charge/urls.py)
+
+```python
+app_name = "coldfront_orcd_direct_charge"
+
+urlpatterns = [
+    # Node instance views
+    path("", views.NodeInstanceListView.as_view(), name="node-instance-list"),
+    path("gpu/<int:pk>/", views.GpuNodeInstanceDetailView.as_view(), name="gpu-node-detail"),
+    path("cpu/<int:pk>/", views.CpuNodeInstanceDetailView.as_view(), name="cpu-node-detail"),
+    
+    # Renting views
+    path("renting/", views.RentingCalendarView.as_view(), name="renting-calendar"),
+    path("renting/request/", views.ReservationRequestView.as_view(), name="reservation-request"),
+    path("renting/manage/", views.RentalManagerView.as_view(), name="rental-manager"),
+    # ... more patterns
+    
+    # API (included from api/urls.py)
+    path("api/", include("coldfront_orcd_direct_charge.api.urls")),
+]
+```
+
+### Integration with ColdFront
+
+In `coldfront/coldfront/config/urls.py`:
+
+```python
+if "coldfront_orcd_direct_charge" in settings.INSTALLED_APPS:
+    urlpatterns.append(path("nodes/", include("coldfront_orcd_direct_charge.urls")))
+```
+
+---
+
+## Node Instance Views
+
+### NodeInstanceListView
+
+**URL**: `/nodes/`  
+**Name**: `coldfront_orcd_direct_charge:node-instance-list`  
+**Template**: `coldfront_orcd_direct_charge/node_instance_list.html`
+
+Lists all GPU and CPU node instances with counts.
+
+```python
+class NodeInstanceListView(LoginRequiredMixin, TemplateView):
+    template_name = "coldfront_orcd_direct_charge/node_instance_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["gpu_nodes"] = GpuNodeInstance.objects.all()
+        context["cpu_nodes"] = CpuNodeInstance.objects.all()
+        context["gpu_count"] = GpuNodeInstance.objects.count()
+        context["cpu_count"] = CpuNodeInstance.objects.count()
+        return context
+```
+
+**Context Variables**:
+- `gpu_nodes` - QuerySet of all GPU nodes
+- `cpu_nodes` - QuerySet of all CPU nodes
+- `gpu_count` - Total GPU node count
+- `cpu_count` - Total CPU node count
+
+---
+
+### GpuNodeInstanceDetailView
+
+**URL**: `/nodes/gpu/<pk>/`  
+**Name**: `coldfront_orcd_direct_charge:gpu-node-detail`  
+**Template**: `coldfront_orcd_direct_charge/gpu_node_detail.html`
+
+```python
+class GpuNodeInstanceDetailView(LoginRequiredMixin, DetailView):
+    model = GpuNodeInstance
+    template_name = "coldfront_orcd_direct_charge/gpu_node_detail.html"
+    context_object_name = "node"
+```
+
+---
+
+### CpuNodeInstanceDetailView
+
+**URL**: `/nodes/cpu/<pk>/`  
+**Name**: `coldfront_orcd_direct_charge:cpu-node-detail`  
+**Template**: `coldfront_orcd_direct_charge/cpu_node_detail.html`
+
+```python
+class CpuNodeInstanceDetailView(LoginRequiredMixin, DetailView):
+    model = CpuNodeInstance
+    template_name = "coldfront_orcd_direct_charge/cpu_node_detail.html"
+    context_object_name = "node"
+```
+
+---
+
+## Rental Calendar Views
+
+### RentingCalendarView
+
+**URL**: `/nodes/renting/`  
+**Name**: `coldfront_orcd_direct_charge:renting-calendar`  
+**Template**: `coldfront_orcd_direct_charge/renting_calendar.html`
+
+Displays H200x8 node availability calendar with AM/PM period visualization.
+
+**Query Parameters**:
+- `year` - Calendar year (defaults to earliest bookable month)
+- `month` - Calendar month (1-12)
+
+**Context Variables**:
+- `nodes` - QuerySet of rentable H200x8 nodes
+- `days` - List of day numbers to display
+- `availability` - Dict: `{node_id: {day: {rental_type, am_is_mine, pm_is_mine, is_bookable, has_pending}}}`
+- `year`, `month`, `month_name` - Current calendar position
+- `prev_year`, `prev_month`, `next_year`, `next_month` - Navigation values
+- `show_prev`, `show_next` - Whether navigation buttons are enabled
+- `earliest_bookable` - Date 7 days from today
+- `max_month_name`, `max_year` - Maximum visible month (3 months ahead)
+
+**Availability Matrix Values**:
+- `rental_type`: "available", "am_only", "pm_only", "full"
+- `am_is_mine`, `pm_is_mine`: Boolean for user's project reservations
+- `is_bookable`: Boolean (false for dates < 7 days ahead)
+- `has_pending`: Boolean indicating pending reservations
+
+---
+
+### ReservationRequestView
+
+**URL**: `/nodes/renting/request/`  
+**Name**: `coldfront_orcd_direct_charge:reservation-request`  
+**Template**: `coldfront_orcd_direct_charge/reservation_request.html`
+
+Form for submitting new reservation requests.
+
+```python
+class ReservationRequestView(LoginRequiredMixin, CreateView):
+    model = Reservation
+    form_class = ReservationRequestForm
+    success_url = reverse_lazy("coldfront_orcd_direct_charge:renting-calendar")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+```
+
+**Form**: [`ReservationRequestForm`](../coldfront_orcd_direct_charge/forms.py)
+
+**Validation**:
+- Node must be rentable H200x8
+- Project must have approved cost allocation
+- Start date must be 7+ days in future
+- No overlapping approved reservations
+
+---
+
+## Rental Manager Views
+
+These views require `can_manage_rentals` permission.
+
+### RentalManagerView
+
+**URL**: `/nodes/renting/manage/`  
+**Name**: `coldfront_orcd_direct_charge:rental-manager`  
+**Template**: `coldfront_orcd_direct_charge/rental_manager.html`
+
+Dashboard for reviewing and processing reservation requests.
+
+**Context Variables**:
+- `pending_reservations` - QuerySet of PENDING reservations
+- `recent_reservations` - Recently processed (last 30 days)
+- `decline_form` - ReservationDeclineForm instance
+
+---
+
+### ReservationApproveView
+
+**URL**: `/nodes/renting/manage/<pk>/approve/`  
+**Name**: `coldfront_orcd_direct_charge:reservation-approve`
+
+POST-only view to approve a reservation.
+
+**Behavior**:
+1. Validates reservation is PENDING
+2. Checks for conflicts with existing approved reservations
+3. Sets status to APPROVED
+4. Logs activity to ActivityLog
+5. Displays success message
+
+---
+
+### ReservationDeclineView
+
+**URL**: `/nodes/renting/manage/<pk>/decline/`  
+**Name**: `coldfront_orcd_direct_charge:reservation-decline`
+
+POST-only view to decline a reservation with optional notes.
+
+---
+
+### ReservationMetadataView
+
+**URL**: `/nodes/renting/manage/<pk>/metadata/`  
+**Name**: `coldfront_orcd_direct_charge:reservation-metadata`
+
+POST-only view to add metadata entries to a reservation.
+
+**POST Data**:
+- `new_entry_0`, `new_entry_1`, etc. - Content for new entries
+
+---
+
+## User Views
+
+### update_maintenance_status
+
+**URL**: `/nodes/user/update-maintenance-status/`  
+**Name**: `coldfront_orcd_direct_charge:update-maintenance-status`
+
+AJAX function view for updating user's maintenance status.
+
+```python
+@login_required
+@require_POST
+def update_maintenance_status(request):
+    """Update the current user's account maintenance status via AJAX."""
+```
+
+**POST Data**:
+- `status` - New status value (inactive, basic, advanced)
+- `project_id` - Billing project ID (required for basic/advanced)
+
+**Response** (JSON):
+```json
+{
+    "success": true,
+    "status": "basic",
+    "display": "Basic (charged to: project_name)",
+    "project_id": 123,
+    "project_title": "project_name"
+}
+```
+
+**Validation**:
+- Status must be valid choice
+- For basic/advanced, billing project required
+- User must have eligible role in billing project (not financial_admin alone)
+
+---
+
+## Project Cost Allocation Views
+
+### ProjectCostAllocationView
+
+**URL**: `/nodes/project/<pk>/cost-allocation/`  
+**Name**: `coldfront_orcd_direct_charge:project-cost-allocation`  
+**Template**: `coldfront_orcd_direct_charge/project_cost_allocation.html`
+
+Edit cost allocation settings for a project.
+
+**Permission Check**:
+```python
+if not can_edit_cost_allocation(request.user, self.project):
+    messages.error(request, "...")
+    return redirect("project-detail", pk=self.project.pk)
+```
+
+**Forms**:
+- `ProjectCostAllocationForm` - Notes field
+- `ProjectCostObjectFormSet` - Inline formset for cost objects
+
+**POST Behavior**:
+1. Validate forms
+2. Reset status to PENDING
+3. Clear review fields
+4. Save allocation and cost objects
+5. Redirect to project detail
+
+---
+
+## Billing Manager Views
+
+These views require `can_manage_billing` permission.
+
+### PendingCostAllocationsView
+
+**URL**: `/nodes/billing/pending/`  
+**Name**: `coldfront_orcd_direct_charge:pending-cost-allocations`  
+**Template**: `coldfront_orcd_direct_charge/pending_cost_allocations.html`
+
+Lists all cost allocations awaiting approval.
+
+**Context Variables**:
+- `pending_allocations` - QuerySet of PENDING allocations with related data
+- `pending_count` - Count of pending allocations
+
+---
+
+### CostAllocationApprovalView
+
+**URL**: `/nodes/billing/allocation/<pk>/review/`  
+**Name**: `coldfront_orcd_direct_charge:cost-allocation-review`  
+**Template**: `coldfront_orcd_direct_charge/cost_allocation_review.html`
+
+Review and approve/reject a cost allocation.
+
+**Context Variables**:
+- `allocation` - ProjectCostAllocation instance
+- `project` - Related Project
+- `cost_objects` - QuerySet of cost objects
+- `total_percentage` - Sum of percentages
+
+**POST Actions**:
+- `action=approve`: 
+  - Create CostAllocationSnapshot
+  - Copy cost objects to CostObjectSnapshot
+  - Set status to APPROVED
+  - Log activity
+- `action=reject`:
+  - Require review_notes
+  - Set status to REJECTED
+  - Log activity
+
+---
+
+## Invoice Views
+
+These views require `can_manage_billing` permission.
+
+### InvoicePreparationView
+
+**URL**: `/nodes/billing/invoice/`  
+**Name**: `coldfront_orcd_direct_charge:invoice-preparation`  
+**Template**: `coldfront_orcd_direct_charge/invoice_preparation.html`
+
+Month selector showing all months with reservations.
+
+**Context Variables**:
+- `invoice_months` - List of dicts with year, month, month_name, status, override_count
+
+---
+
+### InvoiceDetailView
+
+**URL**: `/nodes/billing/invoice/<year>/<month>/`  
+**Name**: `coldfront_orcd_direct_charge:invoice-detail`  
+**Template**: `coldfront_orcd_direct_charge/invoice_detail.html`
+
+Detailed invoice report for a specific month.
+
+**Query Parameters**:
+- `owner` - Filter by project owner username
+- `title` - Filter by project title (contains)
+
+**Context Variables**:
+- `year`, `month`, `month_name` - Period info
+- `invoice_period` - InvoicePeriod instance
+- `projects` - List of project data with reservations and cost breakdowns
+- `total_reservations`, `excluded_count` - Counts
+- `owners` - Distinct owner usernames for filter dropdown
+- `owner_filter`, `title_filter` - Current filter values
+
+**POST Actions**:
+- `action=finalize`: Set status to FINALIZED, log activity
+- `action=unfinalize`: Reopen for editing, log activity
+
+**Helper Methods**:
+- `_calculate_hours_for_month(reservation, year, month)` - Hours calculation
+- `_calculate_cost_breakdown(reservation, year, month, hours)` - Cost object split
+- `_get_hours_for_day(reservation, target_date, year, month)` - Daily hours
+
+---
+
+### InvoiceEditView
+
+**URL**: `/nodes/billing/invoice/<year>/<month>/edit/`  
+**Name**: `coldfront_orcd_direct_charge:invoice-edit`  
+**Template**: `coldfront_orcd_direct_charge/invoice_edit.html`
+
+Add/modify invoice line overrides.
+
+**Query Parameters**:
+- `reservation` - Reservation ID to edit
+
+**POST Data**:
+- `reservation_id` - Target reservation
+- `override_type` - HOURS, COST_SPLIT, or EXCLUDE
+- `notes` - Required explanation
+- `override_hours` - For HOURS type
+- `cost_object_*` - For COST_SPLIT type
+
+---
+
+### InvoiceExportView
+
+**URL**: `/nodes/billing/invoice/<year>/<month>/export/`  
+**Name**: `coldfront_orcd_direct_charge:invoice-export`
+
+Export invoice data as JSON file.
+
+**Response**: JSON file download with full invoice data including overrides and audit metadata.
+
+---
+
+### InvoiceDeleteOverrideView
+
+**URL**: `/nodes/billing/invoice/<year>/<month>/override/<override_id>/delete/`  
+**Name**: `coldfront_orcd_direct_charge:invoice-delete-override`
+
+Delete an invoice line override.
+
+---
+
+## Member Management Views
+
+### ProjectMembersView
+
+**URL**: `/nodes/project/<pk>/members/`  
+**Name**: `coldfront_orcd_direct_charge:project-members`  
+**Template**: `coldfront_orcd_direct_charge/project_members.html`
+
+List project members with their ORCD roles.
+
+**Context Variables**:
+- `project` - Project instance
+- `members` - List of member dicts with user, roles, roles_display, is_owner
+- `can_manage_members` - Boolean permission check
+- `can_manage_financial_admins` - Boolean permission check
+- `current_user_role` - Current user's highest role
+
+---
+
+### AddMemberView
+
+**URL**: `/nodes/project/<pk>/members/add/`  
+**Name**: `coldfront_orcd_direct_charge:add-member`  
+**Template**: `coldfront_orcd_direct_charge/add_member.html`
+
+Add a new member with role selection.
+
+**Form**: `AddMemberForm`
+- `username` - Username to add (with autocomplete)
+- `roles` - Multiple choice checkboxes
+
+---
+
+### UpdateMemberRoleView
+
+**URL**: `/nodes/project/<pk>/members/<user_pk>/update/`  
+**Name**: `coldfront_orcd_direct_charge:update-member-role`  
+**Template**: `coldfront_orcd_direct_charge/update_member_role.html`
+
+Modify a member's roles.
+
+**Form**: `UpdateMemberRoleForm` (alias: `ManageMemberRolesForm`)
+
+---
+
+### RemoveMemberView
+
+**URL**: `/nodes/project/<pk>/members/<user_pk>/remove/`  
+**Name**: `coldfront_orcd_direct_charge:remove-member`
+
+POST-only view to remove a member and all their roles.
+
+---
+
+### ProjectAddUsersSearchResultsView
+
+**URL**: `/nodes/project/<pk>/add-users-search-results/`  
+**Name**: `coldfront_orcd_direct_charge:project-add-users-search-results`  
+**Template**: `project/add_user_search_results.html`
+
+Override of ColdFront's add-users search to use ORCD roles.
+
+---
+
+### ProjectAddUsersView
+
+**URL**: `/nodes/project/<pk>/add-users/`  
+**Name**: `coldfront_orcd_direct_charge:project-add-users`
+
+Handle form submission to add users from search results.
+
+---
+
+## Activity Log Views
+
+### ActivityLogView
+
+**URL**: `/nodes/activity-log/`  
+**Name**: `coldfront_orcd_direct_charge:activity-log`  
+**Template**: `coldfront_orcd_direct_charge/activity_log.html`
+
+View and filter activity logs.
+
+**Permission Check**:
+```python
+if not can_view_activity_log(request.user):
+    raise PermissionDenied("...")
+```
+
+**Query Parameters**:
+- `category` - Filter by action category
+- `user` - Filter by username (contains)
+- `action` - Filter by action (contains)
+- `date_from`, `date_to` - Date range filters
+- `page` - Pagination
+
+**Context Variables**:
+- `logs` - Paginated QuerySet (50 per page)
+- `categories` - List of ActionCategory choices
+- `filters` - Current filter values
+
+---
+
+## Template Override Views
+
+The plugin overrides several ColdFront templates via template directory injection in `apps.py`.
+
+### Template Directory Structure
+
+```
+templates/
+├── coldfront_orcd_direct_charge/   # Plugin-specific templates
+│   ├── activity_log.html
+│   ├── add_member.html
+│   ├── cost_allocation_review.html
+│   ├── cpu_node_detail.html
+│   ├── gpu_node_detail.html
+│   ├── invoice_detail.html
+│   ├── invoice_edit.html
+│   ├── invoice_preparation.html
+│   ├── node_instance_list.html
+│   ├── pending_cost_allocations.html
+│   ├── project_cost_allocation.html
+│   ├── project_members.html
+│   ├── rental_manager.html
+│   ├── renting_calendar.html
+│   ├── reservation_request.html
+│   └── update_member_role.html
+├── common/                          # Override core ColdFront
+│   ├── authorized_navbar.html       # Navigation links
+│   ├── base.html                    # Favicon, title
+│   ├── navbar_brand.html            # ORCD logo
+│   └── nonauthorized_navbar.html
+├── portal/
+│   ├── authorized_home.html         # Hide allocations option
+│   └── nonauthorized_home.html      # Pre-login page
+├── project/
+│   ├── add_user_search_results.html # ORCD role selection
+│   ├── project_add_users.html
+│   ├── project_detail.html          # Simplified layout
+│   ├── project_list.html            # "Project Owner" column
+│   └── project_update_form.html
+└── user/
+    ├── user_profile.html            # Maintenance status, API token
+    └── user_projects_managers.html  # "Project Owner" terminology
+```
+
+### Template Injection Mechanism
+
+In `apps.py`:
+
+```python
+def ready(self):
+    plugin_templates_dir = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "templates"
+    )
+    
+    for template_setting in settings.TEMPLATES:
+        if plugin_templates_dir not in template_setting["DIRS"]:
+            template_setting["DIRS"] = [plugin_templates_dir] + list(
+                template_setting["DIRS"]
+            )
+```
+
+This prepends the plugin's templates directory, allowing templates with matching paths to override ColdFront core templates.
+
+---
+
+## Permission Summary
+
+| Permission | Required For |
+|------------|--------------|
+| `can_manage_rentals` | Rental manager dashboard, approve/decline, metadata, activity log |
+| `can_manage_billing` | Cost allocation approval, invoice management, activity log |
+| Superuser | All features, admin access |
+
+**Role-based Permissions** (project level):
+- Owner/Financial Admin: Cost allocation editing
+- Owner/Financial/Technical Admin: Member management
+- Any role: View members list
+
+---
+
+## Related Documentation
+
+- [Data Models](data-models.md) - Model definitions
+- [API Reference](api-reference.md) - REST API endpoints
+- [Signals](signals.md) - Background processing
+
+
