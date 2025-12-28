@@ -1,6 +1,7 @@
 {% extends "common/base.html" %}
 {% load crispy_forms_tags %}
 {% load static %}
+{% load project_roles %}
 
 
 {% block title %}
@@ -9,98 +10,360 @@ Add Members to Project
 
 
 {% block content %}
-<h2>Add members to project: {{project.title}}</h2>
-<hr>
-
-<div class="row">
-  <div class="col">
-    <form method="post" action="/search-ldap" id="post-form">
-      {% csrf_token %}
-      {{ user_search_form|crispy }}
-      <button id="search-button" type="submit" class="btn btn-success btn-block"><i class="fas fa-search" aria-hidden="true"></i> Search</button>
-    </form>
-  </div>
+<div class="mb-3">
+  <h2><i class="fas fa-user-plus"></i> Add Members</h2>
+  <p class="text-muted">{{ project.title }}</p>
+  <hr>
 </div>
 
-<br>
-<div class="row">
-  <div class="col" id="search_results">
-      <div class="card border-light">
-        <div class="card-body">
-          <div id="search_results_inner"></div>
-        </div>
-      </div>
-  </div>
+<div class="mb-3">
+  <a href="{% url 'project-detail' project.pk %}" class="btn btn-secondary">
+    <i class="fas fa-arrow-left"></i> Back to Project
+  </a>
 </div>
+
 <div class="row">
-  <div class="col" id="selected_users">
-      <div class="card border-light">
-        <div class="card-body">
+  <div class="col-md-8">
+    <!-- Search Input with Autocomplete -->
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-search"></i> Search Users</h5>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label for="user-search">Start typing username, name, or email</label>
+          <div class="position-relative">
+            <input type="text" id="user-search" class="form-control form-control-lg" 
+                   placeholder="Search for users..." autocomplete="off">
+            <div id="user-suggestions" class="list-group position-absolute w-100 shadow" 
+                 style="z-index: 1000; display: none; max-height: 300px; overflow-y: auto;">
+            </div>
+          </div>
+          <small class="form-text text-muted">
+            Suggestions appear after 2 characters. Click a user to add them to the list below.
+          </small>
         </div>
       </div>
+    </div>
+
+    <!-- Selected Users List -->
+    <div id="selected-users-card" class="card mt-3" style="display: none;">
+      <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="fas fa-users"></i> Selected Users (<span id="selected-count">0</span>)</h5>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead class="thead-light">
+            <tr>
+              <th>User</th>
+              <th>Roles</th>
+              <th style="width: 80px;"></th>
+            </tr>
+          </thead>
+          <tbody id="selected-users-list">
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer">
+        <form id="add-users-form" method="post" action="{% url 'coldfront_orcd_direct_charge:project-add-users' project.pk %}">
+          {% csrf_token %}
+          <div id="hidden-inputs"></div>
+          <button type="submit" class="btn btn-success btn-lg">
+            <i class="fas fa-plus"></i> Add Selected Users to Project
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="card mt-3">
+      <div class="card-body text-center text-muted py-5">
+        <i class="fas fa-user-plus fa-3x mb-3"></i>
+        <h5>No users selected yet</h5>
+        <p>Use the search box above to find and add users to this project.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <!-- Role Information -->
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-info-circle"></i> Available Roles</h5>
+      </div>
+      <div class="card-body">
+        <dl class="mb-0">
+          {% user_can_manage_billing request.user as can_manage_billing %}
+          {% if can_manage_billing or request.user.is_superuser or project.pi == request.user %}
+            <dt><span class="badge badge-warning">Financial Admin</span></dt>
+            <dd class="mb-3"><small>Can edit cost allocations and manage all member roles.</small></dd>
+          {% endif %}
+          
+          <dt><span class="badge badge-info">Technical Admin</span></dt>
+          <dd class="mb-3"><small>Can add members and technical admins. Included in reservations.</small></dd>
+          
+          <dt><span class="badge badge-secondary">Member</span></dt>
+          <dd class="mb-0"><small>Can create reservations. Included in reservations.</small></dd>
+        </dl>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
 
 
 {% block javascript %}
-  {{ block.super }}
+{{ block.super }}
 <script>
-  $("#navbar-main > ul > li.active").removeClass("active");
-  $("#navbar-ldap-home").addClass("active");
+(function() {
+  let debounceTimer;
+  const searchInput = document.getElementById('user-search');
+  const suggestions = document.getElementById('user-suggestions');
+  const selectedCard = document.getElementById('selected-users-card');
+  const selectedList = document.getElementById('selected-users-list');
+  const selectedCount = document.getElementById('selected-count');
+  const emptyState = document.getElementById('empty-state');
+  const hiddenInputs = document.getElementById('hidden-inputs');
+  const projectId = {{ project.pk }};
+  
+  // Track selected users to avoid duplicates
+  const selectedUsers = new Map();
+  let userIndex = 0;
 
-  $('#post-form').on('submit', function(event){
-    event.preventDefault();
-    $('#search_results').show();
-    $("#search_results_inner").html('<div class="alert alert-info text-center"><i class="fas fa-sync fa-spin fa-fw" aria-hidden="true"></i> Searching</div>')
-    create_post();
+  // Available roles
+  const availableRoles = [
+    {% if request.user.is_superuser or project.pi == request.user %}
+    { value: 'financial_admin', label: 'Financial Admin', badge: 'badge-warning' },
+    {% endif %}
+    { value: 'technical_admin', label: 'Technical Admin', badge: 'badge-info' },
+    { value: 'member', label: 'Member', badge: 'badge-secondary' }
+  ];
+
+  if (!searchInput || !suggestions) return;
+
+  // Debounced search
+  searchInput.addEventListener('input', function() {
+    clearTimeout(debounceTimer);
+    const query = this.value.trim();
+    
+    if (query.length < 2) {
+      suggestions.style.display = 'none';
+      return;
+    }
+    
+    debounceTimer = setTimeout(() => {
+      fetch(`/nodes/api/users/search/?q=${encodeURIComponent(query)}&project_id=${projectId}`)
+        .then(response => response.json())
+        .then(users => {
+          suggestions.innerHTML = '';
+          
+          // Filter out already selected users
+          const filteredUsers = users.filter(u => !selectedUsers.has(u.username));
+          
+          if (filteredUsers.length === 0) {
+            const noResults = document.createElement('div');
+            noResults.className = 'list-group-item text-muted';
+            noResults.textContent = users.length > 0 ? 'All matching users already selected' : 'No matching users found';
+            suggestions.appendChild(noResults);
+            suggestions.style.display = 'block';
+            return;
+          }
+          
+          filteredUsers.forEach(user => {
+            const item = document.createElement('a');
+            item.className = 'list-group-item list-group-item-action';
+            item.href = '#';
+            const fullName = (user.first_name + ' ' + user.last_name).trim();
+            const nameDisplay = fullName ? ` - ${fullName}` : '';
+            const emailDisplay = user.email ? ` <small class="text-muted">(${user.email})</small>` : '';
+            item.innerHTML = `<strong>${user.username}</strong>${nameDisplay}${emailDisplay}`;
+            item.addEventListener('click', (e) => {
+              e.preventDefault();
+              addUser(user);
+              searchInput.value = '';
+              suggestions.style.display = 'none';
+              searchInput.focus();
+            });
+            suggestions.appendChild(item);
+          });
+          suggestions.style.display = 'block';
+        })
+        .catch(error => {
+          console.error('User search error:', error);
+          suggestions.style.display = 'none';
+        });
+    }, 300);
   });
 
-  function create_post() {
-    q = $('#id_q').val().trim();
-    search_by = $("#post-form input[type='radio']:checked").val();
-    if (q.indexOf(' ') >= 0) {
-      $("#id_id_search_by_0_1").prop("checked", true);
-    }
-    if (q.indexOf('\n') >= 0) {
-      $("#id_id_search_by_0_1").prop("checked", true);
-    }
+  // Add user to selected list
+  function addUser(user) {
+    if (selectedUsers.has(user.username)) return;
+    
+    const idx = userIndex++;
+    selectedUsers.set(user.username, { user, index: idx });
+    
+    // Create table row
+    const row = document.createElement('tr');
+    row.id = `user-row-${user.username}`;
+    row.innerHTML = `
+      <td>
+        <strong>${user.username}</strong>
+        ${user.first_name || user.last_name ? `<br><small class="text-muted">${user.first_name} ${user.last_name}</small>` : ''}
+        ${user.email ? `<br><small class="text-muted">${user.email}</small>` : ''}
+      </td>
+      <td>
+        <div class="role-checkboxes">
+          ${availableRoles.map(role => `
+            <div class="form-check">
+              <input class="form-check-input role-checkbox" type="checkbox" 
+                     id="role-${user.username}-${role.value}" 
+                     data-username="${user.username}" 
+                     data-role="${role.value}"
+                     ${role.value === 'member' ? 'checked' : ''}>
+              <label class="form-check-label" for="role-${user.username}-${role.value}">
+                <span class="badge ${role.badge}">${role.label}</span>
+              </label>
+            </div>
+          `).join('')}
+        </div>
+      </td>
+      <td>
+        <button type="button" class="btn btn-sm btn-outline-danger remove-user" data-username="${user.username}">
+          <i class="fas fa-times"></i>
+        </button>
+      </td>
+    `;
+    selectedList.appendChild(row);
+    
+    updateUI();
+    updateHiddenInputs();
+  }
 
-    var pk = "{{ pk }}"
-    $.ajax({
-        url : "/nodes/project/" + pk + "/add-users-search-results/", // ORCD plugin endpoint
-        type : "POST", // http method
-        data : { 
-          q : q, 
-          search_by : search_by, 
-          csrfmiddlewaretoken: "{{ csrf_token }}"
-        }, // data sent with the post request
-        // handle a successful response
-        success : function(data) {
-            $('#post-text').val(''); // remove the value from the input
-            $('#search_results').show();
-            $('#search_results_inner').html(data);
+  // Remove user from selected list
+  function removeUser(username) {
+    selectedUsers.delete(username);
+    const row = document.getElementById(`user-row-${username}`);
+    if (row) row.remove();
+    updateUI();
+    updateHiddenInputs();
+  }
 
-        },
+  // Update UI visibility
+  function updateUI() {
+    const count = selectedUsers.size;
+    selectedCount.textContent = count;
+    selectedCard.style.display = count > 0 ? 'block' : 'none';
+    emptyState.style.display = count > 0 ? 'none' : 'block';
+  }
 
-        // handle a non-successful response
-        error : function(xhr,errmsg,err) {
-            if(xhr.status == 403 || xhr.status == 401) {
-                $('#search_results_inner').html("<div class='alert alert-danger'>Your session expired. Please login again. <a href='#' class='close'>&times;</a></div>");
-            } else {
-                $('#search_results_inner').html("<div class='alert alert-danger'>Oops! We have encountered an error: "+errmsg+
-                    " <a href='#' class='close'>&times;</a></div>"); // add the error to the dom
-            }
-            console.log(xhr.status + ": " + xhr.responseText); // provide a bit more info about the error to the console
-        }
+  // Update hidden form inputs
+  function updateHiddenInputs() {
+    hiddenInputs.innerHTML = '';
+    let idx = 0;
+    
+    selectedUsers.forEach((data, username) => {
+      // Add selected flag
+      const selectedInput = document.createElement('input');
+      selectedInput.type = 'hidden';
+      selectedInput.name = `userform-${idx}-selected`;
+      selectedInput.value = 'on';
+      hiddenInputs.appendChild(selectedInput);
+      
+      // Add username
+      const usernameInput = document.createElement('input');
+      usernameInput.type = 'hidden';
+      usernameInput.name = `userform-${idx}-username`;
+      usernameInput.value = username;
+      hiddenInputs.appendChild(usernameInput);
+      
+      // Add selected roles
+      const checkboxes = document.querySelectorAll(`#user-row-${username} .role-checkbox:checked`);
+      checkboxes.forEach(cb => {
+        const roleInput = document.createElement('input');
+        roleInput.type = 'hidden';
+        roleInput.name = `userform-${idx}-roles`;
+        roleInput.value = cb.dataset.role;
+        hiddenInputs.appendChild(roleInput);
+      });
+      
+      idx++;
     });
-  };
+  }
 
-  $(document).ready(function(){
-    $('#search_results').hide();
-    $('#selected_users').hide();
-    $('[data-toggle="popover"]').popover(); 
+  // Event delegation for remove buttons and role checkboxes
+  selectedList.addEventListener('click', function(e) {
+    const removeBtn = e.target.closest('.remove-user');
+    if (removeBtn) {
+      removeUser(removeBtn.dataset.username);
+    }
   });
+
+  selectedList.addEventListener('change', function(e) {
+    if (e.target.classList.contains('role-checkbox')) {
+      updateHiddenInputs();
+    }
+  });
+
+  // Hide suggestions when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!searchInput.contains(e.target) && !suggestions.contains(e.target)) {
+      suggestions.style.display = 'none';
+    }
+  });
+
+  // Keyboard navigation
+  searchInput.addEventListener('keydown', function(e) {
+    const items = suggestions.querySelectorAll('.list-group-item-action');
+    if (items.length === 0) return;
+
+    const active = suggestions.querySelector('.list-group-item-action.active');
+    let index = Array.from(items).indexOf(active);
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (active) active.classList.remove('active');
+      index = (index + 1) % items.length;
+      items[index].classList.add('active');
+      items[index].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (active) active.classList.remove('active');
+      index = index <= 0 ? items.length - 1 : index - 1;
+      items[index].classList.add('active');
+      items[index].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && active) {
+      e.preventDefault();
+      active.click();
+    } else if (e.key === 'Escape') {
+      suggestions.style.display = 'none';
+    }
+  });
+
+  // Form validation - ensure at least one role per user
+  document.getElementById('add-users-form').addEventListener('submit', function(e) {
+    let valid = true;
+    let noRolesUser = null;
+    
+    selectedUsers.forEach((data, username) => {
+      const checkboxes = document.querySelectorAll(`#user-row-${username} .role-checkbox:checked`);
+      if (checkboxes.length === 0) {
+        valid = false;
+        noRolesUser = username;
+      }
+    });
+    
+    if (!valid) {
+      e.preventDefault();
+      alert(`Please select at least one role for user: ${noRolesUser}`);
+      return false;
+    }
+    
+    if (selectedUsers.size === 0) {
+      e.preventDefault();
+      alert('Please select at least one user to add.');
+      return false;
+    }
+  });
+})();
 </script>
 {% endblock %}
-
