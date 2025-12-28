@@ -33,6 +33,7 @@
               {% if perms.coldfront_orcd_direct_charge.can_manage_billing %}
                 <a id="navbar-manage-billing" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:pending-cost-allocations' %}">Manage Billing</a>
               {% endif %}
+              <a id="navbar-activity-log" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:activity-log' %}">Activity Log</a>
             {% endif %}
           </div>
         </li>
