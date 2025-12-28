@@ -34,3 +34,4 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunPython(delete_old_default_projects, noop),
     ]
+

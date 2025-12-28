@@ -169,3 +169,4 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.WARNING("No users in Billing Manager group")
             )
+

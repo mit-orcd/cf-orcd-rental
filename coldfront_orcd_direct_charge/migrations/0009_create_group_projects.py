@@ -81,3 +81,4 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunPython(create_group_projects, delete_group_projects),
     ]
+

@@ -55,3 +55,4 @@ class Migration(migrations.Migration):
             delete_maintenance_status_for_users,
         ),
     ]
+

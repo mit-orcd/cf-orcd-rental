@@ -76,3 +76,4 @@ AUTO_DEFAULT_PROJECT_ENABLE = False
 # Check for environment variable override
 if os.environ.get("AUTO_DEFAULT_PROJECT_ENABLE", "").lower() == "true":
     AUTO_DEFAULT_PROJECT_ENABLE = True
+

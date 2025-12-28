@@ -50,3 +50,4 @@ Slurm JSON --> mk_gpucpunode_csv --> CSV --> csv_to_fixtures --> Django Fixtures
 4. Load into ColdFront: `coldfront loaddata gpu_node_instances cpu_node_instances`
 
 
+

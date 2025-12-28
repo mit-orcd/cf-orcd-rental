@@ -85,3 +85,4 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunPython(initialize_member_roles, reverse_member_roles),
     ]
+

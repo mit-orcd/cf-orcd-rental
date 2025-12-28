@@ -233,3 +233,4 @@ def get_user_roles(user, project):
             display_names.append(role.replace("_", " ").title())
 
     return display_names
+

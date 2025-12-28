@@ -53,3 +53,4 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunPython(rename_default_projects, revert_rename),
     ]
+
