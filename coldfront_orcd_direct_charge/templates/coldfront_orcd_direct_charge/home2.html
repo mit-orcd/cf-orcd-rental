@@ -23,10 +23,16 @@ Dashboard - ORCD Rental Portal
   <!-- ================================================================== -->
   <div class="col-lg-6 mb-4">
     <div class="card h-100 shadow-sm">
-      <div class="card-header bg-success text-white">
+      <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
           <i class="fas fa-calendar-alt mr-2"></i> My Rentals
         </h5>
+        <button type="button" class="btn btn-link text-white p-0 help-popover"
+           data-toggle="popover" data-trigger="focus" data-placement="left"
+           title="About My Rentals"
+           data-content="View and manage your GPU node reservations. You can see upcoming confirmed bookings, pending requests awaiting approval, and your rental history. Use 'Book Rental' to request new GPU time on available H200x8 nodes. Reservations require an approved cost allocation. Questions? Email &lt;a href='mailto:orcd-help@mit.edu'&gt;orcd-help@mit.edu&lt;/a&gt;">
+          <i class="fas fa-question-circle"></i>
+        </button>
       </div>
       <div class="card-body">
         <!-- Summary Stats -->
@@ -92,10 +98,16 @@ Dashboard - ORCD Rental Portal
   <!-- ================================================================== -->
   <div class="col-lg-6 mb-4">
     <div class="card h-100 shadow-sm">
-      <div class="card-header bg-primary text-white">
+      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
           <i class="fas fa-folder-open mr-2"></i> My Projects
         </h5>
+        <button type="button" class="btn btn-link text-white p-0 help-popover"
+           data-toggle="popover" data-trigger="focus" data-placement="left"
+           title="About My Projects"
+           data-content="Projects organize your team and billing. As an Owner, you can manage members, set cost allocations, and book rentals. As a Member, you can book rentals charged to the project. Each project needs an approved cost allocation before making reservations. Questions? Email &lt;a href='mailto:orcd-help@mit.edu'&gt;orcd-help@mit.edu&lt;/a&gt;">
+          <i class="fas fa-question-circle"></i>
+        </button>
       </div>
       <div class="card-body">
         <!-- Summary Stats -->
@@ -155,14 +167,20 @@ Dashboard - ORCD Rental Portal
 
 <div class="row">
   <!-- ================================================================== -->
-  <!-- Account Maintenance Card -->
+  <!-- My Account Card -->
   <!-- ================================================================== -->
   <div class="col-lg-6 mb-4">
     <div class="card h-100 shadow-sm">
-      <div class="card-header bg-info text-white">
+      <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
-          <i class="fas fa-tools mr-2"></i> Account Maintenance
+          <i class="fas fa-user-circle mr-2"></i> My Account
         </h5>
+        <button type="button" class="btn btn-link text-white p-0 help-popover"
+           data-toggle="popover" data-trigger="focus" data-placement="left"
+           title="About My Account"
+           data-content="Your account maintenance fee status determines your cluster access level. 'Inactive' means no fees; 'Basic' and 'Advanced' tiers provide different levels of access and are billed to your selected project. The billing project must have an approved cost allocation. Questions? Email &lt;a href='mailto:orcd-help@mit.edu'&gt;orcd-help@mit.edu&lt;/a&gt;">
+          <i class="fas fa-question-circle"></i>
+        </button>
       </div>
       <div class="card-body">
         <div class="text-center mb-3">
@@ -214,14 +232,20 @@ Dashboard - ORCD Rental Portal
   </div>
 
   <!-- ================================================================== -->
-  <!-- Cost Allocations Card -->
+  <!-- My Billing Card -->
   <!-- ================================================================== -->
   <div class="col-lg-6 mb-4">
     <div class="card h-100 shadow-sm">
-      <div class="card-header bg-warning text-dark">
+      <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
-          <i class="fas fa-receipt mr-2"></i> Cost Allocations
+          <i class="fas fa-file-invoice-dollar mr-2"></i> My Billing
         </h5>
+        <button type="button" class="btn btn-link text-dark p-0 help-popover"
+           data-toggle="popover" data-trigger="focus" data-placement="left"
+           title="About My Billing"
+           data-content="Cost allocations define how charges are billed for each project. You must configure cost objects (account codes) that total 100%. Allocations require approval before you can book rentals or set maintenance fees. 'Pending' means awaiting review; 'Rejected' needs corrections. Questions? Email &lt;a href='mailto:orcd-help@mit.edu'&gt;orcd-help@mit.edu&lt;/a&gt;">
+          <i class="fas fa-question-circle"></i>
+        </button>
       </div>
       <div class="card-body">
         <!-- Summary Stats -->
@@ -289,6 +313,40 @@ Dashboard - ORCD Rental Portal
   // Highlight Home2 in navbar
   $("#navbar-main > ul > li.active").removeClass("active");
   $("#navbar-home2").addClass("active");
+
+  // Initialize help popovers with close button
+  $(document).ready(function() {
+    $('.help-popover').popover({
+      container: 'body',
+      html: true
+    });
+
+    // Add close button when popover is shown
+    $('.help-popover').on('shown.bs.popover', function() {
+      var popoverId = $(this).attr('aria-describedby');
+      var $popover = $('#' + popoverId);
+      var $header = $popover.find('.popover-header');
+      
+      // Only add close button if not already present
+      if ($header.find('.close').length === 0) {
+        $header.css({
+          'display': 'flex',
+          'justify-content': 'space-between',
+          'align-items': 'center'
+        });
+        $header.append(
+          '<button type="button" class="close ml-2" aria-label="Close" style="font-size: 1.2rem;">' +
+          '<span aria-hidden="true">&times;</span>' +
+          '</button>'
+        );
+      }
+    });
+
+    // Close popover when X button is clicked
+    $(document).on('click', '.popover .close', function() {
+      $('.help-popover').popover('hide');
+    });
+  });
 </script>
 {% endblock %}
 
