@@ -492,6 +492,13 @@ def update_maintenance_status(request):
                 status=400,
             )
 
+        # Check that project has an approved cost allocation
+        if not has_approved_cost_allocation(billing_project):
+            return JsonResponse(
+                {"success": False, "error": "This project does not have an approved cost allocation"},
+                status=400,
+            )
+
     # Get or create the user's maintenance status
     maintenance_status, _ = UserMaintenanceStatus.objects.get_or_create(
         user=request.user,

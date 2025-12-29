@@ -234,3 +234,38 @@ def get_user_roles(user, project):
 
     return display_names
 
+
+@register.simple_tag
+def get_projects_for_maintenance_fee(user):
+    """Get projects user can use for maintenance fees with approved cost allocation.
+
+    Returns projects where:
+    1. User can use for maintenance fee (owner, technical admin, or member - NOT financial admin only)
+    2. Project has an approved cost allocation
+
+    Args:
+        user: The Django User object
+
+    Returns:
+        list: List of Project objects eligible for maintenance fee billing
+    """
+    from coldfront.core.project.models import Project
+    from coldfront_orcd_direct_charge.models import can_use_for_maintenance_fee
+
+    eligible_projects = []
+
+    # Get all active projects where user is a member
+    projects = Project.objects.filter(
+        projectuser__user=user,
+        projectuser__status__name="Active",
+        status__name__in=["Active", "New"],
+    ).distinct()
+
+    for project in projects:
+        # Check both conditions: user can use for maintenance AND has approved allocation
+        if can_use_for_maintenance_fee(user, project) and has_approved_cost_allocation(project):
+            eligible_projects.append(project)
+
+    return eligible_projects
+
+

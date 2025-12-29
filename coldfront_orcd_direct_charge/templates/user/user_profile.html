@@ -1,5 +1,6 @@
 {% extends "common/base.html" %}
 {% load static %}
+{% load project_roles %}
 
 {% block title %}
 User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif %}
@@ -107,6 +108,7 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
 
 <!-- Account Maintenance Status Modal -->
 {% if user == viewed_user %}
+{% get_projects_for_maintenance_fee user as eligible_projects %}
 <div class="modal fade" id="maintenanceStatusModal" tabindex="-1" role="dialog" aria-labelledby="maintenanceStatusModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
@@ -131,13 +133,20 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
             <label for="billingProjectSelect">Billing Project <span class="text-danger">*</span></label>
             <select class="form-control" id="billingProjectSelect" name="project_id">
               <option value="">-- Select a project --</option>
-              {% for pu in user.projectuser_set.all %}
-                {% if pu.status.name == 'Active' %}
-                  <option value="{{ pu.project.pk }}" {% if viewed_user.maintenance_status.billing_project.pk == pu.project.pk %}selected{% endif %}>{{ pu.project.title }}</option>
-                {% endif %}
+              {% for project in eligible_projects %}
+                <option value="{{ project.pk }}" {% if viewed_user.maintenance_status.billing_project.pk == project.pk %}selected{% endif %}>{{ project.title }}</option>
               {% endfor %}
             </select>
-            <small class="form-text text-muted">Maintenance fees will be charged to this project.</small>
+            {% if eligible_projects %}
+              <small class="form-text text-muted">
+                Only projects with approved cost allocations are shown.
+              </small>
+            {% else %}
+              <small class="form-text text-danger">
+                <i class="fas fa-exclamation-triangle"></i>
+                No eligible projects. Projects must have an approved cost allocation.
+              </small>
+            {% endif %}
           </div>
         </form>
         <div id="maintenanceStatusAlert" class="alert" style="display: none;"></div>
