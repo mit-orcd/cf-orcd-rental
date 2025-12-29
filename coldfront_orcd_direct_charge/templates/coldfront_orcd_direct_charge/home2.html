@@ -19,6 +19,75 @@ Dashboard - ORCD Rental Portal
 <!-- Dashboard Cards - 2x2 Grid -->
 <div class="row">
   <!-- ================================================================== -->
+  <!-- My Rentals Card -->
+  <!-- ================================================================== -->
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100 shadow-sm">
+      <div class="card-header bg-success text-white">
+        <h5 class="mb-0">
+          <i class="fas fa-calendar-alt mr-2"></i> My Rentals
+        </h5>
+      </div>
+      <div class="card-body">
+        <!-- Summary Stats -->
+        <div class="row text-center mb-3">
+          <div class="col-4">
+            <div class="h3 mb-0 text-success">{{ upcoming_count }}</div>
+            <small class="text-muted">Upcoming</small>
+          </div>
+          <div class="col-4">
+            <div class="h3 mb-0 text-warning">{{ pending_reservation_count }}</div>
+            <small class="text-muted">Pending</small>
+          </div>
+          <div class="col-4">
+            <div class="h3 mb-0 text-secondary">{{ past_count }}</div>
+            <small class="text-muted">Past</small>
+          </div>
+        </div>
+
+        {% if upcoming_reservations %}
+        <hr>
+        <h6 class="text-muted mb-2"><i class="fas fa-clock mr-1"></i> Upcoming Reservations</h6>
+        <ul class="list-group list-group-flush">
+          {% for res in upcoming_reservations %}
+          <li class="list-group-item px-0">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <strong>
+                  <code>{{ res.node_instance.associated_resource_address }}</code>
+                </strong>
+                <br>
+                <small class="text-muted">
+                  {{ res.start_datetime|date:"M j, g:i A" }} - {{ res.end_datetime|date:"M j, g:i A" }}
+                </small>
+              </div>
+              <span class="badge badge-success">{{ res.billable_hours }}h</span>
+            </div>
+            <small>
+              <a href="{% url 'project-detail' res.project.pk %}">{{ res.project.title|truncatechars:25 }}</a>
+            </small>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center py-3">
+          <i class="fas fa-calendar-times fa-2x text-muted mb-2"></i>
+          <p class="text-muted mb-0">No upcoming reservations</p>
+        </div>
+        {% endif %}
+      </div>
+      <div class="card-footer bg-transparent">
+        <a href="{% url 'coldfront_orcd_direct_charge:my-reservations' %}" class="btn btn-outline-success btn-sm">
+          <i class="fas fa-list mr-1"></i> View All
+        </a>
+        <a href="{% url 'coldfront_orcd_direct_charge:renting-calendar' %}" class="btn btn-success btn-sm float-right">
+          <i class="fas fa-plus mr-1"></i> Book Rental
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
   <!-- My Projects Card -->
   <!-- ================================================================== -->
   <div class="col-lg-6 mb-4">
@@ -79,73 +148,6 @@ Dashboard - ORCD Rental Portal
           <i class="fas fa-plus mr-1"></i> Create Project
         </a>
         {% endif %}
-      </div>
-    </div>
-  </div>
-
-  <!-- ================================================================== -->
-  <!-- Cost Objects Card -->
-  <!-- ================================================================== -->
-  <div class="col-lg-6 mb-4">
-    <div class="card h-100 shadow-sm">
-      <div class="card-header bg-warning text-dark">
-        <h5 class="mb-0">
-          <i class="fas fa-receipt mr-2"></i> Cost Allocations
-        </h5>
-      </div>
-      <div class="card-body">
-        <!-- Summary Stats -->
-        <div class="row text-center mb-3">
-          <div class="col-3">
-            <div class="h3 mb-0 text-success">{{ cost_approved_count }}</div>
-            <small class="text-muted">Approved</small>
-          </div>
-          <div class="col-3">
-            <div class="h3 mb-0 text-warning">{{ cost_pending_count }}</div>
-            <small class="text-muted">Pending</small>
-          </div>
-          <div class="col-3">
-            <div class="h3 mb-0 text-danger">{{ cost_rejected_count }}</div>
-            <small class="text-muted">Rejected</small>
-          </div>
-          <div class="col-3">
-            <div class="h3 mb-0 text-secondary">{{ cost_not_configured_count }}</div>
-            <small class="text-muted">Not Set</small>
-          </div>
-        </div>
-
-        {% if projects_needing_attention %}
-        <hr>
-        <h6 class="text-muted mb-2"><i class="fas fa-exclamation-triangle mr-1"></i> Needs Attention</h6>
-        <ul class="list-group list-group-flush">
-          {% for item in projects_needing_attention %}
-          <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-            <a href="{% url 'coldfront_orcd_direct_charge:project-cost-allocation' item.project.pk %}">
-              <i class="fas fa-file-invoice-dollar text-warning mr-1"></i>
-              {{ item.project.title|truncatechars:30 }}
-            </a>
-            {% if item.status == 'pending' %}
-              <span class="badge badge-warning">Pending</span>
-            {% elif item.status == 'rejected' %}
-              <span class="badge badge-danger">Rejected</span>
-            {% else %}
-              <span class="badge badge-secondary">Not Configured</span>
-            {% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <div class="text-center py-3">
-          <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
-          <p class="text-muted mb-0">All projects have approved cost allocations</p>
-        </div>
-        {% endif %}
-      </div>
-      <div class="card-footer bg-transparent">
-        <small class="text-muted">
-          <i class="fas fa-info-circle mr-1"></i>
-          Cost allocations must be approved before booking rentals
-        </small>
       </div>
     </div>
   </div>
@@ -212,70 +214,68 @@ Dashboard - ORCD Rental Portal
   </div>
 
   <!-- ================================================================== -->
-  <!-- My Rentals Card -->
+  <!-- Cost Allocations Card -->
   <!-- ================================================================== -->
   <div class="col-lg-6 mb-4">
     <div class="card h-100 shadow-sm">
-      <div class="card-header bg-success text-white">
+      <div class="card-header bg-warning text-dark">
         <h5 class="mb-0">
-          <i class="fas fa-calendar-alt mr-2"></i> My Rentals
+          <i class="fas fa-receipt mr-2"></i> Cost Allocations
         </h5>
       </div>
       <div class="card-body">
         <!-- Summary Stats -->
         <div class="row text-center mb-3">
-          <div class="col-4">
-            <div class="h3 mb-0 text-success">{{ upcoming_count }}</div>
-            <small class="text-muted">Upcoming</small>
+          <div class="col-3">
+            <div class="h3 mb-0 text-success">{{ cost_approved_count }}</div>
+            <small class="text-muted">Approved</small>
           </div>
-          <div class="col-4">
-            <div class="h3 mb-0 text-warning">{{ pending_reservation_count }}</div>
+          <div class="col-3">
+            <div class="h3 mb-0 text-warning">{{ cost_pending_count }}</div>
             <small class="text-muted">Pending</small>
           </div>
-          <div class="col-4">
-            <div class="h3 mb-0 text-secondary">{{ past_count }}</div>
-            <small class="text-muted">Past</small>
+          <div class="col-3">
+            <div class="h3 mb-0 text-danger">{{ cost_rejected_count }}</div>
+            <small class="text-muted">Rejected</small>
+          </div>
+          <div class="col-3">
+            <div class="h3 mb-0 text-secondary">{{ cost_not_configured_count }}</div>
+            <small class="text-muted">Not Set</small>
           </div>
         </div>
 
-        {% if upcoming_reservations %}
+        {% if projects_needing_attention %}
         <hr>
-        <h6 class="text-muted mb-2"><i class="fas fa-clock mr-1"></i> Upcoming Reservations</h6>
+        <h6 class="text-muted mb-2"><i class="fas fa-exclamation-triangle mr-1"></i> Needs Attention</h6>
         <ul class="list-group list-group-flush">
-          {% for res in upcoming_reservations %}
-          <li class="list-group-item px-0">
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
-                <strong>
-                  <code>{{ res.node_instance.associated_resource_address }}</code>
-                </strong>
-                <br>
-                <small class="text-muted">
-                  {{ res.start_datetime|date:"M j, g:i A" }} - {{ res.end_datetime|date:"M j, g:i A" }}
-                </small>
-              </div>
-              <span class="badge badge-success">{{ res.billable_hours }}h</span>
-            </div>
-            <small>
-              <a href="{% url 'project-detail' res.project.pk %}">{{ res.project.title|truncatechars:25 }}</a>
-            </small>
+          {% for item in projects_needing_attention %}
+          <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+            <a href="{% url 'coldfront_orcd_direct_charge:project-cost-allocation' item.project.pk %}">
+              <i class="fas fa-file-invoice-dollar text-warning mr-1"></i>
+              {{ item.project.title|truncatechars:30 }}
+            </a>
+            {% if item.status == 'pending' %}
+              <span class="badge badge-warning">Pending</span>
+            {% elif item.status == 'rejected' %}
+              <span class="badge badge-danger">Rejected</span>
+            {% else %}
+              <span class="badge badge-secondary">Not Configured</span>
+            {% endif %}
           </li>
           {% endfor %}
         </ul>
         {% else %}
         <div class="text-center py-3">
-          <i class="fas fa-calendar-times fa-2x text-muted mb-2"></i>
-          <p class="text-muted mb-0">No upcoming reservations</p>
+          <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+          <p class="text-muted mb-0">All projects have approved cost allocations</p>
         </div>
         {% endif %}
       </div>
       <div class="card-footer bg-transparent">
-        <a href="{% url 'coldfront_orcd_direct_charge:my-reservations' %}" class="btn btn-outline-success btn-sm">
-          <i class="fas fa-list mr-1"></i> View All
-        </a>
-        <a href="{% url 'coldfront_orcd_direct_charge:renting-calendar' %}" class="btn btn-success btn-sm float-right">
-          <i class="fas fa-plus mr-1"></i> Book Rental
-        </a>
+        <small class="text-muted">
+          <i class="fas fa-info-circle mr-1"></i>
+          Cost allocations must be approved before booking rentals
+        </small>
       </div>
     </div>
   </div>
