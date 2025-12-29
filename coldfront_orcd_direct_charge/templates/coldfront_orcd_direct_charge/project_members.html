@@ -85,14 +85,14 @@ Project Members - {{ project.title }}
                          class="btn btn-sm btn-outline-primary" title="Manage Roles">
                         <i class="fas fa-edit"></i>
                       </a>
-                      <form action="{% url 'coldfront_orcd_direct_charge:remove-member' project.pk member.user.pk %}" 
-                            method="post" style="display: inline;"
-                            onsubmit="return confirm('Are you sure you want to remove {{ member.user.username }} and all their roles from this project?');">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove Member">
-                          <i class="fas fa-user-times"></i>
-                        </button>
-                      </form>
+                      <button type="button" class="btn btn-sm btn-outline-danger" 
+                              data-toggle="modal" 
+                              data-target="#removeMemberModal"
+                              data-username="{{ member.user.username }}"
+                              data-user-pk="{{ member.user.pk }}"
+                              title="Remove Member">
+                        <i class="fas fa-user-times"></i>
+                      </button>
                     {% endif %}
                   {% else %}
                     <span class="text-muted">-</span>
@@ -133,5 +133,73 @@ Project Members - {{ project.title }}
     </dl>
   </div>
 </div>
+
+<!-- Remove Member Confirmation Modal -->
+{% if can_manage_members %}
+<div class="modal fade" id="removeMemberModal" tabindex="-1" role="dialog" aria-labelledby="removeMemberModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="removeMemberModalLabel">
+          <i class="fas fa-user-times mr-2"></i> Confirm Member Removal
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <form id="removeMemberForm" method="post" action="">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle mr-2"></i>
+            Are you sure you want to remove <strong id="removeUsername"></strong> from this project?
+          </div>
+          <p class="text-muted">
+            This will remove all their roles and access to this project. This action cannot be undone.
+          </p>
+          <div class="form-group">
+            <label for="removalNotes">Notes <span class="text-muted">(optional)</span></label>
+            <textarea class="form-control" id="removalNotes" name="notes" rows="3"
+                      placeholder="Reason for removal..."></textarea>
+            <small class="form-text text-muted">
+              This note will be recorded in the activity log.
+            </small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fas fa-times mr-1"></i> Cancel
+          </button>
+          <button type="submit" class="btn btn-danger">
+            <i class="fas fa-user-times mr-1"></i> Remove Member
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+{% if can_manage_members %}
+<script>
+  $('#removeMemberModal').on('show.bs.modal', function (event) {
+    var button = $(event.relatedTarget);
+    var username = button.data('username');
+    var userPk = button.data('user-pk');
+    
+    var modal = $(this);
+    modal.find('#removeUsername').text(username);
+    // Clear any previous notes
+    modal.find('#removalNotes').val('');
+    // Build the action URL
+    var baseUrl = '{% url "coldfront_orcd_direct_charge:remove-member" project.pk 0 %}';
+    modal.find('#removeMemberForm').attr('action', baseUrl.replace('/0/', '/' + userPk + '/'));
+  });
+</script>
+{% endif %}
+{% endblock %}
+
 

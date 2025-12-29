@@ -1806,9 +1806,14 @@ class RemoveMemberView(LoginRequiredMixin, View):
                 return redirect("coldfront_orcd_direct_charge:project-members", pk=project.pk)
 
         roles_list = list(member_roles.values_list("role", flat=True))
+        
+        # Get optional removal notes from form
+        removal_notes = request.POST.get("notes", "").strip()
+        
         logger.info(
-            "Removing member from project: user=%s, project=%s, roles=%s, removed_by=%s",
-            target_user.username, project.title, roles_list, request.user.username
+            "Removing member from project: user=%s, project=%s, roles=%s, removed_by=%s, notes=%s",
+            target_user.username, project.title, roles_list, request.user.username,
+            removal_notes[:100] if removal_notes else "(none)"
         )
 
         # Remove all member roles
@@ -1818,19 +1823,23 @@ class RemoveMemberView(LoginRequiredMixin, View):
         ProjectUser.objects.filter(project=project, user=target_user).delete()
 
         # Log to activity log
+        extra_data = {
+            "project_id": project.pk,
+            "project_title": project.title,
+            "user_id": target_user.pk,
+            "username": target_user.username,
+            "removed_roles": roles_list,
+        }
+        if removal_notes:
+            extra_data["removal_notes"] = removal_notes
+        
         log_activity(
             action="member.removed",
             category=ActivityLog.ActionCategory.MEMBER,
             description=f"User {target_user.username} removed from {project.title}",
             request=request,
             target=project,
-            extra_data={
-                "project_id": project.pk,
-                "project_title": project.title,
-                "user_id": target_user.pk,
-                "username": target_user.username,
-                "removed_roles": roles_list,
-            },
+            extra_data=extra_data,
         )
 
         messages.success(request, f"Removed {target_user.username} from the project.")
