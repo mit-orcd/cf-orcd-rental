@@ -2,6 +2,7 @@
 {% load common_tags %}
 {% load crispy_forms_tags %}
 {% load static %}
+{% load project_roles %}
 
 
 {% block title %}
@@ -61,11 +62,8 @@ Project List
             <a href="?order_by=pi__username&direction=des&{{filter_parameters}}"><i class="fas fa-sort-down" aria-hidden="true"></i><span class="sr-only">Sort Project Owner desc</span></a>
           </th>
           <th scope="col">Title</th>
-          <th scope="col" class="text-nowrap">
-            Field of Science
-            <a href="?order_by=field_of_science&direction=asc&{{filter_parameters}}"><i class="fas fa-sort-up" aria-hidden="true"></i><span class="sr-only">Sort Field of Science asc</span></a>
-            <a href="?order_by=field_of_science&direction=des&{{filter_parameters}}"><i class="fas fa-sort-down" aria-hidden="true"></i><span class="sr-only">Sort Field of Science desc</span></a>
-          </th>
+          <th scope="col" class="text-nowrap text-center">Accounts</th>
+          <th scope="col" class="text-nowrap text-center">Billing</th>
           <th scope="col" class="text-nowrap">
             Status
             <a href="?order_by=status&direction=asc&{{filter_parameters}}"><i class="fas fa-sort-up" aria-hidden="true"></i><span class="sr-only">Sort Status asc</span></a>
@@ -90,7 +88,20 @@ Project List
             {% endif %}
             <td>{{ project.pi.username }}</td>
             <td style="text-align: justify; text-justify: inter-word;">{{ project.title }}</td>
-            <td>{{ project.field_of_science.description }}</td>
+            <td class="text-center">{% get_project_member_count project %}</td>
+            <td class="text-center">
+              {% project_has_approved_cost_allocation project as has_billing %}
+              {% if has_billing %}
+                <span class="text-success" title="Cost allocation verified"><i class="fas fa-check-circle" aria-hidden="true"></i><span class="sr-only">Billing configured</span></span>
+              {% else %}
+                <a href="{% url 'coldfront_orcd_direct_charge:project-cost-allocation' project.pk %}" 
+                   class="text-danger" data-toggle="popover" data-trigger="hover" data-placement="left"
+                   data-html="true"
+                   data-content="No verified cost allocation. <br><strong>Click to configure billing.</strong>">
+                  <i class="fas fa-exclamation-triangle" aria-hidden="true"></i><span class="sr-only">Billing not configured</span>
+                </a>
+              {% endif %}
+            </td>
             <td>{{ project.status.name }}</td>
             {% if PROJECT_INSTITUTION_EMAIL_MAP %}
                 <td>{{ project.institution }}</td>
@@ -129,6 +140,9 @@ Project List
   $("#navbar-project-menu").addClass("active");
   $("#navbar-project").addClass("active");
 
+  // Initialize popovers for billing status
+  $('[data-toggle="popover"]').popover();
+
   $(document).on('click', '#form_reset_button', function() {
     resetForm($('#filter_form'));
   });
@@ -144,4 +158,5 @@ Project List
   });
 </script>
 {% endblock %}
+
 
