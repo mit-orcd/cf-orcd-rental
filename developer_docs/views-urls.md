@@ -12,6 +12,7 @@ This document describes all view classes and URL patterns in the ORCD Direct Cha
 
 - [URL Overview](#url-overview)
 - [URL Configuration](#url-configuration)
+- [Dashboard Views](#dashboard-views)
 - [Node Instance Views](#node-instance-views)
 - [Rental Calendar Views](#rental-calendar-views)
 - [Rental Manager Views](#rental-manager-views)
@@ -31,6 +32,7 @@ All plugin URLs are prefixed with `/nodes/` (configured in ColdFront's `urls.py`
 
 | Category | URL Pattern | Description |
 |----------|-------------|-------------|
+| **Dashboard** | `/nodes/home2/` | Home2 dashboard (new home preview) |
 | **Node Instances** | `/nodes/` | List all nodes |
 | | `/nodes/gpu/<pk>/` | GPU node detail |
 | | `/nodes/cpu/<pk>/` | CPU node detail |
@@ -41,6 +43,7 @@ All plugin URLs are prefixed with `/nodes/` (configured in ColdFront's `urls.py`
 | | `/nodes/renting/manage/<pk>/decline/` | Decline reservation |
 | | `/nodes/renting/manage/<pk>/metadata/` | Add metadata |
 | **User** | `/nodes/user/update-maintenance-status/` | AJAX maintenance update |
+| | `/nodes/my/reservations/` | User's reservations |
 | **Cost Allocation** | `/nodes/project/<pk>/cost-allocation/` | Edit cost allocation |
 | **Billing** | `/nodes/billing/pending/` | Pending allocations |
 | | `/nodes/billing/allocation/<pk>/review/` | Review allocation |
@@ -52,6 +55,8 @@ All plugin URLs are prefixed with `/nodes/` (configured in ColdFront's `urls.py`
 | | `/nodes/project/<pk>/members/add/` | Add member |
 | | `/nodes/project/<pk>/members/<user_pk>/update/` | Update roles |
 | | `/nodes/project/<pk>/members/<user_pk>/remove/` | Remove member |
+| **Project Add Users** | `/nodes/project/<pk>/add-users/` | Autocomplete add users |
+| | `/nodes/project/<pk>/add-users-search-results/` | Search results |
 | **Activity Log** | `/nodes/activity-log/` | View activity log |
 | **API** | `/nodes/api/...` | REST API endpoints |
 
@@ -91,6 +96,105 @@ In `coldfront/coldfront/config/urls.py`:
 if "coldfront_orcd_direct_charge" in settings.INSTALLED_APPS:
     urlpatterns.append(path("nodes/", include("coldfront_orcd_direct_charge.urls")))
 ```
+
+---
+
+## Dashboard Views
+
+### Home2View
+
+**URL**: `/nodes/home2/`  
+**Name**: `coldfront_orcd_direct_charge:home2`  
+**Template**: `coldfront_orcd_direct_charge/home2.html`
+
+New dashboard home page with summary cards providing a user-centric overview. This view is a preview of a redesigned home experience.
+
+```python
+class Home2View(LoginRequiredMixin, TemplateView):
+    """New dashboard home page with summary cards.
+
+    Displays user-centric summaries of:
+    - Projects (owned and member)
+    - Cost allocation status
+    - Account maintenance status
+    - Reservations (upcoming, pending, past)
+    """
+    template_name = "coldfront_orcd_direct_charge/home2.html"
+```
+
+**Context Variables**:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `owned_projects` | QuerySet | Projects where user is owner |
+| `member_projects` | QuerySet | Projects where user has a role (not owner) |
+| `owned_count` | int | Count of owned projects |
+| `member_count` | int | Count of member projects |
+| `total_projects` | int | Total project count |
+| `recent_projects` | list | Top 5 projects for quick list |
+| `is_pi` | bool | Whether user has PI status |
+| `cost_approved_count` | int | Projects with approved cost allocation |
+| `cost_pending_count` | int | Projects with pending cost allocation |
+| `cost_rejected_count` | int | Projects with rejected cost allocation |
+| `cost_not_configured_count` | int | Projects without cost allocation |
+| `projects_needing_attention` | list | Up to 5 projects needing attention |
+| `maintenance_status` | str | User's maintenance status display |
+| `maintenance_status_raw` | str | Raw status value |
+| `maintenance_billing_project` | Project | Billing project for maintenance |
+| `upcoming_reservations` | list | Next 3 upcoming reservations |
+| `upcoming_count` | int | Total upcoming reservation count |
+| `pending_reservation_count` | int | Pending reservation count |
+| `past_count` | int | Past reservation count |
+| `total_reservations` | int | Total reservation count |
+
+**UI Features**:
+- Four summary cards: My Rentals, My Projects, My Account, My Billing
+- Help icon (?) on each card with Bootstrap popover for guidance
+- Clickable mailto link for orcd-help@mit.edu in help text
+- Responsive layout (2x2 grid on desktop, single column on mobile)
+
+---
+
+### MyReservationsView
+
+**URL**: `/nodes/my/reservations/`  
+**Name**: `coldfront_orcd_direct_charge:my-reservations`  
+**Template**: `coldfront_orcd_direct_charge/my_reservations.html`
+
+User-centric reservation page showing all reservations from projects where the user has any role.
+
+```python
+class MyReservationsView(LoginRequiredMixin, TemplateView):
+    """Display reservations for projects where the user has a role.
+
+    Shows all reservations from projects where the logged-in user is:
+    - Owner (project.pi)
+    - Financial Admin
+    - Technical Admin
+    - Member
+    """
+    template_name = "coldfront_orcd_direct_charge/my_reservations.html"
+```
+
+**Context Variables**:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `upcoming` | list | Approved reservations with end_date >= today |
+| `pending` | list | Reservations awaiting approval |
+| `past` | list | Approved reservations already completed |
+| `declined_cancelled` | list | Rejected or cancelled reservations |
+| `upcoming_count` | int | Count of upcoming reservations |
+| `pending_count` | int | Count of pending reservations |
+| `past_count` | int | Count of past reservations |
+| `declined_cancelled_count` | int | Count of declined/cancelled |
+| `user_roles` | dict | User's roles per project: `{project_pk: [roles]}` |
+
+**UI Features**:
+- Tabbed interface for each category (Upcoming, Pending, Past, Declined/Cancelled)
+- Summary cards showing counts per category
+- Displays user's roles for each reservation's project
+- Sorted by start_date descending
 
 ---
 
@@ -308,6 +412,10 @@ def update_maintenance_status(request):
 - Status must be valid choice
 - For basic/advanced, billing project required
 - User must have eligible role in billing project (not financial_admin alone)
+- **New (Dec 2025)**: Billing project must have an approved cost allocation
+
+**Related Template Tag**:
+- `get_projects_for_maintenance_fee(user)` - Returns only projects with approved cost allocations that the user can use for maintenance billing
 
 ---
 
@@ -491,6 +599,11 @@ List project members with their ORCD roles.
 - `can_manage_financial_admins` - Boolean permission check
 - `current_user_role` - Current user's highest role
 
+**UI Features**:
+- **Account Maintenance column** (added Dec 2025): Shows each member's maintenance fee status badge
+- **Removal modal**: Bootstrap modal with optional notes textarea for audit trail (replaces basic `confirm()`)
+- Owner row is protected - no remove button displayed
+
 ---
 
 ### AddMemberView
@@ -525,6 +638,32 @@ Modify a member's roles.
 **Name**: `coldfront_orcd_direct_charge:remove-member`
 
 POST-only view to remove a member and all their roles.
+
+```python
+class RemoveMemberView(LoginRequiredMixin, View):
+    """View for removing a member (and all their roles) from a project."""
+
+    def post(self, request, pk, user_pk):
+        # Get optional removal notes from form
+        removal_notes = request.POST.get("notes", "").strip()
+        # ... validation and removal logic
+```
+
+**POST Data**:
+- `notes` (optional) - Removal reason for audit trail
+
+**Behavior**:
+1. Validates user is not the project owner (owners cannot be removed)
+2. Checks permission via `can_manage_members()`
+3. Technical admins cannot remove financial admins
+4. Removes all `ProjectMemberRole` entries for the user
+5. Removes `ProjectUser` entry from ColdFront core
+6. Logs activity with optional removal notes in `extra_data`
+
+**UI Integration**:
+- Frontend uses Bootstrap modal with notes textarea instead of basic `confirm()`
+- Modal displays member name for confirmation
+- Notes are optional but stored in ActivityLog for audit
 
 ---
 
@@ -591,19 +730,21 @@ templates/
 │   ├── cost_allocation_review.html
 │   ├── cpu_node_detail.html
 │   ├── gpu_node_detail.html
+│   ├── home2.html                   # NEW: Dashboard page with summary cards
 │   ├── invoice_detail.html
 │   ├── invoice_edit.html
 │   ├── invoice_preparation.html
+│   ├── my_reservations.html         # NEW: User's reservations page
 │   ├── node_instance_list.html
 │   ├── pending_cost_allocations.html
 │   ├── project_cost_allocation.html
-│   ├── project_members.html
+│   ├── project_members.html         # Updated: removal modal with notes
 │   ├── rental_manager.html
 │   ├── renting_calendar.html
 │   ├── reservation_request.html
 │   └── update_member_role.html
 ├── common/                          # Override core ColdFront
-│   ├── authorized_navbar.html       # Navigation links
+│   ├── authorized_navbar.html       # Navigation links (updated: Home2 tab)
 │   ├── base.html                    # Favicon, title
 │   ├── navbar_brand.html            # ORCD logo
 │   └── nonauthorized_navbar.html
@@ -612,7 +753,7 @@ templates/
 │   └── nonauthorized_home.html      # Pre-login page
 ├── project/
 │   ├── add_user_search_results.html # ORCD role selection
-│   ├── project_add_users.html
+│   ├── project_add_users.html       # Updated: autocomplete interface
 │   ├── project_detail.html          # Simplified layout
 │   ├── project_list.html            # "Project Owner" column
 │   └── project_update_form.html

@@ -8,6 +8,62 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### December 29, 2025
+
+#### Added - Home2 Dashboard & UX Improvements
+
+##### Home2 Dashboard Page (`b6c29ee`, `8ed6a25`, `e159e3f`)
+- New dashboard page at `/nodes/home2/` for previewing redesigned home experience
+- Four summary cards with icons and action buttons:
+  - **My Rentals**: upcoming/pending/past counts, next 3 reservations
+  - **My Projects**: owned/member counts, recent projects list, create button
+  - **My Account**: status badge, billing project display
+  - **My Billing**: approval status counts, projects needing attention
+- Bootstrap 4 responsive card layout (2x2 grid on desktop, single column on mobile)
+- Home2 tab added to navbar with dashboard icon
+- Help icon (?) on each card header with Bootstrap popover
+- Help text includes descriptions and clickable mailto link for orcd-help@mit.edu
+- Dismissible close button (×) on popover headers
+- Fixed mobile scroll-to-top issue by using button elements instead of anchors
+
+##### Member Removal with Notes (`2961194`)
+- Replaced basic JavaScript `confirm()` with Bootstrap modal for member removal
+- Modal includes member name, optional notes textarea for removal reason
+- Removal notes stored in ActivityLog `extra_data` for audit trail
+- Owner protection: cannot remove project owner (enforced in view)
+
+##### Maintenance Fee Cost Allocation Validation (`2aa1cdb`)
+- Enhanced validation for account maintenance fee billing project selection
+- Backend: Added `has_approved_cost_allocation()` check in `update_maintenance_status` view
+- Frontend: New `get_projects_for_maintenance_fee` template tag filters dropdown options
+- Only projects with approved cost allocations appear in billing project dropdown
+- Warning message displays when no eligible projects exist
+
+##### Navigation & Menu Updates (`8e2625f`, `e2106bd`)
+- Activity Log added to Admin Functions menu
+- Simplified Project dropdown menu for cleaner navigation
+
+##### Account Maintenance Column (`60cb48e`)
+- Added Account Maintenance column to Project Members page
+- Shows each member's maintenance fee status badge
+
+##### Autocomplete Add Users (`6fa24c3`)
+- Replaced legacy add-users search with autocomplete interface
+- Uses Select2 dropdown with API search
+
+---
+
+### December 27, 2025
+
+#### Added - My Reservations Page
+- New user-centric page at `/nodes/my/reservations/`
+- Shows reservations from all projects where user has a role
+- Categorized tabs: Upcoming, Pending, Past, Declined/Cancelled
+- Summary cards showing counts per category
+- Displays user's roles for each reservation's project
+
+---
+
 ### December 26, 2025
 
 #### Added - Activity Logging
@@ -242,6 +298,15 @@ Recent commits in reverse chronological order:
 
 | Commit | Date | Description |
 |--------|------|-------------|
+| `e159e3f` | 2025-12-29 | Enhance Home2 dashboard cards with help popovers |
+| `2aa1cdb` | 2025-12-29 | Require approved cost allocation for maintenance fee billing |
+| `2961194` | 2025-12-29 | Add confirmation modal with notes for member removal |
+| `8ed6a25` | 2025-12-29 | Reorder Home2 dashboard cards for better UX |
+| `b6c29ee` | 2025-12-28 | Add Home2 dashboard page with summary cards |
+| `8e2625f` | 2025-12-28 | Add Activity Log to Admin Functions menu |
+| `e2106bd` | 2025-12-28 | Simplify Project dropdown menu for cleaner navigation |
+| `60cb48e` | 2025-12-27 | Add Account Maintenance column to Project Members page |
+| `6fa24c3` | 2025-12-27 | Replace legacy add-users search with autocomplete interface |
 | `041a669` | 2025-12-26 | Add comprehensive activity logging feature |
 | `29778f5` | 2025-12-23 | Add filter options to invoice detail page |
 | `b35b53d` | 2025-12-23 | Add API token display to user profile page |

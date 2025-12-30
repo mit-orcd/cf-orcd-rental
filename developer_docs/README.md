@@ -2,7 +2,7 @@
 
 **Version**: 0.1.0  
 **License**: AGPL-3.0-or-later  
-**Last Updated**: December 2025
+**Last Updated**: December 29, 2025
 
 This documentation is intended for maintainers and developers working on the `coldfront-orcd-direct-charge` plugin. It covers architecture, code organization, APIs, and change history.
 
@@ -30,6 +30,8 @@ The ORCD Direct Charge plugin extends [ColdFront](https://github.com/ubccr/coldf
 5. **Invoice Reporting**: Monthly billing reports with cost object breakdowns
 6. **Activity Logging**: Comprehensive audit trail for all site activity
 7. **User Auto-Configuration**: Automatic PI status and default project creation
+8. **Home2 Dashboard**: User-centric dashboard with summary cards for quick overview
+9. **My Reservations**: Cross-project reservation view for users
 
 ### High-Level Architecture
 
@@ -156,6 +158,27 @@ coldfront-orcd-direct-charge/
 - All significant actions are logged to `ActivityLog`
 - Categories: auth, reservation, project, member, cost_allocation, billing, invoice, maintenance, api, view
 - Accessible to Billing/Rental Managers via web UI and API
+
+### 6. Home2 Dashboard (New - Dec 2025)
+
+- New user-centric dashboard at `/nodes/home2/`
+- Four summary cards: My Rentals, My Projects, My Account, My Billing
+- Help popovers on each card with guidance and support contact
+- Responsive layout (2x2 grid on desktop, single column on mobile)
+
+### 7. My Reservations Page (New - Dec 2025)
+
+- User-centric view at `/nodes/my/reservations/`
+- Shows all reservations from projects where user has any role
+- Tabbed interface: Upcoming, Pending, Past, Declined/Cancelled
+- Displays user's roles per project
+
+### 8. Enhanced Member Management (New - Dec 2025)
+
+- Account Maintenance column in Project Members table
+- Confirmation modal with notes for member removal (stored in ActivityLog)
+- Autocomplete interface for adding users (replaces legacy search)
+- Maintenance fee billing requires approved cost allocation on billing project
 
 ---
 
