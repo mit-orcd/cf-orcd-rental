@@ -22,7 +22,7 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.conf import settings
 
-from coldfront.core.project.models import ProjectUser
+from coldfront.core.project.models import Project, ProjectUser
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,23 @@ def auto_configure_user(sender, instance, created, **kwargs):
     if getattr(settings, "AUTO_DEFAULT_PROJECT_ENABLE", False):
         create_default_project_for_user(instance)
         create_group_project_for_user(instance)
+
+
+@receiver(post_save, sender=Project)
+def auto_activate_project(sender, instance, created, **kwargs):
+    """Automatically activate newly created projects.
+    
+    The rental portal doesn't require project approval, so new projects
+    are immediately set to Active status.
+    """
+    if not created:
+        return
+    
+    if instance.status.name == "New":
+        from coldfront.core.project.models import ProjectStatusChoice
+        active_status = ProjectStatusChoice.objects.get(name="Active")
+        instance.status = active_status
+        instance.save(update_fields=["status"])
 
 
 def create_maintenance_status_for_user(user):
