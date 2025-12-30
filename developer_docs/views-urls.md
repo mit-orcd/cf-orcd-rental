@@ -38,13 +38,15 @@ All plugin URLs are prefixed with `/nodes/` (configured in ColdFront's `urls.py`
 | | `/nodes/cpu/<pk>/` | CPU node detail |
 | **Rental Calendar** | `/nodes/renting/` | Availability calendar |
 | | `/nodes/renting/request/` | Submit reservation |
+| **Reservation** | `/nodes/reservation/<pk>/` | Reservation detail page |
 | **Rental Management** | `/nodes/renting/manage/` | Manager dashboard |
 | | `/nodes/renting/manage/<pk>/approve/` | Approve reservation |
 | | `/nodes/renting/manage/<pk>/decline/` | Decline reservation |
 | | `/nodes/renting/manage/<pk>/metadata/` | Add metadata |
 | **User** | `/nodes/user/update-maintenance-status/` | AJAX maintenance update |
 | | `/nodes/my/reservations/` | User's reservations |
-| **Cost Allocation** | `/nodes/project/<pk>/cost-allocation/` | Edit cost allocation |
+| **Project** | `/nodes/project/<pk>/reservations/` | Project reservations |
+| | `/nodes/project/<pk>/cost-allocation/` | Edit cost allocation |
 | **Billing** | `/nodes/billing/pending/` | Pending allocations |
 | | `/nodes/billing/allocation/<pk>/review/` | Review allocation |
 | **Invoice** | `/nodes/billing/invoice/` | Month selector |
@@ -210,6 +212,79 @@ class MyReservationsView(LoginRequiredMixin, TemplateView):
 - Summary cards showing counts per category
 - Displays user's roles for each reservation's project
 - Sorted by start_date descending
+- ID column links to reservation detail page
+
+---
+
+### ReservationDetailView
+
+**URL**: `/nodes/reservation/<pk>/`  
+**Name**: `coldfront_orcd_direct_charge:reservation-detail`  
+**Template**: `coldfront_orcd_direct_charge/reservation_detail.html`
+
+Displays comprehensive information about a single reservation.
+
+```python
+class ReservationDetailView(LoginRequiredMixin, DetailView):
+    """Display detailed information about a reservation."""
+    model = Reservation
+    template_name = "coldfront_orcd_direct_charge/reservation_detail.html"
+    context_object_name = "reservation"
+```
+
+**Permission Check**:
+- User must be the requesting user, a project member, or a rental manager/superuser
+
+**Context Variables**:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `reservation` | Reservation | The reservation object |
+| `is_manager` | bool | Whether user can manage rentals |
+| `metadata_entries` | QuerySet | Manager notes (visible to managers only) |
+| `billable_hours` | int | Calculated billable hours |
+
+**Displayed Information**:
+- Reservation ID and status badge
+- Node name and project
+- Start/end dates with duration in blocks
+- Billable hours calculation
+- Requesting user
+- Rental notes (from requester)
+- Manager notes (from rental manager, visible to managers only)
+- Metadata entries (visible to managers only)
+
+---
+
+### ProjectReservationsView
+
+**URL**: `/nodes/project/<pk>/reservations/`  
+**Name**: `coldfront_orcd_direct_charge:project-reservations`  
+**Template**: `coldfront_orcd_direct_charge/project_reservations.html`
+
+Lists all reservations for a specific project, accessible from project detail page.
+
+```python
+class ProjectReservationsView(LoginRequiredMixin, TemplateView):
+    """Display all reservations for a project."""
+    template_name = "coldfront_orcd_direct_charge/project_reservations.html"
+```
+
+**Permission Check**:
+- User must be project owner, have an ORCD role in the project, or be a superuser
+
+**Context Variables**:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `project` | Project | The project object |
+| `future_reservations` | list | Reservations with end_date >= today, sorted ascending |
+| `past_reservations` | list | Reservations with end_date < today, sorted descending |
+
+**UI Features**:
+- Two-section layout: Future (next first) and Past (most recent first)
+- Displays node, start/end dates, duration, status, requester
+- ID column links to reservation detail page
 
 ---
 

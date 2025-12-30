@@ -8,6 +8,78 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### December 30, 2025
+
+#### Added - Project & Reservation Enhancements
+
+##### Project Page UI Updates (`fb32efb`)
+- Renamed 'View Reservations' button to 'View Project Reservations'
+- Updated Financial Admin role description to include member management
+- Consistent role descriptions across project_detail and add_user_search_results
+
+##### My Billing Card Label Update (`e1619f0`)
+- Updated labels for clarity in dashboard My Billing card
+
+##### Project Archive Page (`2d3ce78`)
+- ORCD customizations for project archive page
+
+##### Reservation Detail Page (`9003b3c`)
+- New page at `/nodes/reservation/<pk>/` showing comprehensive reservation info
+- Displays reservation ID, status, node, project, requesting user
+- Shows full schedule with start/end dates, duration, billable hours
+- Requester notes and manager notes (latter visible to managers only)
+- Metadata entries visible to rental managers only
+- Added ID column as first column in all reservation listing tables
+- Each ID hyperlinks to the detail page
+
+##### Hide Maintenance Warning for Financial Admins (`62b104d`)
+- Financial-admin-only users don't see maintenance fee warnings on reservation pages
+
+##### Project Reservations Page (`641196a`)
+- New page at `/nodes/project/<pk>/reservations/` accessible from project detail
+- Shows all reservations for a specific project
+- Split into Future (sorted ascending) and Past (sorted descending) sections
+- Displays node, start/end dates, duration, status, requester
+- Access restricted to project members
+
+##### Cost Object Validation (`dd2bd32`)
+- Server-side: Require at least one cost object, validate sum = 100%
+- Client-side: Prevent submission with alert if no cost objects or total != 100%
+
+##### Auto-Activate New Projects (`22baf3c`)
+- Signal handler automatically changes project status from 'New' to 'Active'
+- Rental portal doesn't require project approval workflow
+
+##### Project List Columns (`ad05f26`)
+- Removed 'Field of Science' column (not relevant for rental portal)
+- Added 'Accounts' column showing member count per project
+- Added 'Billing' column with visual status indicators (checkmark/warning)
+
+##### Project Creation Form (`6e601cf`, `2622676`)
+- Hidden field_of_science input to fix project creation
+- Removed Field of Science dropdown from visible form
+- Replaced default description boilerplate with friendly placeholder
+
+##### Remove Project Review Banner (`bf1d23b`)
+- Removed project review banner from project detail page
+
+##### User Profile Maintenance Fee Display (`37c3044`)
+- Updated maintenance fee display on user profile page
+
+##### Reservation Page Warning Banner (`24e0a86`)
+- Friendly warning banner for inactive maintenance fee on reservations page
+
+##### iOS Safari Date Picker Fix (`9c3dc82`)
+- Fixed date pickers for iOS Safari compatibility
+
+##### My Billing Dashboard Improvements (`7b0c409`)
+- Show approved projects in My Billing dashboard card
+
+##### Help Popover Text Selection (`d8bef10`)
+- Enable text selection in help popovers (for copying email addresses)
+
+---
+
 ### December 29, 2025
 
 #### Added - Dashboard Home Page & UX Improvements
@@ -309,6 +381,23 @@ Recent commits in reverse chronological order:
 
 | Commit | Date | Description |
 |--------|------|-------------|
+| `fb32efb` | 2025-12-30 | Update project page UI and role descriptions |
+| `e1619f0` | 2025-12-30 | Update My Billing card labels for clarity |
+| `2d3ce78` | 2025-12-30 | Update project archive page with ORCD customizations |
+| `9003b3c` | 2025-12-29 | Add reservation detail page with ID links |
+| `62b104d` | 2025-12-29 | Hide maintenance warning for financial-admin-only users |
+| `641196a` | 2025-12-29 | Add project reservations page |
+| `dd2bd32` | 2025-12-29 | Add validation to require cost objects summing to 100% |
+| `22baf3c` | 2025-12-29 | Auto-activate newly created projects |
+| `ad05f26` | 2025-12-29 | Update project list with Accounts and Billing columns |
+| `6e601cf` | 2025-12-29 | Fix project creation by adding hidden field_of_science |
+| `2622676` | 2025-12-29 | Simplify project create form for rental portal |
+| `bf1d23b` | 2025-12-29 | Remove project review banner from project detail page |
+| `37c3044` | 2025-12-29 | Update user profile maintenance fee display |
+| `24e0a86` | 2025-12-29 | Add friendly warning banner for inactive maintenance fee |
+| `9c3dc82` | 2025-12-29 | Fix date pickers for iOS Safari compatibility |
+| `7b0c409` | 2025-12-29 | Show approved projects in My Billing dashboard card |
+| `d8bef10` | 2025-12-29 | Enable text selection in help popovers |
 | `f36c414` | 2025-12-29 | Clarify account maintenance fee messaging |
 | `ac437c1` | 2025-12-29 | Replace default home page with dashboard |
 | `e159e3f` | 2025-12-29 | Enhance Home2 dashboard cards with help popovers |

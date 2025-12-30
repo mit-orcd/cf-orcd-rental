@@ -26,8 +26,9 @@ This document describes the Django signal handlers and auto-configuration featur
 The plugin uses Django signals to:
 
 1. **Auto-configure new users** - Set PI status, create default projects, initialize maintenance status
-2. **Maintain data integrity** - Reset maintenance status when users lose project access
-3. **Audit logging** - Log all significant actions for compliance and debugging
+2. **Auto-activate new projects** - Skip project approval workflow for immediate use
+3. **Maintain data integrity** - Reset maintenance status when users lose project access
+4. **Audit logging** - Log all significant actions for compliance and debugging
 
 **Warning**: Auto-configuration features are **IRREVERSIBLE**. Once enabled, changes persist even if the feature is later disabled.
 
@@ -145,6 +146,34 @@ def create_default_project_for_user(user):
 #### create_group_project_for_user
 
 Similar to `create_default_project_for_user` but creates `USERNAME_group` project.
+
+---
+
+## Project Auto-Activation
+
+### auto_activate_project
+
+**Signal**: `post_save` on `Project`  
+**Trigger**: When a project is created (`created=True`)
+
+```python
+@receiver(post_save, sender=Project)
+def auto_activate_project(sender, instance, created, **kwargs):
+    """Automatically activate newly created projects.
+    
+    The rental portal doesn't require the project approval workflow,
+    so projects are immediately usable after creation.
+    """
+    if created and instance.status.name == "New":
+        active_status = ProjectStatusChoice.objects.get(name="Active")
+        instance.status = active_status
+        instance.save(update_fields=["status"])
+```
+
+**Behavior**:
+- Newly created projects with status "New" are immediately changed to "Active"
+- Bypasses the ColdFront project approval workflow
+- Projects are immediately usable after creation
 
 ---
 
