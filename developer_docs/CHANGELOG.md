@@ -12,6 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 #### Added - Dashboard Home Page & UX Improvements
 
+##### Account Maintenance Fee Messaging (`f36c414`)
+- Clarified that maintenance fee is a recurring monthly charge
+- Updated status descriptions: paid tiers (Basic/Advanced) enable rental services
+- Base ORCD services available to all researchers, even without maintenance fee
+- Updated help popover, inactive status message, and pre-login page messaging
+
 ##### Dashboard Replaces Default Home (`ac437c1`)
 - Dashboard is now the **default home page** for authenticated users
 - Removed separate `/nodes/home2/` URL and `Home2View` class
@@ -303,6 +309,7 @@ Recent commits in reverse chronological order:
 
 | Commit | Date | Description |
 |--------|------|-------------|
+| `f36c414` | 2025-12-29 | Clarify account maintenance fee messaging |
 | `ac437c1` | 2025-12-29 | Replace default home page with dashboard |
 | `e159e3f` | 2025-12-29 | Enhance Home2 dashboard cards with help popovers |
 | `2aa1cdb` | 2025-12-29 | Require approved cost allocation for maintenance fee billing |
