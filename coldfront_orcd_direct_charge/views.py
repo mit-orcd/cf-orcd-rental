@@ -2202,10 +2202,34 @@ class MyReservationsView(LoginRequiredMixin, TemplateView):
         except UserMaintenanceStatus.DoesNotExist:
             context["maintenance_status_raw"] = "inactive"
 
-        # Show warning if inactive and has upcoming/pending reservations
+        # Check if user has any resource-using role in projects with upcoming/pending reservations
+        # Financial admins don't need a maintenance fee since they only manage billing
+        has_resource_role = False
+        active_project_ids = set()
+        for r in context["upcoming"] + context["pending"]:
+            active_project_ids.add(r.project_id)
+
+        for project_id in active_project_ids:
+            project = Project.objects.get(pk=project_id)
+            # Owner always has resource role
+            if project.pi == user:
+                has_resource_role = True
+                break
+            # Check ORCD roles - technical_admin and member are resource roles
+            roles = ProjectMemberRole.objects.filter(project_id=project_id, user=user)
+            for role in roles:
+                if role.role in [ProjectMemberRole.RoleChoices.TECHNICAL_ADMIN,
+                                 ProjectMemberRole.RoleChoices.MEMBER]:
+                    has_resource_role = True
+                    break
+            if has_resource_role:
+                break
+
+        # Show warning if inactive, has upcoming/pending reservations, AND has resource role
         context["show_maintenance_warning"] = (
             context["maintenance_status_raw"] == "inactive"
             and (context["upcoming_count"] > 0 or context["pending_count"] > 0)
+            and has_resource_role
         )
 
         return context
