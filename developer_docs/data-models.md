@@ -178,6 +178,7 @@ A booking request for a GPU node instance.
 | `node_instance` | ForeignKey(GpuNodeInstance) | The GPU node being reserved |
 | `project` | ForeignKey(Project) | ColdFront project |
 | `requesting_user` | ForeignKey(User) | User who submitted request |
+| `processed_by` | ForeignKey(User) | Manager who confirmed/declined (nullable) |
 | `start_date` | DateField | Reservation starts at 4 PM on this date |
 | `num_blocks` | PositiveIntegerField | Number of 12-hour blocks (1-14) |
 | `status` | CharField(16) | Approval status |
@@ -636,6 +637,7 @@ def can_view_activity_log(user) -> bool:
 | `0018_costallocationsnapshot_invoiceperiod...` | Invoice preparation models |
 | `0019_backfill_cost_allocation_snapshots` | Historical snapshot backfill |
 | `0020_activitylog` | ActivityLog model |
+| `0021_reservation_processed_by` | Add processed_by field to Reservation |
 
 ---
 

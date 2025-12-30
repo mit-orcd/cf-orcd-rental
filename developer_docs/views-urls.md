@@ -404,9 +404,16 @@ class ReservationRequestView(LoginRequiredMixin, CreateView):
 **Form**: [`ReservationRequestForm`](../coldfront_orcd_direct_charge/forms.py)
 
 **Validation**:
+- User must have active maintenance subscription (not inactive)
 - Node must be rentable H200x8
 - Project must have approved cost allocation
 - Start date must be 7+ days in future
+- Start date must be within 3 months (max date validation)
+- No overlapping confirmed reservations
+
+**UI Features**:
+- Flatpickr date picker with minDate (7 days) and maxDate (3 months) constraints
+- Users with inactive maintenance subscription see error message and cannot submit
 - No overlapping confirmed reservations
 
 ---
@@ -428,6 +435,12 @@ Dashboard for reviewing and processing reservation requests.
 - `recent_reservations` - Recently processed (last 30 days)
 - `decline_form` - ReservationDeclineForm instance
 
+**UI Features**:
+- DataTables enabled for sorting and filtering on both tables
+- Columns include: ID, Request Date, Node, Project, Requester, Dates, Duration, Status
+- Recently Processed table shows 'Processed By' column with manager who confirmed/declined
+- 'Confirm Rental' button (renamed from 'Approve')
+
 ---
 
 ### ReservationApproveView
@@ -435,7 +448,7 @@ Dashboard for reviewing and processing reservation requests.
 **URL**: `/nodes/renting/manage/<pk>/approve/`  
 **Name**: `coldfront_orcd_direct_charge:reservation-approve`
 
-POST-only view to approve a reservation.
+POST-only view to confirm a reservation (button label: "Confirm Rental").
 
 **Behavior**:
 1. Validates reservation is PENDING

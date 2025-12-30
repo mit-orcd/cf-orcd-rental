@@ -12,7 +12,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 #### Added - Project & Reservation Enhancements
 
-##### Reservation Status Terminology Update
+##### Subscription Alert for Inactive Users (`556933c`)
+- Display info alert on My Rentals dashboard card when user has inactive maintenance subscription
+- Explains restrictions: cannot access rentals or make new reservations
+- Includes note for Financial Admins that subscription not needed for billing role
+- Links to user profile to update subscription status
+
+##### Rental Manager & Reservation Request Enhancements (`a3ca777`)
+- **Rental Manager Dashboard**:
+  - Added `processed_by` field to track which manager confirmed/declined
+  - Added 'Request Date' column showing when request was submitted
+  - Added 'Processed By' column showing manager who processed request
+  - Enabled DataTables for sorting and filtering on both tables
+- **Reservation Request Form**:
+  - Block requests from users without active maintenance subscription
+  - Added max date validation (3 months ahead) matching calendar rules
+  - Updated Flatpickr with minDate (7 days) and maxDate constraints
+  - Server-side validation for both min and max date boundaries
+- **New Migration**: `0021_reservation_processed_by.py`
+
+##### Reservation Status Terminology Update (`6552cb3`)
 - Changed reservation status display from "Approved" to "Confirmed" throughout UI
 - Internal database value `APPROVED` unchanged (no migration needed)
 - Updated templates, docstrings, API docs, and user documentation
@@ -387,6 +406,9 @@ Recent commits in reverse chronological order:
 
 | Commit | Date | Description |
 |--------|------|-------------|
+| `556933c` | 2025-12-30 | Add subscription alert to My Rentals card |
+| `a3ca777` | 2025-12-30 | Enhance rental manager and reservation request pages |
+| `6552cb3` | 2025-12-30 | Update reservation terminology: Approved → Confirmed |
 | `fb32efb` | 2025-12-30 | Update project page UI and role descriptions |
 | `e1619f0` | 2025-12-30 | Update My Billing card labels for clarity |
 | `2d3ce78` | 2025-12-30 | Update project archive page with ORCD customizations |
