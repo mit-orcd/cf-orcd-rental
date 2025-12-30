@@ -1,0 +1,156 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}Reservations - {{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h2><i class="fas fa-calendar-alt"></i> Project Reservations</h2>
+  <p class="text-muted">Project: <strong>{{ project.title }}</strong></p>
+  <hr>
+</div>
+
+<div class="mb-3">
+  <a href="{% url 'project-detail' project.pk %}" class="btn btn-secondary">
+    <i class="fas fa-arrow-left"></i> Back to Project
+  </a>
+</div>
+
+<!-- Summary -->
+<div class="alert alert-info">
+  <strong>Total Reservations:</strong> {{ total_count }}
+  ({{ future_count }} upcoming, {{ past_count }} past)
+</div>
+
+<!-- Future Reservations -->
+<div class="card mb-4">
+  <div class="card-header bg-primary text-white">
+    <h5 class="mb-0">
+      <i class="fas fa-clock"></i> Upcoming Reservations
+      <span class="badge badge-light ml-2">{{ future_count }}</span>
+    </h5>
+  </div>
+  <div class="card-body p-0">
+    {% if future_reservations %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="thead-light">
+          <tr>
+            <th>Node</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th>Requested By</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for reservation in future_reservations %}
+          <tr>
+            <td>
+              <code>{{ reservation.node_instance.associated_resource_address }}</code>
+            </td>
+            <td>
+              {{ reservation.start_date|date:"M d, Y" }}<br>
+              <small class="text-muted">4:00 PM</small>
+            </td>
+            <td>
+              {{ reservation.end_date|date:"M d, Y" }}<br>
+              <small class="text-muted">{{ reservation.end_datetime|time:"g:i A" }}</small>
+            </td>
+            <td>{{ reservation.billable_hours }} hours</td>
+            <td>
+              {% if reservation.status == 'pending' %}
+                <span class="badge badge-warning">Pending</span>
+              {% elif reservation.status == 'approved' %}
+                <span class="badge badge-success">Approved</span>
+              {% elif reservation.status == 'declined' %}
+                <span class="badge badge-danger">Declined</span>
+              {% elif reservation.status == 'cancelled' %}
+                <span class="badge badge-secondary">Cancelled</span>
+              {% else %}
+                <span class="badge badge-info">{{ reservation.get_status_display }}</span>
+              {% endif %}
+            </td>
+            <td>{{ reservation.requesting_user.username }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="p-4 text-center text-muted">
+      <i class="fas fa-calendar-times fa-2x mb-2"></i>
+      <p class="mb-0">No upcoming reservations</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Past Reservations -->
+<div class="card mb-4">
+  <div class="card-header bg-secondary text-white">
+    <h5 class="mb-0">
+      <i class="fas fa-history"></i> Past Reservations
+      <span class="badge badge-light ml-2">{{ past_count }}</span>
+    </h5>
+  </div>
+  <div class="card-body p-0">
+    {% if past_reservations %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="thead-light">
+          <tr>
+            <th>Node</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th>Requested By</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for reservation in past_reservations %}
+          <tr>
+            <td>
+              <code>{{ reservation.node_instance.associated_resource_address }}</code>
+            </td>
+            <td>
+              {{ reservation.start_date|date:"M d, Y" }}<br>
+              <small class="text-muted">4:00 PM</small>
+            </td>
+            <td>
+              {{ reservation.end_date|date:"M d, Y" }}<br>
+              <small class="text-muted">{{ reservation.end_datetime|time:"g:i A" }}</small>
+            </td>
+            <td>{{ reservation.billable_hours }} hours</td>
+            <td>
+              {% if reservation.status == 'pending' %}
+                <span class="badge badge-warning">Pending</span>
+              {% elif reservation.status == 'approved' %}
+                <span class="badge badge-success">Approved</span>
+              {% elif reservation.status == 'declined' %}
+                <span class="badge badge-danger">Declined</span>
+              {% elif reservation.status == 'cancelled' %}
+                <span class="badge badge-secondary">Cancelled</span>
+              {% else %}
+                <span class="badge badge-info">{{ reservation.get_status_display }}</span>
+              {% endif %}
+            </td>
+            <td>{{ reservation.requesting_user.username }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="p-4 text-center text-muted">
+      <i class="fas fa-calendar-check fa-2x mb-2"></i>
+      <p class="mb-0">No past reservations</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+

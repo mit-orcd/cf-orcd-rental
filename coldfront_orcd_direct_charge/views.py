@@ -2212,6 +2212,78 @@ class MyReservationsView(LoginRequiredMixin, TemplateView):
 
 
 # =============================================================================
+# Project Reservations View
+# =============================================================================
+
+
+class ProjectReservationsView(LoginRequiredMixin, TemplateView):
+    """Display all reservations for a specific project.
+
+    Shows reservations split into:
+    - Future: start_date >= today, sorted ascending (next to later)
+    - Past: start_date < today, sorted descending (most recent to oldest)
+
+    Access is restricted to project members (owner, any role).
+    """
+
+    template_name = "coldfront_orcd_direct_charge/project_reservations.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        """Check user has access to this project."""
+        from coldfront.core.project.models import Project
+
+        self.project = get_object_or_404(Project, pk=kwargs.get("pk"))
+
+        # Allow superusers
+        if request.user.is_superuser:
+            return super().dispatch(request, *args, **kwargs)
+
+        # Allow project owner
+        if self.project.pi == request.user:
+            return super().dispatch(request, *args, **kwargs)
+
+        # Allow users with any ORCD role in the project
+        if ProjectMemberRole.objects.filter(
+            project=self.project, user=request.user
+        ).exists():
+            return super().dispatch(request, *args, **kwargs)
+
+        messages.error(request, "You do not have permission to view reservations for this project.")
+        return redirect("project-detail", pk=self.project.pk)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["project"] = self.project
+
+        today = date.today()
+
+        # Get all reservations for this project
+        all_reservations = Reservation.objects.filter(
+            project=self.project
+        ).select_related("node_instance", "requesting_user").order_by("start_date")
+
+        # Split into future and past
+        future_reservations = [
+            r for r in all_reservations if r.start_date >= today
+        ]
+        past_reservations = [
+            r for r in all_reservations if r.start_date < today
+        ]
+
+        # Future: already sorted ascending by query
+        context["future_reservations"] = future_reservations
+
+        # Past: reverse to get descending (most recent first)
+        context["past_reservations"] = list(reversed(past_reservations))
+
+        context["future_count"] = len(future_reservations)
+        context["past_count"] = len(past_reservations)
+        context["total_count"] = len(all_reservations)
+
+        return context
+
+
+# =============================================================================
 # Home2 Dashboard View
 # =============================================================================
 

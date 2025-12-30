@@ -41,6 +41,7 @@ Project Detail
       {% if project.status.name != 'Archived' %}
         <a class="btn btn-success" href="{% url 'project-add-users-search' project.pk %}" role="button"><i class="fas fa-user-plus" aria-hidden="true"></i> Add Members</a>
       {% endif %}
+      <a class="btn btn-info" href="{% url 'coldfront_orcd_direct_charge:project-reservations' project.pk %}" role="button"><i class="fas fa-calendar-alt" aria-hidden="true"></i> View Reservations</a>
     </div>
   </div>
 {% endif %}
@@ -140,7 +141,7 @@ Project Detail
       <div class="alert alert-warning mb-3">
         <i class="fas fa-clock"></i>
         <strong>Awaiting Approval:</strong> This cost allocation is pending review by a Billing Manager.
-        Reservations cannot be made until the cost allocation is approved.
+        Reservations cannot be made until the cost allocation cost objects are verified.
       </div>
     {% endif %}
     {% if project.cost_allocation and project.cost_allocation.status == 'REJECTED' %}
