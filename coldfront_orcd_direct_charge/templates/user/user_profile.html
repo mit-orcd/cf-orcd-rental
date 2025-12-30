@@ -61,7 +61,7 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
               <td>
                 <span id="maintenance-status-display">
                   {% if viewed_user.maintenance_status %}
-                    {{ viewed_user.maintenance_status.get_status_display }}{% if viewed_user.maintenance_status.billing_project %} (charged to: {{ viewed_user.maintenance_status.billing_project.title }}){% endif %}
+                    {{ viewed_user.maintenance_status.get_status_display }}{% if viewed_user.maintenance_status.billing_project %} (project charged: <a href="{% url 'project-detail' viewed_user.maintenance_status.billing_project.pk %}">{{ viewed_user.maintenance_status.billing_project.title }}</a>){% endif %}
                   {% else %}
                     Inactive
                   {% endif %}
@@ -211,8 +211,13 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
         data: formData,
         success: function(response) {
           if (response.success) {
-            // Update the display value
-            $("#maintenance-status-display").text(response.display);
+            // Update the display value with HTML (includes link to project)
+            var displayHtml = response.display;
+            if (response.project_id && response.project_title) {
+              var projectUrl = "{% url 'project-detail' 0 %}".replace("0", response.project_id);
+              displayHtml += ' (project charged: <a href="' + projectUrl + '">' + response.project_title + '</a>)';
+            }
+            $("#maintenance-status-display").html(displayHtml);
             // Close the modal
             $("#maintenanceStatusModal").modal("hide");
             // Reset alert

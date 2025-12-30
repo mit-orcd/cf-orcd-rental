@@ -512,8 +512,6 @@ def update_maintenance_status(request):
 
     # Build the display value
     display_value = maintenance_status.get_status_display()
-    if billing_project:
-        display_value = f"{display_value} (charged to: {billing_project.title})"
 
     return JsonResponse({
         "success": True,
