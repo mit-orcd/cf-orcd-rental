@@ -271,6 +271,22 @@ Dashboard - ORCD Rental Portal
           </div>
         </div>
 
+        {% if dashboard.approved_projects %}
+        <hr>
+        <h6 class="text-muted mb-2"><i class="fas fa-check-circle mr-1"></i> Approved</h6>
+        <ul class="list-group list-group-flush">
+          {% for item in dashboard.approved_projects %}
+          <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+            <a href="{% url 'coldfront_orcd_direct_charge:project-cost-allocation' item.project.pk %}">
+              <i class="fas fa-file-invoice-dollar text-success mr-1"></i>
+              {{ item.project.title|truncatechars:30 }}
+            </a>
+            <span class="badge badge-success">Approved</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
         {% if dashboard.projects_needing_attention %}
         <hr>
         <h6 class="text-muted mb-2"><i class="fas fa-exclamation-triangle mr-1"></i> Needs Attention</h6>
@@ -291,18 +307,19 @@ Dashboard - ORCD Rental Portal
           </li>
           {% endfor %}
         </ul>
-        {% else %}
+        {% endif %}
+
+        {% if not dashboard.approved_projects and not dashboard.projects_needing_attention %}
         <div class="text-center py-3">
-          <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
-          <p class="text-muted mb-0">All projects have approved cost allocations</p>
+          <i class="fas fa-folder-open fa-2x text-muted mb-2"></i>
+          <p class="text-muted mb-0">No projects to display</p>
         </div>
         {% endif %}
       </div>
       <div class="card-footer bg-transparent">
-        <small class="text-muted">
-          <i class="fas fa-info-circle mr-1"></i>
-          Cost allocations must be approved before booking rentals
-        </small>
+        <a href="{% url 'project-list' %}" class="btn btn-outline-warning btn-sm">
+          <i class="fas fa-list mr-1"></i> View All Projects
+        </a>
       </div>
     </div>
   </div>

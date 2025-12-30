@@ -329,6 +329,7 @@ def get_dashboard_data(user):
     pending_count = 0
     rejected_count = 0
     not_configured_count = 0
+    approved_projects = []
     projects_needing_attention = []
 
     for project in all_projects:
@@ -336,6 +337,11 @@ def get_dashboard_data(user):
             allocation = project.cost_allocation
             if allocation.status == ProjectCostAllocation.StatusChoices.APPROVED:
                 approved_count += 1
+                approved_projects.append({
+                    "project": project,
+                    "status": "approved",
+                    "status_display": "Approved",
+                })
             elif allocation.status == ProjectCostAllocation.StatusChoices.PENDING:
                 pending_count += 1
                 projects_needing_attention.append({
@@ -362,6 +368,7 @@ def get_dashboard_data(user):
     data["cost_pending_count"] = pending_count
     data["cost_rejected_count"] = rejected_count
     data["cost_not_configured_count"] = not_configured_count
+    data["approved_projects"] = approved_projects[:5]
     data["projects_needing_attention"] = projects_needing_attention[:5]
 
     # =========================================================================
