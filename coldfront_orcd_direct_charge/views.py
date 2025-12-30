@@ -275,6 +275,27 @@ class ReservationRequestView(LoginRequiredMixin, CreateView):
     template_name = "coldfront_orcd_direct_charge/reservation_request.html"
     success_url = reverse_lazy("coldfront_orcd_direct_charge:renting-calendar")
 
+    def dispatch(self, request, *args, **kwargs):
+        """Check if user has active maintenance subscription before allowing access."""
+        if request.user.is_authenticated:
+            try:
+                status = request.user.maintenance_status
+                if status.status == UserMaintenanceStatus.StatusChoices.INACTIVE:
+                    messages.error(
+                        request,
+                        "You must have an active account maintenance fee subscription to make reservations. "
+                        "Please update your subscription status in your profile."
+                    )
+                    return redirect("coldfront_orcd_direct_charge:renting-calendar")
+            except UserMaintenanceStatus.DoesNotExist:
+                messages.error(
+                    request,
+                    "You must have an active account maintenance fee subscription to make reservations. "
+                    "Please update your subscription status in your profile."
+                )
+                return redirect("coldfront_orcd_direct_charge:renting-calendar")
+        return super().dispatch(request, *args, **kwargs)
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
@@ -353,6 +374,7 @@ class ReservationApproveView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 return redirect("coldfront_orcd_direct_charge:rental-manager")
 
         reservation.status = Reservation.StatusChoices.APPROVED
+        reservation.processed_by = request.user
         reservation.save()
 
         # Log the approval action
@@ -392,6 +414,7 @@ class ReservationDeclineView(LoginRequiredMixin, PermissionRequiredMixin, View):
         if form.is_valid():
             reservation.status = Reservation.StatusChoices.DECLINED
             reservation.manager_notes = form.cleaned_data.get("manager_notes", "")
+            reservation.processed_by = request.user
             reservation.save()
 
             # Log the decline action

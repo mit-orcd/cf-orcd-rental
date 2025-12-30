@@ -116,6 +116,22 @@ class ReservationRequestForm(forms.ModelForm):
                     f"The earliest available start date is {earliest_bookable.strftime('%b %d, %Y')}."
                 )
 
+            # Enforce maximum date (3 months from today)
+            import calendar as cal_module
+            today = date.today()
+            max_month = today.month + 3
+            max_year = today.year
+            if max_month > 12:
+                max_month = max_month - 12
+                max_year += 1
+            max_date = date(max_year, max_month, cal_module.monthrange(max_year, max_month)[1])
+
+            if start_date > max_date:
+                raise ValidationError(
+                    f"Reservations cannot be more than 3 months in advance. "
+                    f"The latest available start date is {max_date.strftime('%b %d, %Y')}."
+                )
+
         if node_instance and start_date and num_blocks:
             num_blocks = int(num_blocks)
             # Check for overlapping approved reservations

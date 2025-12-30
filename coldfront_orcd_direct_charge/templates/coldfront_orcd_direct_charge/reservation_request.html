@@ -124,9 +124,19 @@
 {% block javascript %}
 {{ block.super }}
 <script>
+  // Calculate min date (7 days from today) and max date (end of 3rd month from now)
+  var today = new Date();
+  var minDate = new Date(today);
+  minDate.setDate(minDate.getDate() + 7);
+  
+  // Calculate max date: last day of the month 3 months from now
+  var maxDate = new Date(today.getFullYear(), today.getMonth() + 4, 0); // Day 0 of month+4 = last day of month+3
+  
   $(".datepicker").flatpickr({
     dateFormat: "Y-m-d",
-    minDate: "today"
+    allowInput: false,
+    minDate: minDate,
+    maxDate: maxDate
   });
 </script>
 {% endblock %}

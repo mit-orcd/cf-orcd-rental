@@ -268,6 +268,14 @@ class Reservation(TimeStampedModel):
         blank=True,
         help_text="Notes from the rental manager (visible to requester)",
     )
+    processed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="processed_reservations",
+        help_text="The rental manager who approved/declined this reservation",
+    )
     rental_notes = models.TextField(
         blank=True,
         help_text="Optional notes from the requester about this reservation",

@@ -15,7 +15,7 @@
   <div class="card-body">
     {% if pending_reservations %}
     <div class="table-responsive">
-      <table class="table table-hover">
+      <table class="table table-hover" id="pendingTable">
         <thead class="thead-light">
           <tr>
             <th>ID</th>
@@ -26,7 +26,7 @@
             <th>Duration</th>
             <th>End</th>
             <th>Notes</th>
-            <th>Submitted</th>
+            <th>Request Date</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -188,7 +188,7 @@
   <div class="card-body">
     {% if recent_reservations %}
     <div class="table-responsive">
-      <table class="table table-sm">
+      <table class="table table-sm" id="recentTable">
         <thead class="thead-light">
           <tr>
             <th>ID</th>
@@ -199,7 +199,9 @@
             <th>Duration</th>
             <th>Notes</th>
             <th>Status</th>
+            <th>Request Date</th>
             <th>Processed</th>
+            <th>Processed By</th>
             <th></th>
           </tr>
         </thead>
@@ -228,7 +230,9 @@
               <span class="badge badge-danger">Declined</span>
               {% endif %}
             </td>
+            <td>{{ reservation.created|date:"M d, Y H:i" }}</td>
             <td>{{ reservation.modified|date:"M d, Y H:i" }}</td>
+            <td>{{ reservation.processed_by.username|default:"-" }}</td>
             <td>
               <button type="button" class="btn btn-sm btn-secondary" 
                       data-toggle="modal" 
@@ -317,6 +321,24 @@
 
 {% block javascript %}
 <script>
+// Initialize DataTables for sorting and filtering
+$(document).ready(function() {
+    $('#pendingTable').DataTable({
+        paging: false,
+        searching: true,
+        order: [[8, 'desc']], // Sort by Request Date descending
+        columnDefs: [{ orderable: false, targets: -1 }] // Disable sorting on Actions column
+    });
+    
+    $('#recentTable').DataTable({
+        paging: true,
+        pageLength: 25,
+        searching: true,
+        order: [[9, 'desc']], // Sort by Processed date descending
+        columnDefs: [{ orderable: false, targets: -1 }] // Disable sorting on last column
+    });
+});
+
 // Track the number of entry fields for each reservation
 var entryCounters = {};
 var entryCountersRecent = {};
