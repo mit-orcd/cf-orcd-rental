@@ -12,12 +12,6 @@ Project Detail
 
 
 {% block content %}
-{% if is_allowed_to_update_project and project.needs_review%}
-  <div class="alert alert-warning">
-    You need to review this project. <a href="{% url 'project-review' project.pk %}">Review Project</a>
-  </div>
-{% endif %}
-
 <div id="alert_div">
 </div>
 
@@ -62,11 +56,7 @@ Project Detail
       <a href="mailto:{{ project.pi.email }} "><i class="far fa-envelope" aria-hidden="true"></i><span class="sr-only">Email Project Owner</span></a>
     </h3>
     <p class="card-text text-justify"><strong>Description: </strong>{{ project.description }}</p>
-    <p class="card-text text-justify"><strong>Project Status: </strong>{{ project.status }}
-        {% if project.last_project_review and  project.last_project_review.status.name == 'Pending'%}
-          <span class="badge badge-pill badge-info">project review pending</span>
-        {% endif %}
-    </p>
+    <p class="card-text text-justify"><strong>Project Status: </strong>{{ project.status }}</p>
     {% if PROJECT_INSTITUTION_EMAIL_MAP %}
         <p class="card-text text-justify"><strong>Institution: </strong>{{ project.institution }}</p>
     {% endif %}
@@ -215,4 +205,5 @@ Project Detail
   });
 </script>
 {% endblock %}
+
 
