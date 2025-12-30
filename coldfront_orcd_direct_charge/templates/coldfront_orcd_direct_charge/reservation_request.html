@@ -120,3 +120,13 @@
 </div>
 
 {% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+<script>
+  $(".datepicker").flatpickr({
+    dateFormat: "Y-m-d",
+    minDate: "today"
+  });
+</script>
+{% endblock %}

@@ -57,15 +57,15 @@ Activity Log
           <div class="col-md-2">
             <div class="form-group">
               <label for="date_from">From Date:</label>
-              <input type="date" name="date_from" id="date_from" class="form-control" 
-                     value="{{ filters.date_from }}">
+              <input type="text" name="date_from" id="date_from" class="form-control datepicker" 
+                     value="{{ filters.date_from }}" placeholder="Select date">
             </div>
           </div>
           <div class="col-md-2">
             <div class="form-group">
               <label for="date_to">To Date:</label>
-              <input type="date" name="date_to" id="date_to" class="form-control" 
-                     value="{{ filters.date_to }}">
+              <input type="text" name="date_to" id="date_to" class="form-control datepicker" 
+                     value="{{ filters.date_to }}" placeholder="Select date">
             </div>
           </div>
         </div>
@@ -177,5 +177,14 @@ Activity Log
   </div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+<script>
+  $(".datepicker").flatpickr({
+    dateFormat: "Y-m-d"
+  });
+</script>
 {% endblock %}
 

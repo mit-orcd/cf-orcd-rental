@@ -53,7 +53,7 @@ class ReservationRequestForm(forms.ModelForm):
         fields = ["node_instance", "project", "start_date", "num_blocks", "rental_notes"]
         widgets = {
             "start_date": forms.DateInput(
-                attrs={"type": "date", "class": "form-control"}
+                attrs={"type": "text", "class": "form-control datepicker", "placeholder": "Select a date"}
             ),
             "rental_notes": forms.Textarea(
                 attrs={
