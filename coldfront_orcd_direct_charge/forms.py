@@ -253,8 +253,13 @@ class BaseProjectCostObjectFormSet(forms.BaseInlineFormSet):
                     total += percentage
                     valid_forms += 1
 
-        # Only validate if there are cost objects
-        if valid_forms > 0 and total != 100:
+        # Require at least one cost object
+        if valid_forms == 0:
+            raise ValidationError(
+                "At least one cost object is required."
+            )
+
+        if total != 100:
             raise ValidationError(
                 f"Cost object percentages must sum to 100%. "
                 f"Current total: {total}%"

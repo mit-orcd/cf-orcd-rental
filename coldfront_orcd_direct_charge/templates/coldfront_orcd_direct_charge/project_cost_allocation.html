@@ -174,7 +174,34 @@ $(document).ready(function() {
     $(this).closest('tr').remove();
     updatePercentageTotal();
   });
+
+  // Prevent submission if validation fails
+  $('#costAllocationForm').on('submit', function(e) {
+    var total = parseFloat($('#percentageTotal').text()) || 0;
+    var validRows = 0;
+    
+    $('#costObjectsBody .cost-object-row').each(function() {
+      var costObj = $(this).find('input[name$="-cost_object"]').val();
+      var deleteCheckbox = $(this).find('input[name$="-DELETE"]');
+      if (costObj && costObj.trim() && !deleteCheckbox.is(':checked')) {
+        validRows++;
+      }
+    });
+    
+    if (validRows === 0) {
+      e.preventDefault();
+      alert('At least one cost object is required.');
+      return false;
+    }
+    
+    if (total !== 100) {
+      e.preventDefault();
+      alert('Cost object percentages must sum to 100%. Current total: ' + total + '%');
+      return false;
+    }
+  });
 });
 </script>
 {% endblock %}
+
 
