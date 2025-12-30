@@ -11,7 +11,9 @@ Create Project
 {% block content %}
 <form method="post">
   {% csrf_token %}
-  {# Render only title and description fields, excluding field_of_science #}
+  {# Use default field_of_science (149 = "Other") since we removed the dropdown #}
+  <input type="hidden" name="field_of_science" value="149">
+  {# Render only title and description fields #}
   <div class="form-group">
     <label for="id_title">Title<span class="text-danger">*</span></label>
     <input type="text" name="title" id="id_title" class="form-control" 
