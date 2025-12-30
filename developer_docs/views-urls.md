@@ -32,7 +32,7 @@ All plugin URLs are prefixed with `/nodes/` (configured in ColdFront's `urls.py`
 
 | Category | URL Pattern | Description |
 |----------|-------------|-------------|
-| **Dashboard** | `/nodes/home2/` | Home2 dashboard (new home preview) |
+| **Dashboard** | `/` | Dashboard home page (template override) |
 | **Node Instances** | `/nodes/` | List all nodes |
 | | `/nodes/gpu/<pk>/` | GPU node detail |
 | | `/nodes/cpu/<pk>/` | CPU node detail |
@@ -99,30 +99,44 @@ if "coldfront_orcd_direct_charge" in settings.INSTALLED_APPS:
 
 ---
 
-## Dashboard Views
+## Dashboard Home Page
 
-### Home2View
+The dashboard is now the **default home page** for authenticated users. It replaces ColdFront's original home via template override.
 
-**URL**: `/nodes/home2/`  
-**Name**: `coldfront_orcd_direct_charge:home2`  
-**Template**: `coldfront_orcd_direct_charge/home2.html`
+> **Note**: The original `Home2View` class and `/nodes/home2/` URL were removed in commit `ac437c1`. The dashboard functionality was merged into `portal/authorized_home.html` using a template tag for context.
 
-New dashboard home page with summary cards providing a user-centric overview. This view is a preview of a redesigned home experience.
+### Implementation
+
+**Template**: `portal/authorized_home.html` (overrides ColdFront core)  
+**Context Provider**: `get_dashboard_data` template tag
+
+The dashboard context is now provided by a template tag instead of a view class:
 
 ```python
-class Home2View(LoginRequiredMixin, TemplateView):
-    """New dashboard home page with summary cards.
+# templatetags/project_roles.py
 
-    Displays user-centric summaries of:
-    - Projects (owned and member)
+@register.simple_tag(takes_context=True)
+def get_dashboard_data(context):
+    """Get all dashboard data for the current user.
+    
+    Returns a dict with all context needed for dashboard cards:
+    - Projects (owned, member, counts)
     - Cost allocation status
-    - Account maintenance status
-    - Reservations (upcoming, pending, past)
+    - Maintenance status
+    - Reservations summary
     """
-    template_name = "coldfront_orcd_direct_charge/home2.html"
 ```
 
-**Context Variables**:
+**Usage in Template**:
+```django
+{% load project_roles %}
+{% get_dashboard_data as dashboard %}
+
+{{ dashboard.owned_count }}
+{{ dashboard.upcoming_count }}
+```
+
+**Context Variables** (returned in `dashboard` dict):
 
 | Variable | Type | Description |
 |----------|------|-------------|
@@ -152,6 +166,7 @@ class Home2View(LoginRequiredMixin, TemplateView):
 - Help icon (?) on each card with Bootstrap popover for guidance
 - Clickable mailto link for orcd-help@mit.edu in help text
 - Responsive layout (2x2 grid on desktop, single column on mobile)
+- Home nav item links to this dashboard (default `/` route)
 
 ---
 
@@ -730,11 +745,10 @@ templates/
 │   ├── cost_allocation_review.html
 │   ├── cpu_node_detail.html
 │   ├── gpu_node_detail.html
-│   ├── home2.html                   # NEW: Dashboard page with summary cards
 │   ├── invoice_detail.html
 │   ├── invoice_edit.html
 │   ├── invoice_preparation.html
-│   ├── my_reservations.html         # NEW: User's reservations page
+│   ├── my_reservations.html         # User's reservations page
 │   ├── node_instance_list.html
 │   ├── pending_cost_allocations.html
 │   ├── project_cost_allocation.html
@@ -744,12 +758,12 @@ templates/
 │   ├── reservation_request.html
 │   └── update_member_role.html
 ├── common/                          # Override core ColdFront
-│   ├── authorized_navbar.html       # Navigation links (updated: Home2 tab)
+│   ├── authorized_navbar.html       # Navigation links
 │   ├── base.html                    # Favicon, title
 │   ├── navbar_brand.html            # ORCD logo
 │   └── nonauthorized_navbar.html
 ├── portal/
-│   ├── authorized_home.html         # Hide allocations option
+│   ├── authorized_home.html         # Dashboard home page (NEW: replaces ColdFront home)
 │   └── nonauthorized_home.html      # Pre-login page
 ├── project/
 │   ├── add_user_search_results.html # ORCD role selection

@@ -10,17 +10,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### December 29, 2025
 
-#### Added - Home2 Dashboard & UX Improvements
+#### Added - Dashboard Home Page & UX Improvements
 
-##### Home2 Dashboard Page (`b6c29ee`, `8ed6a25`, `e159e3f`)
-- New dashboard page at `/nodes/home2/` for previewing redesigned home experience
+##### Dashboard Replaces Default Home (`ac437c1`)
+- Dashboard is now the **default home page** for authenticated users
+- Removed separate `/nodes/home2/` URL and `Home2View` class
+- Merged `home2.html` into `portal/authorized_home.html` template override
+- Added `get_dashboard_data` template tag to provide dashboard context
+- Removed Home2 nav item from navbar (now default home)
+
+##### Dashboard Features (`b6c29ee`, `8ed6a25`, `e159e3f`)
 - Four summary cards with icons and action buttons:
   - **My Rentals**: upcoming/pending/past counts, next 3 reservations
   - **My Projects**: owned/member counts, recent projects list, create button
   - **My Account**: status badge, billing project display
   - **My Billing**: approval status counts, projects needing attention
 - Bootstrap 4 responsive card layout (2x2 grid on desktop, single column on mobile)
-- Home2 tab added to navbar with dashboard icon
 - Help icon (?) on each card header with Bootstrap popover
 - Help text includes descriptions and clickable mailto link for orcd-help@mit.edu
 - Dismissible close button (×) on popover headers
@@ -298,6 +303,7 @@ Recent commits in reverse chronological order:
 
 | Commit | Date | Description |
 |--------|------|-------------|
+| `ac437c1` | 2025-12-29 | Replace default home page with dashboard |
 | `e159e3f` | 2025-12-29 | Enhance Home2 dashboard cards with help popovers |
 | `2aa1cdb` | 2025-12-29 | Require approved cost allocation for maintenance fee billing |
 | `2961194` | 2025-12-29 | Add confirmation modal with notes for member removal |

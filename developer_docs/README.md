@@ -30,7 +30,7 @@ The ORCD Direct Charge plugin extends [ColdFront](https://github.com/ubccr/coldf
 5. **Invoice Reporting**: Monthly billing reports with cost object breakdowns
 6. **Activity Logging**: Comprehensive audit trail for all site activity
 7. **User Auto-Configuration**: Automatic PI status and default project creation
-8. **Home2 Dashboard**: User-centric dashboard with summary cards for quick overview
+8. **Dashboard Home Page**: User-centric dashboard as the default home page
 9. **My Reservations**: Cross-project reservation view for users
 
 ### High-Level Architecture
@@ -159,9 +159,11 @@ coldfront-orcd-direct-charge/
 - Categories: auth, reservation, project, member, cost_allocation, billing, invoice, maintenance, api, view
 - Accessible to Billing/Rental Managers via web UI and API
 
-### 6. Home2 Dashboard (New - Dec 2025)
+### 6. Dashboard Home Page (Dec 2025)
 
-- New user-centric dashboard at `/nodes/home2/`
+- Dashboard is now the **default home page** for authenticated users
+- Implemented via template override of `portal/authorized_home.html`
+- Context provided by `get_dashboard_data` template tag (not a view class)
 - Four summary cards: My Rentals, My Projects, My Account, My Billing
 - Help popovers on each card with guidance and support contact
 - Responsive layout (2x2 grid on desktop, single column on mobile)
