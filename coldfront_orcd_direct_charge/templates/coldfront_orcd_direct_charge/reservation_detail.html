@@ -1,0 +1,210 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}Reservation #{{ reservation.pk }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h2>
+    <i class="fas fa-calendar-check"></i> Reservation #{{ reservation.pk }}
+  </h2>
+  <hr>
+</div>
+
+<div class="row">
+  <!-- Main Info Card -->
+  <div class="col-lg-8">
+    <div class="card mb-4">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-info-circle"></i> Reservation Details</h5>
+      </div>
+      <div class="card-body">
+        <table class="table table-borderless mb-0">
+          <tbody>
+            <tr>
+              <th style="width: 200px;">Reservation ID</th>
+              <td><strong>#{{ reservation.pk }}</strong></td>
+            </tr>
+            <tr>
+              <th>Status</th>
+              <td>
+                {% if reservation.status == 'PENDING' %}
+                  <span class="badge badge-warning badge-lg p-2">Pending Approval</span>
+                {% elif reservation.status == 'APPROVED' %}
+                  <span class="badge badge-success badge-lg p-2">Approved</span>
+                {% elif reservation.status == 'DECLINED' %}
+                  <span class="badge badge-danger badge-lg p-2">Declined</span>
+                {% elif reservation.status == 'CANCELLED' %}
+                  <span class="badge badge-secondary badge-lg p-2">Cancelled</span>
+                {% else %}
+                  <span class="badge badge-info badge-lg p-2">{{ reservation.get_status_display }}</span>
+                {% endif %}
+              </td>
+            </tr>
+            <tr>
+              <th>Node</th>
+              <td>
+                <code class="h5">{{ reservation.node_instance.associated_resource_address }}</code>
+                {% if reservation.node_instance.node_type %}
+                  <span class="badge badge-secondary ml-2">{{ reservation.node_instance.node_type.name }}</span>
+                {% endif %}
+              </td>
+            </tr>
+            <tr>
+              <th>Project</th>
+              <td>
+                <a href="{% url 'project-detail' reservation.project.pk %}">
+                  {{ reservation.project.title }}
+                </a>
+                <small class="text-muted ml-2">(Owner: {{ reservation.project.pi.username }})</small>
+              </td>
+            </tr>
+            <tr>
+              <th>Requested By</th>
+              <td>
+                {{ reservation.requesting_user.get_full_name|default:reservation.requesting_user.username }}
+                <small class="text-muted">({{ reservation.requesting_user.username }})</small>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Schedule Card -->
+    <div class="card mb-4">
+      <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="fas fa-clock"></i> Schedule</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <h6 class="text-muted">Start</h6>
+            <p class="h4 mb-1">{{ reservation.start_datetime|date:"l, F j, Y" }}</p>
+            <p class="text-muted">{{ reservation.start_datetime|time:"g:i A" }}</p>
+          </div>
+          <div class="col-md-6">
+            <h6 class="text-muted">End</h6>
+            <p class="h4 mb-1">{{ reservation.end_datetime|date:"l, F j, Y" }}</p>
+            <p class="text-muted">{{ reservation.end_datetime|time:"g:i A" }}</p>
+          </div>
+        </div>
+        <hr>
+        <div class="row">
+          <div class="col-md-4">
+            <h6 class="text-muted">Duration Blocks</h6>
+            <p class="h5">{{ reservation.num_blocks }} x 12-hour blocks</p>
+          </div>
+          <div class="col-md-4">
+            <h6 class="text-muted">Billable Hours</h6>
+            <p class="h5">{{ reservation.billable_hours }} hours</p>
+          </div>
+          <div class="col-md-4">
+            <h6 class="text-muted">Calendar Days</h6>
+            <p class="h5">
+              {% with days=reservation.end_date|timesince:reservation.start_date %}
+                {{ reservation.start_date|date:"M j" }} - {{ reservation.end_date|date:"M j, Y" }}
+              {% endwith %}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes Section -->
+    {% if reservation.rental_notes or reservation.manager_notes %}
+    <div class="card mb-4">
+      <div class="card-header bg-secondary text-white">
+        <h5 class="mb-0"><i class="fas fa-sticky-note"></i> Notes</h5>
+      </div>
+      <div class="card-body">
+        {% if reservation.rental_notes %}
+        <div class="mb-3">
+          <h6 class="text-muted">Requester Notes</h6>
+          <p class="mb-0">{{ reservation.rental_notes }}</p>
+        </div>
+        {% endif %}
+        {% if reservation.manager_notes %}
+        <div>
+          <h6 class="text-muted">Manager Notes</h6>
+          <p class="mb-0">{{ reservation.manager_notes }}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Metadata (Rental Managers Only) -->
+    {% if is_rental_manager and metadata_entries %}
+    <div class="card mb-4">
+      <div class="card-header bg-dark text-white">
+        <h5 class="mb-0"><i class="fas fa-cog"></i> Management Metadata (Managers Only)</h5>
+      </div>
+      <div class="card-body">
+        {% for entry in metadata_entries %}
+        <div class="border-left pl-3 mb-3" style="border-color: #6c757d !important; border-width: 3px !important;">
+          <small class="text-muted">{{ entry.created|date:"M d, Y H:i" }}</small>
+          <p class="mb-0">{{ entry.content }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Sidebar -->
+  <div class="col-lg-4">
+    <!-- Timestamps Card -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="fas fa-history"></i> Timestamps</h6>
+      </div>
+      <div class="card-body">
+        <p class="mb-2">
+          <small class="text-muted">Created:</small><br>
+          {{ reservation.created|date:"M d, Y H:i" }}
+        </p>
+        <p class="mb-0">
+          <small class="text-muted">Last Modified:</small><br>
+          {{ reservation.modified|date:"M d, Y H:i" }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Quick Links Card -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="fas fa-link"></i> Quick Links</h6>
+      </div>
+      <div class="list-group list-group-flush">
+        <a href="{% url 'project-detail' reservation.project.pk %}" class="list-group-item list-group-item-action">
+          <i class="fas fa-project-diagram mr-2"></i> View Project
+        </a>
+        <a href="{% url 'coldfront_orcd_direct_charge:project-reservations' reservation.project.pk %}" class="list-group-item list-group-item-action">
+          <i class="fas fa-calendar-alt mr-2"></i> Project Reservations
+        </a>
+        <a href="{% url 'coldfront_orcd_direct_charge:my-reservations' %}" class="list-group-item list-group-item-action">
+          <i class="fas fa-list mr-2"></i> My Reservations
+        </a>
+        <a href="{% url 'coldfront_orcd_direct_charge:renting-calendar' %}" class="list-group-item list-group-item-action">
+          <i class="fas fa-calendar mr-2"></i> Booking Calendar
+        </a>
+        {% if is_rental_manager %}
+        <a href="{% url 'coldfront_orcd_direct_charge:rental-manager' %}" class="list-group-item list-group-item-action">
+          <i class="fas fa-tasks mr-2"></i> Rental Manager
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Back Button -->
+<div class="mt-3">
+  <a href="javascript:history.back()" class="btn btn-secondary">
+    <i class="fas fa-arrow-left"></i> Back
+  </a>
+</div>
+
+{% endblock %}
+

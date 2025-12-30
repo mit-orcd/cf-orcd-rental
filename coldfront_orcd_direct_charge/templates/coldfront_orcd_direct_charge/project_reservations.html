@@ -36,6 +36,7 @@
       <table class="table table-hover mb-0">
         <thead class="thead-light">
           <tr>
+            <th>ID</th>
             <th>Node</th>
             <th>Start</th>
             <th>End</th>
@@ -47,6 +48,7 @@
         <tbody>
           {% for reservation in future_reservations %}
           <tr>
+            <td><a href="{% url 'coldfront_orcd_direct_charge:reservation-detail' reservation.pk %}">{{ reservation.pk }}</a></td>
             <td>
               <code>{{ reservation.node_instance.associated_resource_address }}</code>
             </td>
@@ -101,6 +103,7 @@
       <table class="table table-hover mb-0">
         <thead class="thead-light">
           <tr>
+            <th>ID</th>
             <th>Node</th>
             <th>Start</th>
             <th>End</th>
@@ -112,6 +115,7 @@
         <tbody>
           {% for reservation in past_reservations %}
           <tr>
+            <td><a href="{% url 'coldfront_orcd_direct_charge:reservation-detail' reservation.pk %}">{{ reservation.pk }}</a></td>
             <td>
               <code>{{ reservation.node_instance.associated_resource_address }}</code>
             </td>

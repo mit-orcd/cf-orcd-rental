@@ -103,6 +103,7 @@ My Reservations
       <table class="table table-hover mt-3">
         <thead class="thead-light">
           <tr>
+            <th>ID</th>
             <th>Project</th>
             <th>Node</th>
             <th>Start</th>
@@ -115,6 +116,7 @@ My Reservations
         <tbody>
           {% for res in upcoming %}
           <tr>
+            <td><a href="{% url 'coldfront_orcd_direct_charge:reservation-detail' res.pk %}">{{ res.pk }}</a></td>
             <td>
               <a href="{% url 'project-detail' res.project.pk %}">{{ res.project.title }}</a>
             </td>
@@ -156,6 +158,7 @@ My Reservations
       <table class="table table-hover mt-3">
         <thead class="thead-light">
           <tr>
+            <th>ID</th>
             <th>Project</th>
             <th>Node</th>
             <th>Start</th>
@@ -169,6 +172,7 @@ My Reservations
         <tbody>
           {% for res in pending %}
           <tr>
+            <td><a href="{% url 'coldfront_orcd_direct_charge:reservation-detail' res.pk %}">{{ res.pk }}</a></td>
             <td>
               <a href="{% url 'project-detail' res.project.pk %}">{{ res.project.title }}</a>
             </td>
@@ -203,6 +207,7 @@ My Reservations
       <table class="table table-hover mt-3">
         <thead class="thead-light">
           <tr>
+            <th>ID</th>
             <th>Project</th>
             <th>Node</th>
             <th>Start</th>
@@ -215,6 +220,7 @@ My Reservations
         <tbody>
           {% for res in past %}
           <tr class="text-muted">
+            <td><a href="{% url 'coldfront_orcd_direct_charge:reservation-detail' res.pk %}">{{ res.pk }}</a></td>
             <td>
               <a href="{% url 'project-detail' res.project.pk %}">{{ res.project.title }}</a>
             </td>
@@ -248,6 +254,7 @@ My Reservations
       <table class="table table-hover mt-3">
         <thead class="thead-light">
           <tr>
+            <th>ID</th>
             <th>Project</th>
             <th>Node</th>
             <th>Start</th>
@@ -260,6 +267,7 @@ My Reservations
         <tbody>
           {% for res in declined_cancelled %}
           <tr class="text-muted">
+            <td><a href="{% url 'coldfront_orcd_direct_charge:reservation-detail' res.pk %}">{{ res.pk }}</a></td>
             <td>
               <a href="{% url 'project-detail' res.project.pk %}">{{ res.project.title }}</a>
             </td>

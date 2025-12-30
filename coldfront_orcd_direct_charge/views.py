@@ -450,6 +450,67 @@ class ReservationMetadataView(LoginRequiredMixin, PermissionRequiredMixin, View)
         return redirect("coldfront_orcd_direct_charge:rental-manager")
 
 
+class ReservationDetailView(LoginRequiredMixin, DetailView):
+    """Detail view showing comprehensive information about a single reservation.
+
+    Access is restricted to:
+    - Project members (owner, any ORCD role)
+    - The requesting user who made the reservation
+    - Rental managers
+    """
+
+    model = Reservation
+    template_name = "coldfront_orcd_direct_charge/reservation_detail.html"
+    context_object_name = "reservation"
+
+    def dispatch(self, request, *args, **kwargs):
+        """Check user has permission to view this reservation."""
+        self.object = self.get_object()
+        reservation = self.object
+
+        # Allow rental managers
+        if request.user.has_perm("coldfront_orcd_direct_charge.can_manage_rentals"):
+            return super().dispatch(request, *args, **kwargs)
+
+        # Allow superusers
+        if request.user.is_superuser:
+            return super().dispatch(request, *args, **kwargs)
+
+        # Allow the user who requested the reservation
+        if reservation.requesting_user == request.user:
+            return super().dispatch(request, *args, **kwargs)
+
+        # Allow project owner
+        if reservation.project.pi == request.user:
+            return super().dispatch(request, *args, **kwargs)
+
+        # Allow users with any ORCD role in the project
+        if ProjectMemberRole.objects.filter(
+            project=reservation.project, user=request.user
+        ).exists():
+            return super().dispatch(request, *args, **kwargs)
+
+        messages.error(request, "You do not have permission to view this reservation.")
+        return redirect("coldfront_orcd_direct_charge:my-reservations")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        reservation = self.object
+
+        # Add additional context for display
+        context["project"] = reservation.project
+        context["node_instance"] = reservation.node_instance
+        context["is_rental_manager"] = self.request.user.has_perm(
+            "coldfront_orcd_direct_charge.can_manage_rentals"
+        )
+
+        # Get metadata entries (only for rental managers)
+        if context["is_rental_manager"]:
+            context["metadata_entries"] = reservation.metadata_entries.all().order_by("-created")
+
+        return context
+
+
 @login_required
 @require_POST
 def update_maintenance_status(request):
