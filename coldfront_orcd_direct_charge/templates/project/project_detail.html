@@ -41,7 +41,7 @@ Project Detail
       {% if project.status.name != 'Archived' %}
         <a class="btn btn-success" href="{% url 'project-add-users-search' project.pk %}" role="button"><i class="fas fa-user-plus" aria-hidden="true"></i> Add Members</a>
       {% endif %}
-      <a class="btn btn-info" href="{% url 'coldfront_orcd_direct_charge:project-reservations' project.pk %}" role="button"><i class="fas fa-calendar-alt" aria-hidden="true"></i> View Reservations</a>
+      <a class="btn btn-info" href="{% url 'coldfront_orcd_direct_charge:project-reservations' project.pk %}" role="button"><i class="fas fa-calendar-alt" aria-hidden="true"></i> View Project Reservations</a>
     </div>
   </div>
 {% endif %}
@@ -89,7 +89,7 @@ Project Detail
             <th scope="col" class="text-nowrap">Username</th>
             <th scope="col" class="text-nowrap">Name</th>
             <th scope="col" class="text-nowrap">Email</th>
-            <th scope="col" class="text-nowrap">Roles <a href="#" data-toggle="popover" title="Roles" data-trigger="hover" data-content="Users can have multiple roles. Owner: Full project control. Financial Admin: Manages billing and cost allocations. Technical Admin: Manages members and reservations. Member: Can create reservations."><i class="fas fa-info-circle" aria-hidden="true"></i><span class="sr-only">Role descriptions</span></a></th>
+            <th scope="col" class="text-nowrap">Roles <a href="#" data-toggle="popover" title="Roles" data-trigger="hover" data-content="Users can have multiple roles. Owner: Full project control. Financial Admin: Manages billing, cost allocations and members. Technical Admin: Manages members and reservations. Member: Can create reservations."><i class="fas fa-info-circle" aria-hidden="true"></i><span class="sr-only">Role descriptions</span></a></th>
           </tr>
         </thead>
         <tbody>
