@@ -246,7 +246,10 @@ Timestamped notes attached to a reservation by managers.
 
 ### UserMaintenanceStatus
 
-Tracks the maintenance fee status for each user.
+Tracks the account maintenance fee status for each user. The account maintenance fee is a 
+recurring monthly charge. Researchers participating in a paid maintenance fee tier (Basic 
+or Advanced) are able to use rental services. Base ORCD services are available to all 
+researchers, even those not paying an account maintenance fee.
 
 **Table**: `coldfront_orcd_direct_charge_usermaintenancestatus`
 
@@ -260,9 +263,9 @@ Tracks the maintenance fee status for each user.
 | `modified` | DateTimeField | Auto-updated on save |
 
 **Status Choices**:
-- `inactive` - No maintenance fees (default)
-- `basic` - Basic maintenance level
-- `advanced` - Advanced maintenance level
+- `inactive` - Not subscribed (default) - can use base ORCD services
+- `basic` - Basic tier - enables rental services
+- `advanced` - Advanced tier - enables rental services
 
 **Related Names**:
 - `user.maintenance_status`
