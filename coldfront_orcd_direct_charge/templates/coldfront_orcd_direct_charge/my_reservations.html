@@ -17,6 +17,19 @@ My Reservations
   <hr>
 </div>
 
+{% if show_maintenance_warning %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+  <i class="fas fa-exclamation-triangle mr-2"></i>
+  <strong>Reminder:</strong>
+  You have reservations but haven't subscribed to an account maintenance fee yet.
+  Please subscribe to enable use of rental services.
+  <a href="{% url 'user-profile' %}" class="alert-link">Click here to add a subscription to your account</a>
+  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+    <span aria-hidden="true">&times;</span>
+  </button>
+</div>
+{% endif %}
+
 <!-- Summary Cards -->
 <div class="row mb-4">
   <div class="col-md-3">
@@ -302,4 +315,5 @@ My Reservations
   });
 </script>
 {% endblock %}
+
 

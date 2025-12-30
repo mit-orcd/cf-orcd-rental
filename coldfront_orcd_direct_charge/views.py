@@ -2197,6 +2197,19 @@ class MyReservationsView(LoginRequiredMixin, TemplateView):
         context["past_count"] = len(context["past"])
         context["declined_cancelled_count"] = len(context["declined_cancelled"])
 
+        # Check maintenance status for warning banner
+        try:
+            maintenance_status = user.maintenance_status
+            context["maintenance_status_raw"] = maintenance_status.status
+        except UserMaintenanceStatus.DoesNotExist:
+            context["maintenance_status_raw"] = "inactive"
+
+        # Show warning if inactive and has upcoming/pending reservations
+        context["show_maintenance_warning"] = (
+            context["maintenance_status_raw"] == "inactive"
+            and (context["upcoming_count"] > 0 or context["pending_count"] > 0)
+        )
+
         return context
 
 
