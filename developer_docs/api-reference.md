@@ -206,7 +206,7 @@ curl -H "Authorization: Token YOUR_TOKEN" \
 GET /nodes/api/invoice/
 ```
 
-Returns all months that have approved reservations, with invoice status.
+Returns all months that have confirmed reservations, with invoice status.
 
 **Permission**: `can_manage_billing`
 
@@ -361,10 +361,10 @@ curl -H "Authorization: Token YOUR_TOKEN" \
         "user": "rental_manager",
         "action": "reservation.approved",
         "category": "reservation",
-        "description": "Reservation #6 approved by rental_manager",
+        "description": "Reservation #6 confirmed by rental_manager",
         "target_type": "Reservation",
         "target_id": 6,
-        "target_repr": "node2433 - 2025-12-30 (Approved)",
+        "target_repr": "node2433 - 2025-12-30 (Confirmed)",
         "ip_address": "192.168.1.100",
         "extra_data": {
             "project_id": 1,

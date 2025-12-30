@@ -197,9 +197,9 @@ class MyReservationsView(LoginRequiredMixin, TemplateView):
 
 | Variable | Type | Description |
 |----------|------|-------------|
-| `upcoming` | list | Approved reservations with end_date >= today |
+| `upcoming` | list | Confirmed reservations with end_date >= today |
 | `pending` | list | Reservations awaiting approval |
-| `past` | list | Approved reservations already completed |
+| `past` | list | Confirmed reservations already completed |
 | `declined_cancelled` | list | Rejected or cancelled reservations |
 | `upcoming_count` | int | Count of upcoming reservations |
 | `pending_count` | int | Count of pending reservations |
@@ -407,7 +407,7 @@ class ReservationRequestView(LoginRequiredMixin, CreateView):
 - Node must be rentable H200x8
 - Project must have approved cost allocation
 - Start date must be 7+ days in future
-- No overlapping approved reservations
+- No overlapping confirmed reservations
 
 ---
 
@@ -439,7 +439,7 @@ POST-only view to approve a reservation.
 
 **Behavior**:
 1. Validates reservation is PENDING
-2. Checks for conflicts with existing approved reservations
+2. Checks for conflicts with existing confirmed reservations
 3. Sets status to APPROVED
 4. Logs activity to ActivityLog
 5. Displays success message

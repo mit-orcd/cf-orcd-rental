@@ -2190,9 +2190,9 @@ class MyReservationsView(LoginRequiredMixin, TemplateView):
     - Member
 
     Reservations are categorized into:
-    - Upcoming: Approved, end date >= today
+    - Upcoming: Confirmed, end date >= today
     - Pending: Awaiting approval
-    - Past: Approved, already completed
+    - Past: Confirmed, already completed
     - Declined/Cancelled: Rejected or cancelled reservations
     """
 

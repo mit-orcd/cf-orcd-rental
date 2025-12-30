@@ -53,8 +53,8 @@
             <td>
               <form method="post" action="{% url 'coldfront_orcd_direct_charge:reservation-approve' reservation.pk %}" style="display: inline;">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-success" title="Approve">
-                  <i class="fas fa-check"></i> Approve
+                <button type="submit" class="btn btn-sm btn-success" title="Confirm Rental">
+                  <i class="fas fa-check"></i> Confirm Rental
                 </button>
               </form>
               <button type="button" class="btn btn-sm btn-danger" 
@@ -223,7 +223,7 @@
             </td>
             <td>
               {% if reservation.status == "APPROVED" %}
-              <span class="badge badge-success">Approved</span>
+              <span class="badge badge-success">Rental Confirmed</span>
               {% elif reservation.status == "DECLINED" %}
               <span class="badge badge-danger">Declined</span>
               {% endif %}

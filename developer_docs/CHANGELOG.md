@@ -12,6 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 #### Added - Project & Reservation Enhancements
 
+##### Reservation Status Terminology Update
+- Changed reservation status display from "Approved" to "Confirmed" throughout UI
+- Internal database value `APPROVED` unchanged (no migration needed)
+- Updated templates, docstrings, API docs, and user documentation
+- Cost Allocation "Approved" status unchanged (separate concept)
+
 ##### Project Page UI Updates (`fb32efb`)
 - Renamed 'View Reservations' button to 'View Project Reservations'
 - Updated Financial Admin role description to include member management

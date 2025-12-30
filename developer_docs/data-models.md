@@ -189,7 +189,7 @@ A booking request for a GPU node instance.
 
 **Status Choices**:
 - `PENDING` - Awaiting approval
-- `APPROVED` - Approved and confirmed
+- `APPROVED` - Confirmed (displayed as "Confirmed" in UI)
 - `DECLINED` - Declined by manager
 - `CANCELLED` - Cancelled by user
 

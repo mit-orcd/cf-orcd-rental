@@ -229,7 +229,7 @@ class Reservation(TimeStampedModel):
 
     class StatusChoices(models.TextChoices):
         PENDING = "PENDING", "Pending Approval"
-        APPROVED = "APPROVED", "Approved"
+        APPROVED = "APPROVED", "Confirmed"
         DECLINED = "DECLINED", "Declined"
         CANCELLED = "CANCELLED", "Cancelled"
 
