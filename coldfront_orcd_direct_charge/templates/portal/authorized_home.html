@@ -1,112 +1,354 @@
 {% extends "common/base.html" %}
-{% load common_tags %}
+{% load static %}
+{% load project_roles %}
 
-
-{% block content %}
-<div class="row">
-
-  {% if settings.HOME_PAGE_ALLOCATIONS_ENABLE %}
-  <div class="col-lg-6 mt-2">
-  {% else %}
-  <div class="col-lg-12 mt-2">
-  {% endif %}
-    <h2><a href="{% url 'project-list' %}">Projects &raquo;</a></h2>
-    <hr>
-
-    {% if project_list %}
-      <ul class="list-group">
-        {% for project in project_list %}
-          <li class="list-group-item">
-            <a href="{% url 'project-detail' project.pk %}"><i class="fa fa-folder fa-lg" aria-hidden="true"></i>{{project.title}}</a>
-            {% if project.needs_review %}
-              <a href="{% url 'project-review' project.pk %}"><span class="badge badge-warning">Needs Review</span></a>
-            {% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <div class="alert alert-info" role="alert"><i class="fa fa-info-circle" aria-hidden="true"></i> There are no projects to display.</div>
-      {% if user.userprofile.is_pi or user.is_superuser %}
-        <a class="btn btn-primary btn-block" href="{% url 'project-create' %}" role="button">Add a project</a>
-        <hr>
-      {% endif %}
-    {% endif %}
-  </div>
-
-  {% if settings.HOME_PAGE_ALLOCATIONS_ENABLE %}
-  <div class="col-lg-6 mt-2">
-    <h2><a href="{% url 'allocation-list' %}">Allocations &raquo;</a></h2>
-    <hr>
-
-    {% if allocation_list %}
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col">Project</th>
-            <th scope="col">Resource</th>
-            <th scope="col">Status</th>
-
-          </tr>
-        </thead>
-        <tbody>
-          {% for allocation in allocation_list %}
-          <tr>
-            <td>{{allocation.project.title}}</td>
-            <td>{{allocation.get_parent_resource}}
-              {% if allocation.get_parent_resource.get_ondemand_status == 'Yes' and ondemand_url %}
-              <a href = "{{ondemand_url}}"> {% load static %}  <img src="/static/core/portal/imgs/ondemand.png" alt="ondemand cta" width="25" height="25"></a>
-            {% endif %} 
-            </td>
-            {%  if allocation.status.name == "Expired" and allocation.expires_in < 0 %}
-            <td><a href="{% url 'allocation-detail' allocation.id %}" class="btn btn-danger btn-block">Expired</a></td>
-            {%  elif allocation.status.name == "Renewal Requested" %}
-            <td><a href="{% url 'allocation-detail' allocation.id %}" class="btn btn-danger btn-block">Renewal
-                Requested</a></td>
-            {%  elif allocation.expires_in >= 0 and  allocation.expires_in <= 30 %}
-            <td><a href="{% url 'allocation-detail' allocation.id %}" class="btn btn-danger btn-block">Expires in <span
-                  class="badge badge-light">{{allocation.expires_in}}</span> day{{allocation.expires_in|pluralize }}</a>
-            </td>
-            {% elif allocation.expires_in > 30 and allocation.expires_in <= 90 %}
-            <td><a href="{% url 'allocation-detail' allocation.id %}" class="btn btn-warning btn-block">Expires in <span
-                  class="badge badge-light">{{allocation.expires_in}}</span> day{{allocation.expires_in|pluralize }}</a>
-            </td>
-            {% elif allocation.status.name == "Pending" %}
-            <td><a href="{% url 'allocation-detail' allocation.id %}"
-                class="btn btn-info btn-block">{{allocation.status}}</a></td>
-            {% elif allocation.status.name == "Active" %}
-              {% if user_status|get_value_by_index:forloop.counter0 == 'PendingEULA' %}
-              <td><a href="{% url 'allocation-review-eula' allocation.pk %}" class="btn btn-info btn-block">Review and Accept EULA to Activate</a> </td>
-              {% else %}
-              <td><a href="{% url 'allocation-detail' allocation.id %}"
-                class="btn btn-success btn-block">{{allocation.status}}</a></td>
-              {% endif %}
-            {% else %}
-            <td><a href="{% url 'allocation-detail' allocation.id %}"
-                class="btn btn-info btn-block">{{allocation.status}}</a></td>
-            {% endif %}
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <div class="alert alert-info" role="alert">
-        <i class="fa fa-info-circle" aria-hidden="true"></i> There are no allocations to display.
-      </div>
-    {% endif %}
-  </div>
-  {% endif %}
-</div>
-<div class="row">
-  {% include "portal/extra_app_templates.html" %}
-</div>
+{% block title %}
+Dashboard - ORCD Rental Portal
 {% endblock %}
 
+{% block content %}
+{% get_dashboard_data request.user as dashboard %}
+
+<div class="mb-4">
+  <h2>
+    <i class="fas fa-tachometer-alt"></i> Dashboard
+  </h2>
+  <p class="text-muted">
+    Welcome back, {{ request.user.first_name|default:request.user.username }}! Here's an overview of your account.
+  </p>
+  <hr>
+</div>
+
+<!-- Dashboard Cards - 2x2 Grid -->
+<div class="row">
+  <!-- ================================================================== -->
+  <!-- My Rentals Card -->
+  <!-- ================================================================== -->
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100 shadow-sm">
+      <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+          <i class="fas fa-calendar-alt mr-2"></i> My Rentals
+        </h5>
+        <button type="button" class="btn btn-link text-white p-0 help-popover"
+           data-toggle="popover" data-trigger="focus" data-placement="left"
+           title="About My Rentals"
+           data-content="View and manage your GPU node reservations. You can see upcoming confirmed bookings, pending requests awaiting approval, and your rental history. Use 'Book Rental' to request new GPU time on available H200x8 nodes. Reservations require an approved cost allocation. Questions? Email &lt;a href='mailto:orcd-help@mit.edu'&gt;orcd-help@mit.edu&lt;/a&gt;">
+          <i class="fas fa-question-circle"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        <!-- Summary Stats -->
+        <div class="row text-center mb-3">
+          <div class="col-4">
+            <div class="h3 mb-0 text-success">{{ dashboard.upcoming_count }}</div>
+            <small class="text-muted">Upcoming</small>
+          </div>
+          <div class="col-4">
+            <div class="h3 mb-0 text-warning">{{ dashboard.pending_reservation_count }}</div>
+            <small class="text-muted">Pending</small>
+          </div>
+          <div class="col-4">
+            <div class="h3 mb-0 text-secondary">{{ dashboard.past_count }}</div>
+            <small class="text-muted">Past</small>
+          </div>
+        </div>
+
+        {% if dashboard.upcoming_reservations %}
+        <hr>
+        <h6 class="text-muted mb-2"><i class="fas fa-clock mr-1"></i> Upcoming Reservations</h6>
+        <ul class="list-group list-group-flush">
+          {% for res in dashboard.upcoming_reservations %}
+          <li class="list-group-item px-0">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <strong>
+                  <code>{{ res.node_instance.associated_resource_address }}</code>
+                </strong>
+                <br>
+                <small class="text-muted">
+                  {{ res.start_datetime|date:"M j, g:i A" }} - {{ res.end_datetime|date:"M j, g:i A" }}
+                </small>
+              </div>
+              <span class="badge badge-success">{{ res.billable_hours }}h</span>
+            </div>
+            <small>
+              <a href="{% url 'project-detail' res.project.pk %}">{{ res.project.title|truncatechars:25 }}</a>
+            </small>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center py-3">
+          <i class="fas fa-calendar-times fa-2x text-muted mb-2"></i>
+          <p class="text-muted mb-0">No upcoming reservations</p>
+        </div>
+        {% endif %}
+      </div>
+      <div class="card-footer bg-transparent">
+        <a href="{% url 'coldfront_orcd_direct_charge:my-reservations' %}" class="btn btn-outline-success btn-sm">
+          <i class="fas fa-list mr-1"></i> View All
+        </a>
+        <a href="{% url 'coldfront_orcd_direct_charge:renting-calendar' %}" class="btn btn-success btn-sm float-right">
+          <i class="fas fa-plus mr-1"></i> Book Rental
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- My Projects Card -->
+  <!-- ================================================================== -->
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100 shadow-sm">
+      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+          <i class="fas fa-folder-open mr-2"></i> My Projects
+        </h5>
+        <button type="button" class="btn btn-link text-white p-0 help-popover"
+           data-toggle="popover" data-trigger="focus" data-placement="left"
+           title="About My Projects"
+           data-content="Projects organize your team and billing. As an Owner, you can manage members, set cost allocations, and book rentals. As a Member, you can book rentals charged to the project. Each project needs an approved cost allocation before making reservations. Questions? Email &lt;a href='mailto:orcd-help@mit.edu'&gt;orcd-help@mit.edu&lt;/a&gt;">
+          <i class="fas fa-question-circle"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        <!-- Summary Stats -->
+        <div class="row text-center mb-3">
+          <div class="col-4">
+            <div class="h3 mb-0 text-primary">{{ dashboard.total_projects }}</div>
+            <small class="text-muted">Total</small>
+          </div>
+          <div class="col-4">
+            <div class="h3 mb-0 text-success">{{ dashboard.owned_count }}</div>
+            <small class="text-muted">As Owner</small>
+          </div>
+          <div class="col-4">
+            <div class="h3 mb-0 text-info">{{ dashboard.member_count }}</div>
+            <small class="text-muted">As Member</small>
+          </div>
+        </div>
+
+        {% if dashboard.recent_projects %}
+        <hr>
+        <h6 class="text-muted mb-2"><i class="fas fa-clock mr-1"></i> Recent Projects</h6>
+        <ul class="list-group list-group-flush">
+          {% for project in dashboard.recent_projects %}
+          <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+            <a href="{% url 'project-detail' project.pk %}">
+              <i class="fas fa-folder text-primary mr-1"></i>
+              {{ project.title|truncatechars:35 }}
+            </a>
+            {% if project.pi == request.user %}
+              <span class="badge badge-success">Owner</span>
+            {% else %}
+              <span class="badge badge-info">Member</span>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center py-3">
+          <i class="fas fa-folder-open fa-2x text-muted mb-2"></i>
+          <p class="text-muted mb-0">No active projects</p>
+        </div>
+        {% endif %}
+      </div>
+      <div class="card-footer bg-transparent">
+        <a href="{% url 'project-list' %}" class="btn btn-outline-primary btn-sm">
+          <i class="fas fa-list mr-1"></i> View All Projects
+        </a>
+        {% if dashboard.is_pi %}
+        <a href="{% url 'project-create' %}" class="btn btn-primary btn-sm float-right">
+          <i class="fas fa-plus mr-1"></i> Create Project
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- ================================================================== -->
+  <!-- My Account Card -->
+  <!-- ================================================================== -->
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100 shadow-sm">
+      <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+          <i class="fas fa-user-circle mr-2"></i> My Account
+        </h5>
+        <button type="button" class="btn btn-link text-white p-0 help-popover"
+           data-toggle="popover" data-trigger="focus" data-placement="left"
+           title="About My Account"
+           data-content="Your account maintenance fee status determines your cluster access level. 'Inactive' means no fees; 'Basic' and 'Advanced' tiers provide different levels of access and are billed to your selected project. The billing project must have an approved cost allocation. Questions? Email &lt;a href='mailto:orcd-help@mit.edu'&gt;orcd-help@mit.edu&lt;/a&gt;">
+          <i class="fas fa-question-circle"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="text-center mb-3">
+          <!-- Status Badge -->
+          <div class="mb-3">
+            {% if dashboard.maintenance_status_raw == 'advanced' %}
+              <span class="badge badge-success p-3" style="font-size: 1.2rem;">
+                <i class="fas fa-star mr-1"></i> {{ dashboard.maintenance_status }}
+              </span>
+            {% elif dashboard.maintenance_status_raw == 'basic' %}
+              <span class="badge badge-info p-3" style="font-size: 1.2rem;">
+                <i class="fas fa-check mr-1"></i> {{ dashboard.maintenance_status }}
+              </span>
+            {% else %}
+              <span class="badge badge-secondary p-3" style="font-size: 1.2rem;">
+                <i class="fas fa-minus mr-1"></i> {{ dashboard.maintenance_status }}
+              </span>
+            {% endif %}
+          </div>
+
+          <!-- Billing Project -->
+          {% if dashboard.maintenance_billing_project %}
+          <div class="mt-3">
+            <small class="text-muted">Charged to:</small>
+            <br>
+            <a href="{% url 'project-detail' dashboard.maintenance_billing_project.pk %}">
+              <i class="fas fa-folder text-primary mr-1"></i>
+              {{ dashboard.maintenance_billing_project.title }}
+            </a>
+          </div>
+          {% elif dashboard.maintenance_status_raw != 'inactive' %}
+          <div class="alert alert-warning mt-3 mb-0" role="alert">
+            <i class="fas fa-exclamation-triangle mr-1"></i>
+            No billing project selected
+          </div>
+          {% else %}
+          <p class="text-muted mt-3 mb-0">
+            <small>Set a maintenance status to access cluster resources</small>
+          </p>
+          {% endif %}
+        </div>
+      </div>
+      <div class="card-footer bg-transparent text-center">
+        <a href="{% url 'user-profile' %}" class="btn btn-outline-info btn-sm">
+          <i class="fas fa-edit mr-1"></i> Update Status
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- My Billing Card -->
+  <!-- ================================================================== -->
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100 shadow-sm">
+      <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+          <i class="fas fa-file-invoice-dollar mr-2"></i> My Billing
+        </h5>
+        <button type="button" class="btn btn-link text-dark p-0 help-popover"
+           data-toggle="popover" data-trigger="focus" data-placement="left"
+           title="About My Billing"
+           data-content="Cost allocations define how charges are billed for each project. You must configure cost objects (account codes) that total 100%. Allocations require approval before you can book rentals or set maintenance fees. 'Pending' means awaiting review; 'Rejected' needs corrections. Questions? Email &lt;a href='mailto:orcd-help@mit.edu'&gt;orcd-help@mit.edu&lt;/a&gt;">
+          <i class="fas fa-question-circle"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        <!-- Summary Stats -->
+        <div class="row text-center mb-3">
+          <div class="col-3">
+            <div class="h3 mb-0 text-success">{{ dashboard.cost_approved_count }}</div>
+            <small class="text-muted">Approved</small>
+          </div>
+          <div class="col-3">
+            <div class="h3 mb-0 text-warning">{{ dashboard.cost_pending_count }}</div>
+            <small class="text-muted">Pending</small>
+          </div>
+          <div class="col-3">
+            <div class="h3 mb-0 text-danger">{{ dashboard.cost_rejected_count }}</div>
+            <small class="text-muted">Rejected</small>
+          </div>
+          <div class="col-3">
+            <div class="h3 mb-0 text-secondary">{{ dashboard.cost_not_configured_count }}</div>
+            <small class="text-muted">Not Set</small>
+          </div>
+        </div>
+
+        {% if dashboard.projects_needing_attention %}
+        <hr>
+        <h6 class="text-muted mb-2"><i class="fas fa-exclamation-triangle mr-1"></i> Needs Attention</h6>
+        <ul class="list-group list-group-flush">
+          {% for item in dashboard.projects_needing_attention %}
+          <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+            <a href="{% url 'coldfront_orcd_direct_charge:project-cost-allocation' item.project.pk %}">
+              <i class="fas fa-file-invoice-dollar text-warning mr-1"></i>
+              {{ item.project.title|truncatechars:30 }}
+            </a>
+            {% if item.status == 'pending' %}
+              <span class="badge badge-warning">Pending</span>
+            {% elif item.status == 'rejected' %}
+              <span class="badge badge-danger">Rejected</span>
+            {% else %}
+              <span class="badge badge-secondary">Not Configured</span>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center py-3">
+          <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+          <p class="text-muted mb-0">All projects have approved cost allocations</p>
+        </div>
+        {% endif %}
+      </div>
+      <div class="card-footer bg-transparent">
+        <small class="text-muted">
+          <i class="fas fa-info-circle mr-1"></i>
+          Cost allocations must be approved before booking rentals
+        </small>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
 
 {% block javascript %}
 {{ block.super }}
 <script>
+  // Highlight Home in navbar
   $("#navbar-main > ul > li.active").removeClass("active");
   $("#navbar-home").addClass("active");
+
+  // Initialize help popovers with close button
+  $(document).ready(function() {
+    $('.help-popover').popover({
+      container: 'body',
+      html: true
+    });
+
+    // Add close button when popover is shown
+    $('.help-popover').on('shown.bs.popover', function() {
+      var popoverId = $(this).attr('aria-describedby');
+      var $popover = $('#' + popoverId);
+      var $header = $popover.find('.popover-header');
+      
+      // Only add close button if not already present
+      if ($header.find('.close').length === 0) {
+        $header.css({
+          'display': 'flex',
+          'justify-content': 'space-between',
+          'align-items': 'center'
+        });
+        $header.append(
+          '<button type="button" class="close ml-2" aria-label="Close" style="font-size: 1.2rem;">' +
+          '<span aria-hidden="true">&times;</span>' +
+          '</button>'
+        );
+      }
+    });
+
+    // Close popover when X button is clicked
+    $(document).on('click', '.popover .close', function() {
+      $('.help-popover').popover('hide');
+    });
+  });
 </script>
 {% endblock %}
-

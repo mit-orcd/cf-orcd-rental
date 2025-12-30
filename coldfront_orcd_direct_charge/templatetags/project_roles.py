@@ -269,3 +269,147 @@ def get_projects_for_maintenance_fee(user):
     return eligible_projects
 
 
+@register.simple_tag
+def get_dashboard_data(user):
+    """Get all dashboard data for the home page.
+
+    Collects summaries of projects, cost allocations, maintenance status,
+    and reservations for display on the dashboard.
+
+    Args:
+        user: The Django User object
+
+    Returns:
+        dict: Dashboard context data
+    """
+    from datetime import date
+    from coldfront.core.project.models import Project
+    from coldfront_orcd_direct_charge.models import (
+        Reservation,
+        UserMaintenanceStatus,
+    )
+
+    data = {}
+
+    # =========================================================================
+    # Projects Summary
+    # =========================================================================
+    # Projects where user is owner
+    owned_projects = Project.objects.filter(
+        pi=user,
+        status__name__in=["Active", "New"],
+    ).order_by("-created")
+
+    # Projects where user has a member role (but not owner)
+    member_project_ids = (
+        ProjectMemberRole.objects.filter(user=user)
+        .values_list("project_id", flat=True)
+        .distinct()
+    )
+    member_projects = Project.objects.filter(
+        pk__in=member_project_ids,
+        status__name__in=["Active", "New"],
+    ).exclude(pi=user).order_by("-created")
+
+    all_projects = list(owned_projects) + list(member_projects)
+    all_project_ids = [p.pk for p in all_projects]
+
+    data["owned_projects"] = owned_projects
+    data["member_projects"] = member_projects
+    data["owned_count"] = owned_projects.count()
+    data["member_count"] = member_projects.count()
+    data["total_projects"] = len(all_projects)
+    data["recent_projects"] = all_projects[:5]
+    data["is_pi"] = user.userprofile.is_pi if hasattr(user, "userprofile") else False
+
+    # =========================================================================
+    # Cost Allocation Summary
+    # =========================================================================
+    approved_count = 0
+    pending_count = 0
+    rejected_count = 0
+    not_configured_count = 0
+    projects_needing_attention = []
+
+    for project in all_projects:
+        try:
+            allocation = project.cost_allocation
+            if allocation.status == ProjectCostAllocation.StatusChoices.APPROVED:
+                approved_count += 1
+            elif allocation.status == ProjectCostAllocation.StatusChoices.PENDING:
+                pending_count += 1
+                projects_needing_attention.append({
+                    "project": project,
+                    "status": "pending",
+                    "status_display": "Pending Approval",
+                })
+            else:  # REJECTED
+                rejected_count += 1
+                projects_needing_attention.append({
+                    "project": project,
+                    "status": "rejected",
+                    "status_display": "Rejected",
+                })
+        except ProjectCostAllocation.DoesNotExist:
+            not_configured_count += 1
+            projects_needing_attention.append({
+                "project": project,
+                "status": "not_configured",
+                "status_display": "Not Configured",
+            })
+
+    data["cost_approved_count"] = approved_count
+    data["cost_pending_count"] = pending_count
+    data["cost_rejected_count"] = rejected_count
+    data["cost_not_configured_count"] = not_configured_count
+    data["projects_needing_attention"] = projects_needing_attention[:5]
+
+    # =========================================================================
+    # Account Maintenance Status
+    # =========================================================================
+    try:
+        maintenance_status = user.maintenance_status
+        data["maintenance_status"] = maintenance_status.get_status_display()
+        data["maintenance_status_raw"] = maintenance_status.status
+        data["maintenance_billing_project"] = maintenance_status.billing_project
+    except UserMaintenanceStatus.DoesNotExist:
+        data["maintenance_status"] = "Inactive"
+        data["maintenance_status_raw"] = "inactive"
+        data["maintenance_billing_project"] = None
+
+    # =========================================================================
+    # Reservations Summary
+    # =========================================================================
+    today = date.today()
+
+    # Get reservations for all user's projects
+    reservations = (
+        Reservation.objects.filter(project_id__in=all_project_ids)
+        .select_related("project", "node_instance", "requesting_user")
+        .order_by("start_date")
+    )
+
+    # Categorize reservations
+    upcoming = [
+        r
+        for r in reservations
+        if r.status == Reservation.StatusChoices.APPROVED and r.end_date >= today
+    ]
+    pending = [
+        r for r in reservations if r.status == Reservation.StatusChoices.PENDING
+    ]
+    past = [
+        r
+        for r in reservations
+        if r.status == Reservation.StatusChoices.APPROVED and r.end_date < today
+    ]
+
+    data["upcoming_reservations"] = upcoming[:3]
+    data["upcoming_count"] = len(upcoming)
+    data["pending_reservation_count"] = len(pending)
+    data["past_count"] = len(past)
+    data["total_reservations"] = len(reservations)
+
+    return data
+
+
