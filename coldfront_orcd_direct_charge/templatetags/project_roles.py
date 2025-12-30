@@ -270,6 +270,29 @@ def get_projects_for_maintenance_fee(user):
 
 
 @register.simple_tag
+def get_project_last_used(project):
+    """Get the date of the last reservation for a project.
+
+    Args:
+        project: The ColdFront Project object
+
+    Returns:
+        date: The start_date of the most recent reservation, or None if no reservations
+    """
+    from coldfront_orcd_direct_charge.models import Reservation
+
+    last_reservation = (
+        Reservation.objects.filter(project=project)
+        .order_by("-start_date")
+        .first()
+    )
+
+    if last_reservation:
+        return last_reservation.start_date
+    return None
+
+
+@register.simple_tag
 def get_dashboard_data(user):
     """Get all dashboard data for the home page.
 
