@@ -54,6 +54,26 @@ Dashboard - ORCD Rental Portal
           </div>
         </div>
 
+        {% if dashboard.maintenance_status_raw == "inactive" %}
+        <div class="alert alert-info mb-3">
+          <i class="fas fa-info-circle mr-1"></i>
+          <strong>Note:</strong> You don't currently have an account maintenance subscription.
+          <ul class="mb-2 mt-2">
+            <li>You cannot access or use rentals you are part of</li>
+            <li>You cannot make new reservation requests</li>
+          </ul>
+          <small class="text-muted">
+            <i class="fas fa-user-tie mr-1"></i>
+            If you only manage billing as a Financial Admin, no subscription is needed.
+          </small>
+          <div class="mt-2">
+            <a href="{% url 'user-profile' %}" class="btn btn-sm btn-outline-info">
+              <i class="fas fa-edit mr-1"></i> Update Subscription
+            </a>
+          </div>
+        </div>
+        {% endif %}
+
         {% if dashboard.upcoming_reservations %}
         <hr>
         <h6 class="text-muted mb-2"><i class="fas fa-clock mr-1"></i> Upcoming Reservations</h6>
