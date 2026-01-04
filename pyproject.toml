@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.urls]
-"Source Code" = "https://github.com/your-org/coldfront-orcd-direct-charge"
+"Source Code" = "https://github.com/christophernhill/cf-orcd-rental"
 
 [tool.hatch.build.targets.wheel]
 packages = ["coldfront_orcd_direct_charge"]
