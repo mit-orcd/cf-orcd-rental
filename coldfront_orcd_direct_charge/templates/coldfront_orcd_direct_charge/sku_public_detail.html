@@ -133,13 +133,7 @@
           <tr>
             <th class="pl-3" width="50%">{{ item.label }}</th>
             <td>
-              {% if item.key == 'features' %}
-                {% for feature in item.value|split:',' %}
-                  <span class="badge badge-info">{{ feature|trim }}</span>
-                {% empty %}
-                  {{ item.value }}
-                {% endfor %}
-              {% elif item.key == 'system_memory_gb' %}
+              {% if item.key == 'system_memory_gb' %}
                 {{ item.value }} GB
               {% elif item.key == 'gpu_memory_gb' %}
                 {{ item.value }} GB
