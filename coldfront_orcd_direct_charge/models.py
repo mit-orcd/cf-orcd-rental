@@ -1077,7 +1077,7 @@ class RentalSKU(TimeStampedModel):
 
     class SKUType(models.TextChoices):
         NODE = "NODE", "Node Rental"
-        MAINTENANCE = "MAINTENANCE", "Maintenance Fee"
+        MAINTENANCE = "MAINTENANCE", "Account Maintenance Fee"
         QOS = "QOS", "Rentable QoS"
 
     class BillingUnit(models.TextChoices):
@@ -1116,6 +1116,15 @@ class RentalSKU(TimeStampedModel):
         blank=True,
         help_text="Optional link to source model (e.g., 'NodeType:H200x8')",
     )
+    is_public = models.BooleanField(
+        default=True,
+        help_text="Whether this SKU is visible on the public Current Rates page",
+    )
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Flexible metadata attributes (GPU type, memory, cores, etc.)",
+    )
 
     class Meta:
         ordering = ["sku_type", "name"]
@@ -1152,6 +1161,25 @@ class RentalSKU(TimeStampedModel):
         """
         from datetime import date
         return self.get_rate_for_date(date.today())
+
+    @property
+    def upcoming_rates(self):
+        """Get rates scheduled for the future.
+
+        Returns:
+            QuerySet of RentalRate instances with future effective dates
+        """
+        from datetime import date
+        return self.rates.filter(effective_date__gt=date.today()).order_by("effective_date")
+
+    @property
+    def next_rate_change(self):
+        """Get the next scheduled rate change, if any.
+
+        Returns:
+            RentalRate instance or None if no future rate exists
+        """
+        return self.upcoming_rates.first()
 
 
 class RentalRate(TimeStampedModel):

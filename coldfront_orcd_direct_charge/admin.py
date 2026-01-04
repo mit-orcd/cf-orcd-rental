@@ -192,11 +192,12 @@ class RentalSKUAdmin(admin.ModelAdmin):
         "sku_type",
         "billing_unit",
         "is_active",
+        "is_public",
         "current_rate_display",
         "rate_count",
         "modified",
     )
-    list_filter = ("sku_type", "billing_unit", "is_active")
+    list_filter = ("sku_type", "billing_unit", "is_active", "is_public")
     search_fields = ("sku_code", "name", "description", "linked_model")
     ordering = ("sku_type", "name")
     readonly_fields = ("created", "modified")
@@ -207,7 +208,12 @@ class RentalSKUAdmin(admin.ModelAdmin):
             "fields": ("sku_code", "name", "description")
         }),
         ("Configuration", {
-            "fields": ("sku_type", "billing_unit", "is_active", "linked_model")
+            "fields": ("sku_type", "billing_unit", "is_active", "is_public", "linked_model")
+        }),
+        ("Metadata", {
+            "fields": ("metadata",),
+            "classes": ("collapse",),
+            "description": "Flexible attributes for filtering (GPU type, memory, etc.)"
         }),
         ("Timestamps", {
             "fields": ("created", "modified"),
@@ -226,6 +232,10 @@ class RentalSKUAdmin(admin.ModelAdmin):
     @admin.display(description="Rates")
     def rate_count(self, obj):
         return obj.rates.count()
+
+    @admin.display(description="Public", boolean=True)
+    def is_public_display(self, obj):
+        return obj.is_public
 
 
 @admin.register(RentalRate)

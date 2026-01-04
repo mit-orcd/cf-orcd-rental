@@ -3,8 +3,11 @@
 This document describes all view classes and URL patterns in the ORCD Direct Charge plugin.
 
 **Sources**:
-- [`coldfront_orcd_direct_charge/views.py`](../coldfront_orcd_direct_charge/views.py)
+- [`coldfront_orcd_direct_charge/views/`](../coldfront_orcd_direct_charge/views/) - View package (refactored Jan 2026)
 - [`coldfront_orcd_direct_charge/urls.py`](../coldfront_orcd_direct_charge/urls.py)
+
+> **Note**: Views were refactored from a monolithic `views.py` to a `views/` package in Jan 2026.
+> See [CODE_ORGANIZATION.md](CODE_ORGANIZATION.md) for details on the module structure.
 
 ---
 
@@ -21,6 +24,7 @@ This document describes all view classes and URL patterns in the ORCD Direct Cha
 - [Billing Manager Views](#billing-manager-views)
 - [Invoice Views](#invoice-views)
 - [Member Management Views](#member-management-views)
+- [Rate Management Views](#rate-management-views)
 - [Activity Log Views](#activity-log-views)
 - [Template Override Views](#template-override-views)
 
@@ -59,6 +63,10 @@ All plugin URLs are prefixed with `/nodes/` (configured in ColdFront's `urls.py`
 | | `/nodes/project/<pk>/members/<user_pk>/remove/` | Remove member |
 | **Project Add Users** | `/nodes/project/<pk>/add-users/` | Autocomplete add users |
 | | `/nodes/project/<pk>/add-users-search-results/` | Search results |
+| **Rate Management** | `/nodes/rates/` | Rate management dashboard |
+| | `/nodes/rates/sku/<pk>/` | SKU rate detail and history |
+| | `/nodes/rates/sku/<pk>/add-rate/` | Add new rate for SKU |
+| | `/nodes/rates/sku/create/` | Create new SKU |
 | **Activity Log** | `/nodes/activity-log/` | View activity log |
 | **API** | `/nodes/api/...` | REST API endpoints |
 
@@ -786,6 +794,76 @@ Override of ColdFront's add-users search to use ORCD roles.
 **Name**: `coldfront_orcd_direct_charge:project-add-users`
 
 Handle form submission to add users from search results.
+
+---
+
+## Rate Management Views
+
+These views require `can_manage_rates` permission.
+
+> **Note**: See [RATE_MANAGER.md](RATE_MANAGER.md) for comprehensive documentation on the Rate Manager feature.
+
+### RateManagementView
+
+**URL**: `/nodes/rates/`  
+**Name**: `coldfront_orcd_direct_charge:rate-management`  
+**Template**: `coldfront_orcd_direct_charge/rate_management.html`  
+**Module**: `views/rates.py`
+
+Dashboard showing all SKUs grouped by type (NODE, MAINTENANCE, QOS).
+
+**Context Variables**:
+- `node_skus` - SKUs for node rentals (H200x8, L40Sx4, etc.)
+- `maintenance_skus` - SKUs for maintenance fees (Basic, Advanced)
+- `qos_skus` - Custom QoS configuration SKUs
+
+---
+
+### SKURateDetailView
+
+**URL**: `/nodes/rates/sku/<pk>/`  
+**Name**: `coldfront_orcd_direct_charge:sku-rate-detail`  
+**Template**: `coldfront_orcd_direct_charge/sku_rate_detail.html`  
+**Module**: `views/rates.py`
+
+Shows complete rate history for a specific SKU.
+
+**Context Variables**:
+- `sku` - The RentalSKU object
+- `rates` - All rates for this SKU, ordered by effective_date descending
+- `current_rate` - Current effective rate (if any)
+
+---
+
+### AddRateView
+
+**URL**: `/nodes/rates/sku/<pk>/add-rate/`  
+**Name**: `coldfront_orcd_direct_charge:add-rate`  
+**Template**: `coldfront_orcd_direct_charge/add_rate_form.html`  
+**Module**: `views/rates.py`
+
+Form to add a new rate for an existing SKU.
+
+**Form Fields**:
+- `rate` - Decimal rate value
+- `effective_date` - When the rate takes effect
+
+---
+
+### CreateSKUView
+
+**URL**: `/nodes/rates/sku/create/`  
+**Name**: `coldfront_orcd_direct_charge:create-sku`  
+**Template**: `coldfront_orcd_direct_charge/create_sku_form.html`  
+**Module**: `views/rates.py`
+
+Form to create a new custom QoS SKU.
+
+**Form Fields**:
+- `sku_code` - Unique identifier (e.g., "QOS_PREMIUM")
+- `name` - Display name
+- `description` - Optional description
+- `billing_unit` - HOURLY or MONTHLY
 
 ---
 

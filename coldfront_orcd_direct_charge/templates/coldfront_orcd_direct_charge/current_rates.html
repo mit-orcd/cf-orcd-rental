@@ -1,0 +1,385 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}
+Current Rates
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <h2><i class="fas fa-tags"></i> Current Rates</h2>
+  <p class="text-muted">View our rental rates for GPU nodes, CPU nodes, and services</p>
+</div>
+
+<style>
+  .rate-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    height: 100%;
+  }
+  .rate-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  }
+  .rate-price {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #28a745;
+  }
+  .rate-unit {
+    font-size: 0.9rem;
+    color: #6c757d;
+  }
+  .metadata-badge {
+    font-size: 0.75rem;
+    margin: 2px;
+  }
+  .upcoming-rate-badge {
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+  }
+  .filter-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .filter-select {
+    min-width: 140px;
+  }
+  .section-header {
+    border-bottom: 3px solid;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .section-header.gpu { border-color: #007bff; }
+  .section-header.cpu { border-color: #6f42c1; }
+  .section-header.maintenance { border-color: #28a745; }
+  .section-header.qos { border-color: #17a2b8; }
+  .no-results {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+  }
+  .sku-card.hidden-by-filter {
+    display: none !important;
+  }
+</style>
+
+<!-- Filters Section -->
+<div class="filter-section" id="filter-section">
+  <div class="row align-items-center">
+    <div class="col-auto">
+      <strong><i class="fas fa-filter"></i> Filters:</strong>
+    </div>
+    <div class="col-auto">
+      <select class="form-control form-control-sm filter-select" id="filter-category">
+        <option value="">All Categories</option>
+        <option value="NODE">Node Rentals</option>
+        <option value="MAINTENANCE">Account Maintenance Fees</option>
+        <option value="QOS">Rentable QoS</option>
+      </select>
+    </div>
+    {% for key, values in filter_options.items %}
+    <div class="col-auto">
+      <select class="form-control form-control-sm filter-select metadata-filter" 
+              id="filter-{{ key }}" data-key="{{ key }}">
+        <option value="">All {{ key|title }}</option>
+        {% for value in values %}
+        <option value="{{ value }}">{{ value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endfor %}
+    <div class="col-auto">
+      <button class="btn btn-sm btn-outline-secondary" id="clear-filters">
+        <i class="fas fa-times"></i> Clear
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- GPU Nodes Section -->
+{% if node_skus %}
+<div class="mb-4 sku-section" data-sku-type="NODE">
+  <h4 class="section-header gpu">
+    <i class="fas fa-microchip text-primary"></i> Node Rentals
+    <small class="text-muted">(Hourly Billing)</small>
+  </h4>
+  <div class="row" id="node-cards">
+    {% for item in node_skus %}
+    <div class="col-md-4 col-lg-3 mb-3 sku-card" 
+         data-sku-type="NODE"
+         data-sku-id="{{ item.sku.pk }}"
+         data-metadata='{{ item.metadata_json }}'>
+      <div class="card rate-card h-100">
+        <div class="card-body">
+          <h5 class="card-title">{{ item.sku.name }}</h5>
+          <div class="mb-3">
+            {% if item.current_rate %}
+              <span class="rate-price">${{ item.current_rate.rate }}</span>
+              <span class="rate-unit">/hour</span>
+            {% else %}
+              <span class="text-muted">Rate pending</span>
+            {% endif %}
+          </div>
+          
+          <!-- Metadata badges -->
+          <div class="mb-3">
+            {% if item.metadata.gpu_type %}
+              <span class="badge badge-primary metadata-badge">
+                {{ item.metadata.gpu_count }}× {{ item.metadata.gpu_type }}
+              </span>
+            {% endif %}
+            {% if item.metadata.gpu_memory_gb %}
+              <span class="badge badge-info metadata-badge">
+                {{ item.metadata.gpu_memory_gb }}GB GPU Mem
+              </span>
+            {% endif %}
+            {% if item.metadata.system_memory_gb %}
+              <span class="badge badge-secondary metadata-badge">
+                {{ item.metadata.system_memory_gb }}GB System
+              </span>
+            {% endif %}
+          </div>
+          
+          <!-- Upcoming rate change -->
+          {% if item.next_rate_change %}
+          <div class="alert alert-warning py-1 px-2 mb-2 upcoming-rate-badge">
+            <small>
+              <i class="fas fa-clock"></i> 
+              New rate ${{ item.next_rate_change.rate }}/hr 
+              effective {{ item.next_rate_change.effective_date|date:"M d, Y" }}
+            </small>
+          </div>
+          {% endif %}
+        </div>
+        <div class="card-footer bg-transparent">
+          <a href="{% url 'coldfront_orcd_direct_charge:sku-public-detail' item.sku.pk %}" 
+             class="btn btn-sm btn-outline-primary">
+            <i class="fas fa-info-circle"></i> Details
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Account Maintenance Fees Section -->
+{% if maintenance_skus %}
+<div class="mb-4 sku-section" data-sku-type="MAINTENANCE">
+  <h4 class="section-header maintenance">
+    <i class="fas fa-wrench text-success"></i> Account Maintenance Fees
+    <small class="text-muted">(Monthly Billing)</small>
+  </h4>
+  <div class="row" id="maintenance-cards">
+    {% for item in maintenance_skus %}
+    <div class="col-md-4 col-lg-3 mb-3 sku-card" 
+         data-sku-type="MAINTENANCE"
+         data-sku-id="{{ item.sku.pk }}"
+         data-metadata='{{ item.metadata_json }}'>
+      <div class="card rate-card h-100">
+        <div class="card-body">
+          <h5 class="card-title">{{ item.sku.name }}</h5>
+          <div class="mb-3">
+            {% if item.current_rate %}
+              <span class="rate-price">${{ item.current_rate.rate }}</span>
+              <span class="rate-unit">/month</span>
+            {% else %}
+              <span class="text-muted">Rate pending</span>
+            {% endif %}
+          </div>
+          
+          {% if item.sku.description %}
+          <p class="card-text text-muted small">{{ item.sku.description|truncatewords:20 }}</p>
+          {% endif %}
+          
+          <!-- Upcoming rate change -->
+          {% if item.next_rate_change %}
+          <div class="alert alert-warning py-1 px-2 mb-2 upcoming-rate-badge">
+            <small>
+              <i class="fas fa-clock"></i> 
+              New rate ${{ item.next_rate_change.rate }}/mo 
+              effective {{ item.next_rate_change.effective_date|date:"M d, Y" }}
+            </small>
+          </div>
+          {% endif %}
+        </div>
+        <div class="card-footer bg-transparent">
+          <a href="{% url 'coldfront_orcd_direct_charge:sku-public-detail' item.sku.pk %}" 
+             class="btn btn-sm btn-outline-success">
+            <i class="fas fa-info-circle"></i> Details
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Rentable QoS Section -->
+{% if qos_skus %}
+<div class="mb-4 sku-section" data-sku-type="QOS">
+  <h4 class="section-header qos">
+    <i class="fas fa-tachometer-alt text-info"></i> Rentable QoS
+    <small class="text-muted">(Monthly Billing)</small>
+  </h4>
+  <div class="row" id="qos-cards">
+    {% for item in qos_skus %}
+    <div class="col-md-4 col-lg-3 mb-3 sku-card" 
+         data-sku-type="QOS"
+         data-sku-id="{{ item.sku.pk }}"
+         data-metadata='{{ item.metadata_json }}'>
+      <div class="card rate-card h-100">
+        <div class="card-body">
+          <h5 class="card-title">{{ item.sku.name }}</h5>
+          <div class="mb-3">
+            {% if item.current_rate %}
+              <span class="rate-price">${{ item.current_rate.rate }}</span>
+              <span class="rate-unit">/month</span>
+            {% else %}
+              <span class="text-muted">Rate pending</span>
+            {% endif %}
+          </div>
+          
+          {% if item.sku.description %}
+          <p class="card-text text-muted small">{{ item.sku.description|truncatewords:20 }}</p>
+          {% endif %}
+          
+          <!-- Upcoming rate change -->
+          {% if item.next_rate_change %}
+          <div class="alert alert-warning py-1 px-2 mb-2 upcoming-rate-badge">
+            <small>
+              <i class="fas fa-clock"></i> 
+              New rate ${{ item.next_rate_change.rate }}/mo 
+              effective {{ item.next_rate_change.effective_date|date:"M d, Y" }}
+            </small>
+          </div>
+          {% endif %}
+        </div>
+        <div class="card-footer bg-transparent">
+          <a href="{% url 'coldfront_orcd_direct_charge:sku-public-detail' item.sku.pk %}" 
+             class="btn btn-sm btn-outline-info">
+            <i class="fas fa-info-circle"></i> Details
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- No results message -->
+<div id="no-results" class="no-results" style="display: none;">
+  <i class="fas fa-search fa-3x mb-3"></i>
+  <h5>No matching rates found</h5>
+  <p>Try adjusting your filters to see more results.</p>
+  <button class="btn btn-primary" id="no-results-clear">Clear Filters</button>
+</div>
+
+<!-- Empty state if no SKUs at all -->
+{% if not node_skus and not maintenance_skus and not qos_skus %}
+<div class="text-center py-5">
+  <i class="fas fa-dollar-sign fa-3x text-muted mb-3"></i>
+  <h5>No rates available</h5>
+  <p class="text-muted">Rate information will be displayed here once published.</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const filterOptions = {{ filter_options_json|safe }};
+  const categoryFilter = document.getElementById('filter-category');
+  const metadataFilters = document.querySelectorAll('.metadata-filter');
+  const clearBtn = document.getElementById('clear-filters');
+  const noResultsClearBtn = document.getElementById('no-results-clear');
+  const noResultsDiv = document.getElementById('no-results');
+  
+  function applyFilters() {
+    const categoryValue = categoryFilter.value;
+    const metadataFiltersValues = {};
+    
+    metadataFilters.forEach(filter => {
+      if (filter.value) {
+        metadataFiltersValues[filter.dataset.key] = filter.value;
+      }
+    });
+    
+    let visibleCount = 0;
+    
+    document.querySelectorAll('.sku-card').forEach(card => {
+      let show = true;
+      
+      // Category filter
+      if (categoryValue && card.dataset.skuType !== categoryValue) {
+        show = false;
+      }
+      
+      // Metadata filters
+      if (show && Object.keys(metadataFiltersValues).length > 0) {
+        try {
+          const metadata = JSON.parse(card.dataset.metadata || '{}');
+          for (const [key, value] of Object.entries(metadataFiltersValues)) {
+            if (metadata[key] === undefined || String(metadata[key]) !== String(value)) {
+              show = false;
+              break;
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing metadata:', e);
+        }
+      }
+      
+      // Use classList for reliable hiding
+      if (show) {
+        card.classList.remove('hidden-by-filter');
+        visibleCount++;
+      } else {
+        card.classList.add('hidden-by-filter');
+      }
+    });
+    
+    // Show/hide sections based on visible cards
+    document.querySelectorAll('.sku-section').forEach(section => {
+      const visibleCards = section.querySelectorAll('.sku-card:not(.hidden-by-filter)');
+      section.style.display = visibleCards.length > 0 ? '' : 'none';
+    });
+    
+    // Show "no results" if nothing visible
+    noResultsDiv.style.display = visibleCount === 0 ? '' : 'none';
+  }
+  
+  function clearFilters() {
+    categoryFilter.value = '';
+    metadataFilters.forEach(filter => filter.value = '');
+    applyFilters();
+  }
+  
+  // Event listeners
+  categoryFilter.addEventListener('change', applyFilters);
+  metadataFilters.forEach(filter => {
+    filter.addEventListener('change', applyFilters);
+  });
+  clearBtn.addEventListener('click', clearFilters);
+  if (noResultsClearBtn) {
+    noResultsClearBtn.addEventListener('click', clearFilters);
+  }
+  
+  // Initial state - ensure all cards are visible
+  document.querySelectorAll('.sku-card').forEach(card => {
+    card.classList.remove('hidden-by-filter');
+  });
+});
+</script>
+{% endblock javascript %}
+

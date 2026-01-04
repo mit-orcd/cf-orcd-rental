@@ -8,6 +8,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### January 4, 2026
+
+#### Added - Rate Manager Feature (`2386811`)
+- New **Rate Manager** role for managing rental charging rates
+- **New Models**:
+  - `RentalSKU`: Rentable items with SKU code, type (NODE, MAINTENANCE, QOS), billing unit
+  - `RentalRate`: Rate history with effective dates for time-based lookups
+- **New Views**:
+  - Rate management dashboard at `/nodes/rates/`
+  - SKU detail view with complete rate history
+  - Add rate form for setting new rates
+  - Create SKU form for custom QoS configurations
+- **New Permission**: `can_manage_rates`
+- **Management Command**: `setup_rate_manager` (--create-group, --add-user, --remove-user, --list)
+- **Initial SKU Data** (via migration):
+  - Node rentals: H200x8, L40Sx4, CPU_384G, CPU_1500G (hourly)
+  - Maintenance fees: Basic, Advanced (monthly)
+- Activity logging for rate changes (new RATE category)
+- "Manage Rates" link in Admin Functions dropdown
+- **New Migrations**: `0022_rentalsku_rentalrate`, `0023_alter_rentalrate_rate`
+- **Documentation**: [RATE_MANAGER.md](RATE_MANAGER.md)
+
+#### Changed - Views Package Refactor (`f4f0a6a`)
+- Split monolithic `views.py` (2,735 lines) into `views/` package with 6 modules:
+  - `views/nodes.py`: Node instance views (3 classes)
+  - `views/rentals.py`: Reservation and rental management (8 classes + 1 function)
+  - `views/billing.py`: Cost allocation and invoice management (8 classes)
+  - `views/members.py`: Project member management (7 classes)
+  - `views/rates.py`: Rate/SKU management (4 classes)
+  - `views/dashboard.py`: Home page and activity log (2 classes)
+- Backward compatible: all existing imports continue to work
+- **Documentation**: [CODE_ORGANIZATION.md](CODE_ORGANIZATION.md)
+
+#### Changed - Repository Configuration (`c6a8ae3`)
+- Updated repository URL in pyproject.toml for public release
+
+---
+
 ### December 30, 2025
 
 #### Added - Project & Reservation Enhancements
@@ -406,6 +444,11 @@ Recent commits in reverse chronological order:
 
 | Commit | Date | Description |
 |--------|------|-------------|
+| `51b462b` | 2026-01-04 | Merge branch 'main' |
+| `c6a8ae3` | 2026-01-04 | Update repository URL in pyproject.toml |
+| `f4f0a6a` | 2026-01-04 | Refactor: Split views.py into views/ package |
+| `2386811` | 2026-01-04 | Add Rate Manager feature for managing rental rates |
+| `5e27337` | 2025-12-30 | Update developer documentation |
 | `556933c` | 2025-12-30 | Add subscription alert to My Rentals card |
 | `a3ca777` | 2025-12-30 | Enhance rental manager and reservation request pages |
 | `6552cb3` | 2025-12-30 | Update reservation terminology: Approved → Confirmed |

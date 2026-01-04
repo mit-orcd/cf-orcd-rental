@@ -6,15 +6,18 @@
 Rate management views.
 
 Includes rate/SKU management for Rate Managers to maintain
-charging rates for rentable items.
+charging rates for rentable items, and public current rates page.
 """
 
+import json
 import logging
 from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
+from django.views import View
 from django.views.generic import TemplateView
 
 from coldfront_orcd_direct_charge.forms import (
@@ -215,4 +218,196 @@ class CreateSKUView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
         context = self.get_context_data(**kwargs)
         context["form"] = form
         return self.render_to_response(context)
+
+
+# =============================================================================
+# Public Rates Pages (accessible to all logged-in users)
+# =============================================================================
+
+
+class CurrentRatesView(LoginRequiredMixin, TemplateView):
+    """Public current rates page showing all visible SKUs with rates.
+
+    Accessible to all logged-in users. Shows SKUs grouped by type with
+    current rates, metadata, and upcoming rate changes.
+    """
+
+    template_name = "coldfront_orcd_direct_charge/current_rates.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Get all public, active SKUs
+        public_skus = RentalSKU.objects.filter(
+            is_active=True,
+            is_public=True,
+        ).prefetch_related("rates").order_by("sku_type", "name")
+
+        # Organize SKUs by type with rate info
+        node_skus = []
+        maintenance_skus = []
+        qos_skus = []
+
+        # Collect all metadata keys for dynamic filter generation
+        all_metadata_keys = set()
+
+        for sku in public_skus:
+            current_rate = sku.current_rate
+            next_rate = sku.next_rate_change
+            metadata = sku.metadata or {}
+
+            sku_data = {
+                "sku": sku,
+                "current_rate": current_rate,
+                "next_rate_change": next_rate,
+                "metadata": metadata,
+                "metadata_json": json.dumps(metadata),  # JSON-serialized for data attribute
+            }
+
+            # Collect metadata keys
+            if sku.metadata:
+                all_metadata_keys.update(sku.metadata.keys())
+
+            if sku.sku_type == RentalSKU.SKUType.NODE:
+                node_skus.append(sku_data)
+            elif sku.sku_type == RentalSKU.SKUType.MAINTENANCE:
+                maintenance_skus.append(sku_data)
+            else:  # QOS
+                qos_skus.append(sku_data)
+
+        # Build filter options from metadata
+        filter_options = self._build_filter_options(public_skus, all_metadata_keys)
+
+        context["node_skus"] = node_skus
+        context["maintenance_skus"] = maintenance_skus
+        context["qos_skus"] = qos_skus
+        context["filter_options"] = filter_options
+        context["filter_options_json"] = json.dumps(filter_options)
+
+        return context
+
+    def _build_filter_options(self, skus, metadata_keys):
+        """Build filter dropdown options from SKU metadata.
+
+        Args:
+            skus: QuerySet of RentalSKU objects
+            metadata_keys: Set of metadata keys found across all SKUs
+
+        Returns:
+            dict mapping metadata key to list of unique values
+        """
+        # Exclude internal/complex fields from filters
+        exclude_keys = {"features", "category"}
+        filterable_keys = metadata_keys - exclude_keys
+
+        filter_options = {}
+        for key in sorted(filterable_keys):
+            values = set()
+            for sku in skus:
+                if sku.metadata and key in sku.metadata:
+                    value = sku.metadata[key]
+                    # Only include simple values (not lists/dicts)
+                    if isinstance(value, (str, int, float)):
+                        values.add(value)
+
+            if values:
+                # Sort values (handle mixed types)
+                sorted_values = sorted(values, key=lambda x: (isinstance(x, str), str(x)))
+                filter_options[key] = sorted_values
+
+        return filter_options
+
+
+class SKUPublicDetailView(LoginRequiredMixin, TemplateView):
+    """Public detail view for a single SKU.
+
+    Shows full description, metadata, current rate, and rate history
+    for a public SKU. Accessible to all logged-in users.
+    """
+
+    template_name = "coldfront_orcd_direct_charge/sku_public_detail.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        # Only allow viewing public, active SKUs
+        self.sku = get_object_or_404(
+            RentalSKU,
+            pk=kwargs.get("pk"),
+            is_active=True,
+            is_public=True,
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["sku"] = self.sku
+        context["current_rate"] = self.sku.current_rate
+        context["next_rate_change"] = self.sku.next_rate_change
+        context["upcoming_rates"] = list(self.sku.upcoming_rates[:5])
+        context["metadata"] = self.sku.metadata or {}
+
+        # Format metadata for display (human-readable keys)
+        formatted_metadata = []
+        if self.sku.metadata:
+            key_labels = {
+                "gpu_type": "GPU Type",
+                "gpu_count": "Number of GPUs",
+                "gpu_memory_gb": "GPU Memory (GB)",
+                "cpu_cores": "CPU Cores",
+                "cpu_sockets": "CPU Sockets",
+                "system_memory_gb": "System Memory (GB)",
+                "local_storage_tb": "Local Storage (TB)",
+                "features": "Features",
+                "category": "Category",
+            }
+            for key, value in self.sku.metadata.items():
+                label = key_labels.get(key, key.replace("_", " ").title())
+                if isinstance(value, list):
+                    value = ", ".join(str(v) for v in value)
+                formatted_metadata.append({"key": key, "label": label, "value": value})
+
+        context["formatted_metadata"] = formatted_metadata
+
+        return context
+
+
+class ToggleSKUVisibilityView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """AJAX endpoint to toggle SKU visibility on Current Rates page.
+
+    Only accessible to Rate Managers.
+    """
+
+    permission_required = "coldfront_orcd_direct_charge.can_manage_rates"
+
+    def post(self, request, pk):
+        sku = get_object_or_404(RentalSKU, pk=pk)
+
+        # Toggle visibility
+        sku.is_public = not sku.is_public
+        sku.save(update_fields=["is_public"])
+
+        # Log the change
+        action = "sku.made_public" if sku.is_public else "sku.made_private"
+        log_activity(
+            action=action,
+            category=ActivityLog.ActionCategory.RATE,
+            description=f"SKU '{sku.name}' visibility changed to {'public' if sku.is_public else 'private'}",
+            user=request.user,
+            request=request,
+            target=sku,
+            extra_data={
+                "sku_code": sku.sku_code,
+                "is_public": sku.is_public,
+            },
+        )
+
+        logger.info(
+            f"SKU visibility toggled: sku={sku.sku_code}, "
+            f"is_public={sku.is_public}, user={request.user.username}"
+        )
+
+        return JsonResponse({
+            "success": True,
+            "is_public": sku.is_public,
+            "message": f"SKU is now {'visible' if sku.is_public else 'hidden'} on Current Rates page",
+        })
 

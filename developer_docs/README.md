@@ -88,8 +88,15 @@ coldfront-orcd-direct-charge/
 └── coldfront_orcd_direct_charge/   # Main plugin package
     ├── __init__.py
     ├── apps.py                     # Django AppConfig, settings, template injection
-    ├── models.py                   # All data models
-    ├── views.py                    # All view classes
+    ├── models.py                   # All data models (incl. RentalSKU, RentalRate)
+    ├── views/                      # View classes (refactored into package)
+    │   ├── __init__.py             # Re-exports all views for backward compatibility
+    │   ├── nodes.py                # Node instance views
+    │   ├── rentals.py              # Reservation and rental management
+    │   ├── billing.py              # Cost allocation and invoice management
+    │   ├── members.py              # Project member management
+    │   ├── rates.py                # Rate/SKU management
+    │   └── dashboard.py            # Home page and activity log
     ├── urls.py                     # URL routing
     ├── forms.py                    # Form classes
     ├── admin.py                    # Django admin configuration
@@ -192,6 +199,8 @@ coldfront-orcd-direct-charge/
 | [Views & URLs](views-urls.md) | View classes, URL patterns, and request flow |
 | [API Reference](api-reference.md) | REST API endpoints, authentication, examples |
 | [Signals](signals.md) | Signal handlers, auto-configuration, activity logging |
+| [Rate Manager](RATE_MANAGER.md) | Rate management feature for rental charging rates |
+| [Code Organization](CODE_ORGANIZATION.md) | Views package structure and module organization |
 | [Changelog](CHANGELOG.md) | Version history and changes |
 
 ---

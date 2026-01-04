@@ -510,6 +510,66 @@ Manual adjustment to an invoice line item.
 
 ---
 
+## Rate Management Models
+
+### RentalSKU
+
+Represents a rentable item with a unique SKU code. Used for tracking rates and billing.
+
+**Table**: `coldfront_orcd_direct_charge_rentalsku`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | AutoField | Primary key |
+| `sku_code` | CharField(50) | Unique identifier (e.g., "H200x8", "MAINTENANCE_BASIC") |
+| `name` | CharField(100) | Display name |
+| `description` | TextField | Optional description |
+| `sku_type` | CharField(20) | Type: NODE, MAINTENANCE, or QOS |
+| `billing_unit` | CharField(20) | HOURLY or MONTHLY |
+| `is_active` | BooleanField | Whether SKU is currently available |
+| `created` | DateTimeField | Auto-set on creation |
+| `modified` | DateTimeField | Auto-updated on save |
+
+**SKU Types**:
+- `NODE` - Node rentals (H200x8, L40Sx4, CPU_384G, CPU_1500G)
+- `MAINTENANCE` - Maintenance fees (Basic, Advanced)
+- `QOS` - Custom QoS configurations
+
+**Methods**:
+```python
+sku.get_rate_at_date(date)  # Returns rate effective on given date
+sku.current_rate            # Property: current effective rate
+```
+
+**Permissions**:
+- `can_manage_rates` - Required to manage SKUs and rates
+
+---
+
+### RentalRate
+
+Tracks rate history for SKUs with effective dates.
+
+**Table**: `coldfront_orcd_direct_charge_rentalrate`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | AutoField | Primary key |
+| `sku` | ForeignKey(RentalSKU) | The SKU this rate applies to |
+| `rate` | DecimalField(10,2) | Rate value |
+| `effective_date` | DateField | When this rate takes effect |
+| `set_by` | ForeignKey(User) | Rate Manager who set this rate |
+| `notes` | TextField | Optional notes about rate change |
+| `created` | DateTimeField | Auto-set on creation |
+
+**Related Names**:
+- `sku.rates`
+- `set_by.rental_rates_set`
+
+**Ordering**: By `effective_date` descending (most recent first)
+
+---
+
 ## Activity Logging
 
 ### ActivityLog
@@ -638,6 +698,8 @@ def can_view_activity_log(user) -> bool:
 | `0019_backfill_cost_allocation_snapshots` | Historical snapshot backfill |
 | `0020_activitylog` | ActivityLog model |
 | `0021_reservation_processed_by` | Add processed_by field to Reservation |
+| `0022_rentalsku_rentalrate` | RentalSKU, RentalRate models + initial SKU data |
+| `0023_alter_rentalrate_rate` | Adjust rate field precision |
 
 ---
 

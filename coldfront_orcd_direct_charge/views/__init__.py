@@ -67,6 +67,9 @@ from coldfront_orcd_direct_charge.views.rates import (
     SKURateDetailView,
     AddRateView,
     CreateSKUView,
+    CurrentRatesView,
+    SKUPublicDetailView,
+    ToggleSKUVisibilityView,
 )
 
 # Dashboard views
@@ -113,6 +116,9 @@ __all__ = [
     "SKURateDetailView",
     "AddRateView",
     "CreateSKUView",
+    "CurrentRatesView",
+    "SKUPublicDetailView",
+    "ToggleSKUVisibilityView",
     # Dashboard
     "Home2View",
     "ActivityLogView",

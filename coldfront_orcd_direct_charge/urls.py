@@ -47,11 +47,15 @@ urlpatterns = [
     path("project/<int:pk>/add-users/", views.ProjectAddUsersView.as_view(), name="project-add-users"),
     # User's personal views
     path("my/reservations/", views.MyReservationsView.as_view(), name="my-reservations"),
-    # Rate Management views
+    # Rate Management views (Rate Managers only)
     path("rates/", views.RateManagementView.as_view(), name="rate-management"),
     path("rates/sku/<int:pk>/", views.SKURateDetailView.as_view(), name="sku-rate-detail"),
     path("rates/sku/<int:pk>/add/", views.AddRateView.as_view(), name="add-rate"),
+    path("rates/sku/<int:pk>/visibility/", views.ToggleSKUVisibilityView.as_view(), name="toggle-sku-visibility"),
     path("rates/sku/create/", views.CreateSKUView.as_view(), name="create-sku"),
+    # Public Current Rates views (all logged-in users)
+    path("rates/current/", views.CurrentRatesView.as_view(), name="current-rates"),
+    path("rates/current/<int:pk>/", views.SKUPublicDetailView.as_view(), name="sku-public-detail"),
     # API
     path("api/", include("coldfront_orcd_direct_charge.api.urls")),
 ]

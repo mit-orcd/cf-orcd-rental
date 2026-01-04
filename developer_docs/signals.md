@@ -597,6 +597,36 @@ When `False`, hides the "Allocations" section from the home page.
 | `post_delete` | ProjectMemberRole | `log_member_role_delete` | Log role removals |
 | `post_save` | ProjectCostAllocation | `log_cost_allocation_change` | Log allocation changes |
 | `post_save` | UserMaintenanceStatus | `log_maintenance_status_change` | Log status changes |
+| `post_save` | RentalRate | `log_rate_change` | Log rate changes |
+
+---
+
+## Rate Change Logging
+
+### log_rate_change
+
+**Signal**: `post_save` on `RentalRate`  
+**Trigger**: New rate created
+
+```python
+def log_rate_change(sender, instance, created, **kwargs):
+    """Log rate changes for audit trail."""
+    if created:
+        log_activity(
+            action="rate.created",
+            category=ActivityLog.ActionCategory.RATE,
+            description=f"Rate set for {instance.sku.name}: ${instance.rate}",
+            user=instance.set_by,
+            target=instance.sku,
+            extra_data={
+                "sku_code": instance.sku.sku_code,
+                "rate": str(instance.rate),
+                "effective_date": instance.effective_date.isoformat(),
+            },
+        )
+```
+
+**ActivityLog Category**: `RATE` (new category added for rate management)
 
 ---
 

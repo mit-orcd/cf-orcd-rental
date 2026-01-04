@@ -9,8 +9,60 @@ Rate Management
 {% block content %}
 <div class="mb-3">
   <h2><i class="fas fa-dollar-sign"></i> Rate Management</h2>
-  <p class="text-muted">Manage rental rates for nodes, maintenance fees, and QoS</p>
+  <p class="text-muted">
+    Manage rental rates for nodes, account maintenance fees, and QoS
+    <a href="{% url 'coldfront_orcd_direct_charge:current-rates' %}" class="btn btn-sm btn-outline-info ml-3">
+      <i class="fas fa-eye"></i> View Public Rates Page
+    </a>
+  </p>
 </div>
+
+<style>
+  /* Toggle switch styles */
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+  }
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .3s;
+    border-radius: 24px;
+  }
+  .toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+  }
+  input:checked + .toggle-slider {
+    background-color: #28a745;
+  }
+  input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+  }
+  .toggle-switch.disabled .toggle-slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+</style>
 
 <!-- Node Rentals (Hourly) -->
 <div class="card mb-4">
@@ -29,6 +81,7 @@ Rate Management
           <th>Name</th>
           <th>Current Rate</th>
           <th>Effective Date</th>
+          <th class="text-center" title="Visible on public Current Rates page">Public</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -56,6 +109,15 @@ Rate Management
               -
             {% endif %}
           </td>
+          <td class="text-center">
+            <label class="toggle-switch mb-0" title="Toggle visibility on Current Rates page">
+              <input type="checkbox" 
+                     class="visibility-toggle" 
+                     data-sku-id="{{ item.sku.pk }}"
+                     {% if item.sku.is_public %}checked{% endif %}>
+              <span class="toggle-slider"></span>
+            </label>
+          </td>
           <td>
             <a href="{% url 'coldfront_orcd_direct_charge:add-rate' item.sku.pk %}" 
                class="btn btn-sm btn-outline-primary">
@@ -78,11 +140,11 @@ Rate Management
   </div>
 </div>
 
-<!-- Maintenance Fees (Monthly) -->
+<!-- Account Maintenance Fees (Monthly) -->
 <div class="card mb-4">
   <div class="card-header bg-success text-white">
     <h5 class="mb-0">
-      <i class="fas fa-wrench"></i> Maintenance Fees
+      <i class="fas fa-wrench"></i> Account Maintenance Fees
       <span class="badge badge-light ml-2">Monthly Billing</span>
     </h5>
   </div>
@@ -95,6 +157,7 @@ Rate Management
           <th>Name</th>
           <th>Current Rate</th>
           <th>Effective Date</th>
+          <th class="text-center" title="Visible on public Current Rates page">Public</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -122,6 +185,15 @@ Rate Management
               -
             {% endif %}
           </td>
+          <td class="text-center">
+            <label class="toggle-switch mb-0" title="Toggle visibility on Current Rates page">
+              <input type="checkbox" 
+                     class="visibility-toggle" 
+                     data-sku-id="{{ item.sku.pk }}"
+                     {% if item.sku.is_public %}checked{% endif %}>
+              <span class="toggle-slider"></span>
+            </label>
+          </td>
           <td>
             <a href="{% url 'coldfront_orcd_direct_charge:add-rate' item.sku.pk %}" 
                class="btn btn-sm btn-outline-success">
@@ -138,7 +210,7 @@ Rate Management
     </table>
     {% else %}
     <div class="p-4 text-muted text-center">
-      <i class="fas fa-info-circle"></i> No maintenance SKUs configured
+      <i class="fas fa-info-circle"></i> No account maintenance SKUs configured
     </div>
     {% endif %}
   </div>
@@ -165,6 +237,7 @@ Rate Management
           <th>Name</th>
           <th>Current Rate</th>
           <th>Effective Date</th>
+          <th class="text-center" title="Visible on public Current Rates page">Public</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -191,6 +264,15 @@ Rate Management
             {% else %}
               -
             {% endif %}
+          </td>
+          <td class="text-center">
+            <label class="toggle-switch mb-0" title="Toggle visibility on Current Rates page">
+              <input type="checkbox" 
+                     class="visibility-toggle" 
+                     data-sku-id="{{ item.sku.pk }}"
+                     {% if item.sku.is_public %}checked{% endif %}>
+              <span class="toggle-slider"></span>
+            </label>
           </td>
           <td>
             <a href="{% url 'coldfront_orcd_direct_charge:add-rate' item.sku.pk %}" 
@@ -220,5 +302,56 @@ Rate Management
     <i class="fas fa-arrow-left"></i> Back to Dashboard
   </a>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Handle visibility toggle clicks
+  document.querySelectorAll('.visibility-toggle').forEach(function(toggle) {
+    toggle.addEventListener('change', function() {
+      const skuId = this.dataset.skuId;
+      const checkbox = this;
+      const label = checkbox.closest('.toggle-switch');
+      
+      // Disable while processing
+      label.classList.add('disabled');
+      checkbox.disabled = true;
+      
+      // Get CSRF token
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value 
+        || document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+      
+      fetch(`{% url 'coldfront_orcd_direct_charge:toggle-sku-visibility' pk=0 %}`.replace('/0/', `/${skuId}/`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+        },
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          checkbox.checked = data.is_public;
+        } else {
+          // Revert on failure
+          checkbox.checked = !checkbox.checked;
+          alert('Failed to update visibility');
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        checkbox.checked = !checkbox.checked;
+        alert('Failed to update visibility');
+      })
+      .finally(() => {
+        label.classList.remove('disabled');
+        checkbox.disabled = false;
+      });
+    });
+  });
+});
+</script>
+{% csrf_token %}
 {% endblock %}
 
