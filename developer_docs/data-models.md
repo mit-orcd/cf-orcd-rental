@@ -527,6 +527,8 @@ Represents a rentable item with a unique SKU code. Used for tracking rates and b
 | `sku_type` | CharField(20) | Type: NODE, MAINTENANCE, or QOS |
 | `billing_unit` | CharField(20) | HOURLY or MONTHLY |
 | `is_active` | BooleanField | Whether SKU is currently available |
+| `is_public` | BooleanField | Whether visible on Current Rates page |
+| `metadata` | JSONField | Dynamic attributes (e.g., GPU type, memory) |
 | `created` | DateTimeField | Auto-set on creation |
 | `modified` | DateTimeField | Auto-updated on save |
 
@@ -700,6 +702,7 @@ def can_view_activity_log(user) -> bool:
 | `0021_reservation_processed_by` | Add processed_by field to Reservation |
 | `0022_rentalsku_rentalrate` | RentalSKU, RentalRate models + initial SKU data |
 | `0023_alter_rentalrate_rate` | Adjust rate field precision |
+| `0024_rentalsku_metadata_visibility` | Add is_public, metadata to RentalSKU |
 
 ---
 

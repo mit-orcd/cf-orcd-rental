@@ -10,6 +10,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### January 4, 2026
 
+#### Added - Current Rates Public Page (`573b72d`)
+- Public rates page visible to all logged-in users at `/nodes/current-rates/`
+- Card-based layout with SKUs grouped by category (Node, Maintenance, QoS)
+- Dynamic filtering by category and metadata attributes (GPU type, memory, etc.)
+- Upcoming rate change badges showing scheduled rate changes
+- SKU detail view at `/nodes/current-rates/sku/<pk>/`
+- **New RentalSKU fields**: `is_public`, `metadata` (JSONField)
+- Visibility toggle in Rate Manager dashboard (AJAX)
+- "Rates" link added to navbar for all logged-in users
+- **Terminology change**: "Maintenance Fee" → "Account Maintenance Fee"
+- **New Migration**: `0024_rentalsku_metadata_visibility`
+
+#### Fixed - Template Error (`ebc9547`)
+- Remove invalid split/trim filters from sku_public_detail.html
+
 #### Added - Rate Manager Feature (`2386811`)
 - New **Rate Manager** role for managing rental charging rates
 - **New Models**:
@@ -444,6 +459,8 @@ Recent commits in reverse chronological order:
 
 | Commit | Date | Description |
 |--------|------|-------------|
+| `ebc9547` | 2026-01-04 | Fix template error in sku_public_detail.html |
+| `573b72d` | 2026-01-04 | Add Current Rates public page with dynamic filtering |
 | `51b462b` | 2026-01-04 | Merge branch 'main' |
 | `c6a8ae3` | 2026-01-04 | Update repository URL in pyproject.toml |
 | `f4f0a6a` | 2026-01-04 | Refactor: Split views.py into views/ package |

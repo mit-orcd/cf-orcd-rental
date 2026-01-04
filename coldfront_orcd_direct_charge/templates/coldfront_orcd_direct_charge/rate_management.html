@@ -297,6 +297,9 @@ Rate Management
   </div>
 </div>
 
+<!-- Hidden form for CSRF token -->
+<form id="csrf-form" style="display: none;">{% csrf_token %}</form>
+
 <div class="mt-4">
   <a href="{% url 'coldfront_orcd_direct_charge:node-instance-list' %}" class="btn btn-secondary">
     <i class="fas fa-arrow-left"></i> Back to Dashboard
@@ -322,27 +325,43 @@ document.addEventListener('DOMContentLoaded', function() {
       const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value 
         || document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
       
-      fetch(`{% url 'coldfront_orcd_direct_charge:toggle-sku-visibility' pk=0 %}`.replace('/0/', `/${skuId}/`), {
+      const url = `{% url 'coldfront_orcd_direct_charge:toggle-sku-visibility' pk=0 %}`.replace('/0/', `/${skuId}/`);
+      
+      if (!csrfToken) {
+        console.error('CSRF token not found');
+        checkbox.checked = !checkbox.checked;
+        alert('Error: CSRF token not found. Please refresh the page.');
+        return;
+      }
+      
+      fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRFToken': csrfToken,
         },
+        credentials: 'same-origin',
       })
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
       .then(data => {
         if (data.success) {
           checkbox.checked = data.is_public;
+          console.log(`SKU ${skuId} visibility set to ${data.is_public}`);
         } else {
           // Revert on failure
           checkbox.checked = !checkbox.checked;
-          alert('Failed to update visibility');
+          alert('Failed to update visibility: ' + (data.message || 'Unknown error'));
         }
       })
       .catch(error => {
-        console.error('Error:', error);
+        console.error('Error updating visibility:', error);
         checkbox.checked = !checkbox.checked;
-        alert('Failed to update visibility');
+        alert('Failed to update visibility: ' + error.message);
       })
       .finally(() => {
         label.classList.remove('disabled');
@@ -352,6 +371,5 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
-{% csrf_token %}
 {% endblock %}
 

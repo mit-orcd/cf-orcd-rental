@@ -25,6 +25,7 @@ This document describes all view classes and URL patterns in the ORCD Direct Cha
 - [Invoice Views](#invoice-views)
 - [Member Management Views](#member-management-views)
 - [Rate Management Views](#rate-management-views)
+- [Current Rates Views](#current-rates-views)
 - [Activity Log Views](#activity-log-views)
 - [Template Override Views](#template-override-views)
 
@@ -67,6 +68,9 @@ All plugin URLs are prefixed with `/nodes/` (configured in ColdFront's `urls.py`
 | | `/nodes/rates/sku/<pk>/` | SKU rate detail and history |
 | | `/nodes/rates/sku/<pk>/add-rate/` | Add new rate for SKU |
 | | `/nodes/rates/sku/create/` | Create new SKU |
+| | `/nodes/rates/sku/<pk>/toggle-visibility/` | Toggle SKU public visibility |
+| **Current Rates** | `/nodes/current-rates/` | Public rates page (all users) |
+| | `/nodes/current-rates/sku/<pk>/` | Public SKU detail |
 | **Activity Log** | `/nodes/activity-log/` | View activity log |
 | **API** | `/nodes/api/...` | REST API endpoints |
 
@@ -864,6 +868,67 @@ Form to create a new custom QoS SKU.
 - `name` - Display name
 - `description` - Optional description
 - `billing_unit` - HOURLY or MONTHLY
+
+---
+
+### ToggleSKUVisibilityView
+
+**URL**: `/nodes/rates/sku/<pk>/toggle-visibility/`  
+**Name**: `coldfront_orcd_direct_charge:toggle-sku-visibility`  
+**Module**: `views/rates.py`
+
+AJAX endpoint to toggle SKU visibility on Current Rates page. Requires `can_manage_rates` permission.
+
+**Response** (JSON):
+```json
+{
+    "success": true,
+    "is_public": true
+}
+```
+
+---
+
+## Current Rates Views
+
+These views are accessible to all logged-in users (no special permission required).
+
+### CurrentRatesView
+
+**URL**: `/nodes/current-rates/`  
+**Name**: `coldfront_orcd_direct_charge:current-rates`  
+**Template**: `coldfront_orcd_direct_charge/current_rates.html`  
+**Module**: `views/rates.py`
+
+Public-facing page showing current pricing for all visible SKUs.
+
+**Context Variables**:
+- `node_skus` - Public node SKUs with current rates
+- `maintenance_skus` - Public maintenance fee SKUs
+- `qos_skus` - Public QoS SKUs
+- `filter_options` - Dynamic filter options from metadata
+
+**UI Features**:
+- Card-based layout grouped by category
+- Dynamic filtering by metadata attributes (GPU type, memory, etc.)
+- Upcoming rate change badges
+- "Rates" link in navbar for all logged-in users
+
+---
+
+### SKUPublicDetailView
+
+**URL**: `/nodes/current-rates/sku/<pk>/`  
+**Name**: `coldfront_orcd_direct_charge:sku-public-detail`  
+**Template**: `coldfront_orcd_direct_charge/sku_public_detail.html`  
+**Module**: `views/rates.py`
+
+Public detail page for a specific SKU showing current rate and metadata.
+
+**Context Variables**:
+- `sku` - The RentalSKU object
+- `current_rate` - Current effective rate
+- `upcoming_rate` - Next scheduled rate change (if any)
 
 ---
 
