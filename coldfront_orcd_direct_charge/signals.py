@@ -336,6 +336,7 @@ def connect_activity_log_signals():
         ProjectMemberRole,
         ProjectCostAllocation,
         UserMaintenanceStatus,
+        RentalRate,
     )
 
     post_save.connect(log_reservation_change, sender=Reservation)
@@ -343,6 +344,7 @@ def connect_activity_log_signals():
     post_delete.connect(log_member_role_delete, sender=ProjectMemberRole)
     post_save.connect(log_cost_allocation_change, sender=ProjectCostAllocation)
     post_save.connect(log_maintenance_status_change, sender=UserMaintenanceStatus)
+    post_save.connect(log_rate_change, sender=RentalRate)
 
 
 def log_reservation_change(sender, instance, created, **kwargs):
@@ -477,3 +479,29 @@ def log_maintenance_status_change(sender, instance, created, **kwargs):
                 "billing_project": billing_project,
             },
         )
+
+
+def log_rate_change(sender, instance, created, **kwargs):
+    """Log rate creation and updates."""
+    from coldfront_orcd_direct_charge.models import ActivityLog, log_activity
+
+    action = "rate.created" if created else "rate.updated"
+    description = (
+        f"Rate for {instance.sku.name}: ${instance.rate}/{instance.sku.get_billing_unit_display()} "
+        f"effective {instance.effective_date}"
+    )
+
+    log_activity(
+        action=action,
+        category=ActivityLog.ActionCategory.RATE,
+        description=description,
+        user=instance.set_by,
+        target=instance,
+        extra_data={
+            "sku_code": instance.sku.sku_code,
+            "sku_name": instance.sku.name,
+            "rate": str(instance.rate),
+            "effective_date": str(instance.effective_date),
+            "billing_unit": instance.sku.billing_unit,
+        },
+    )

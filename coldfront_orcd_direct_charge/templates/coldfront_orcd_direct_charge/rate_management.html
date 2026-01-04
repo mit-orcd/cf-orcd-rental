@@ -1,0 +1,224 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}
+Rate Management
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h2><i class="fas fa-dollar-sign"></i> Rate Management</h2>
+  <p class="text-muted">Manage rental rates for nodes, maintenance fees, and QoS</p>
+</div>
+
+<!-- Node Rentals (Hourly) -->
+<div class="card mb-4">
+  <div class="card-header bg-primary text-white">
+    <h5 class="mb-0">
+      <i class="fas fa-microchip"></i> Node Rentals
+      <span class="badge badge-light ml-2">Hourly Billing</span>
+    </h5>
+  </div>
+  <div class="card-body p-0">
+    {% if node_skus %}
+    <table class="table table-hover mb-0">
+      <thead class="thead-light">
+        <tr>
+          <th>SKU</th>
+          <th>Name</th>
+          <th>Current Rate</th>
+          <th>Effective Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in node_skus %}
+        <tr>
+          <td>
+            <code>{{ item.sku.sku_code }}</code>
+            {% if not item.sku.is_active %}
+              <span class="badge badge-secondary">Inactive</span>
+            {% endif %}
+          </td>
+          <td>{{ item.sku.name }}</td>
+          <td>
+            {% if item.current_rate %}
+              <strong>${{ item.current_rate.rate }}/hr</strong>
+            {% else %}
+              <span class="text-muted">No rate set</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if item.current_rate %}
+              {{ item.current_rate.effective_date|date:"M d, Y" }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'coldfront_orcd_direct_charge:add-rate' item.sku.pk %}" 
+               class="btn btn-sm btn-outline-primary">
+              <i class="fas fa-plus"></i> Add Rate
+            </a>
+            <a href="{% url 'coldfront_orcd_direct_charge:sku-rate-detail' item.sku.pk %}" 
+               class="btn btn-sm btn-outline-secondary">
+              <i class="fas fa-history"></i> History ({{ item.rate_count }})
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="p-4 text-muted text-center">
+      <i class="fas fa-info-circle"></i> No node SKUs configured
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Maintenance Fees (Monthly) -->
+<div class="card mb-4">
+  <div class="card-header bg-success text-white">
+    <h5 class="mb-0">
+      <i class="fas fa-wrench"></i> Maintenance Fees
+      <span class="badge badge-light ml-2">Monthly Billing</span>
+    </h5>
+  </div>
+  <div class="card-body p-0">
+    {% if maintenance_skus %}
+    <table class="table table-hover mb-0">
+      <thead class="thead-light">
+        <tr>
+          <th>SKU</th>
+          <th>Name</th>
+          <th>Current Rate</th>
+          <th>Effective Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in maintenance_skus %}
+        <tr>
+          <td>
+            <code>{{ item.sku.sku_code }}</code>
+            {% if not item.sku.is_active %}
+              <span class="badge badge-secondary">Inactive</span>
+            {% endif %}
+          </td>
+          <td>{{ item.sku.name }}</td>
+          <td>
+            {% if item.current_rate %}
+              <strong>${{ item.current_rate.rate }}/mo</strong>
+            {% else %}
+              <span class="text-muted">No rate set</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if item.current_rate %}
+              {{ item.current_rate.effective_date|date:"M d, Y" }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'coldfront_orcd_direct_charge:add-rate' item.sku.pk %}" 
+               class="btn btn-sm btn-outline-success">
+              <i class="fas fa-plus"></i> Add Rate
+            </a>
+            <a href="{% url 'coldfront_orcd_direct_charge:sku-rate-detail' item.sku.pk %}" 
+               class="btn btn-sm btn-outline-secondary">
+              <i class="fas fa-history"></i> History ({{ item.rate_count }})
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="p-4 text-muted text-center">
+      <i class="fas fa-info-circle"></i> No maintenance SKUs configured
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Rentable QoS (Monthly) -->
+<div class="card mb-4">
+  <div class="card-header bg-info text-white">
+    <h5 class="mb-0">
+      <i class="fas fa-tachometer-alt"></i> Rentable QoS
+      <span class="badge badge-light ml-2">Monthly Billing</span>
+      <a href="{% url 'coldfront_orcd_direct_charge:create-sku' %}" 
+         class="btn btn-sm btn-light float-right">
+        <i class="fas fa-plus"></i> Add Custom QoS
+      </a>
+    </h5>
+  </div>
+  <div class="card-body p-0">
+    {% if qos_skus %}
+    <table class="table table-hover mb-0">
+      <thead class="thead-light">
+        <tr>
+          <th>SKU</th>
+          <th>Name</th>
+          <th>Current Rate</th>
+          <th>Effective Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in qos_skus %}
+        <tr>
+          <td>
+            <code>{{ item.sku.sku_code }}</code>
+            {% if not item.sku.is_active %}
+              <span class="badge badge-secondary">Inactive</span>
+            {% endif %}
+          </td>
+          <td>{{ item.sku.name }}</td>
+          <td>
+            {% if item.current_rate %}
+              <strong>${{ item.current_rate.rate }}/mo</strong>
+            {% else %}
+              <span class="text-muted">No rate set</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if item.current_rate %}
+              {{ item.current_rate.effective_date|date:"M d, Y" }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'coldfront_orcd_direct_charge:add-rate' item.sku.pk %}" 
+               class="btn btn-sm btn-outline-info">
+              <i class="fas fa-plus"></i> Add Rate
+            </a>
+            <a href="{% url 'coldfront_orcd_direct_charge:sku-rate-detail' item.sku.pk %}" 
+               class="btn btn-sm btn-outline-secondary">
+              <i class="fas fa-history"></i> History ({{ item.rate_count }})
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="p-4 text-muted text-center">
+      <i class="fas fa-info-circle"></i> No QoS SKUs configured. 
+      <a href="{% url 'coldfront_orcd_direct_charge:create-sku' %}">Create one now</a>.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="mt-4">
+  <a href="{% url 'coldfront_orcd_direct_charge:node-instance-list' %}" class="btn btn-secondary">
+    <i class="fas fa-arrow-left"></i> Back to Dashboard
+  </a>
+</div>
+{% endblock %}
+

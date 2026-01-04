@@ -416,3 +416,139 @@ class ProjectAddUserWithRoleForm(forms.Form):
         required=False,  # At least one must be selected when user is selected
     )
     selected = forms.BooleanField(initial=False, required=False)
+
+
+# =============================================================================
+# Rate Management Forms
+# =============================================================================
+
+
+class RateForm(forms.Form):
+    """Form for adding a new rate to a SKU."""
+
+    rate = forms.DecimalField(
+        max_digits=12,
+        decimal_places=6,
+        min_value=0,
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "step": "0.000001",
+                "placeholder": "0.000000",
+            }
+        ),
+        help_text="Rate per billing unit",
+    )
+    effective_date = forms.DateField(
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+                "class": "form-control",
+            }
+        ),
+        help_text="Date when this rate becomes effective",
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 3,
+                "placeholder": "Optional notes about this rate change...",
+            }
+        ),
+        help_text="Optional notes explaining this rate change",
+    )
+
+    def __init__(self, *args, sku=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sku = sku
+
+    def clean_effective_date(self):
+        effective_date = self.cleaned_data["effective_date"]
+
+        if self.sku:
+            # Check for existing rate on this date
+            from coldfront_orcd_direct_charge.models import RentalRate
+            if RentalRate.objects.filter(sku=self.sku, effective_date=effective_date).exists():
+                raise ValidationError(
+                    f"A rate already exists for {effective_date}. "
+                    "Each date can only have one rate."
+                )
+
+        return effective_date
+
+
+class SKUForm(forms.Form):
+    """Form for creating a new custom SKU (primarily for QoS)."""
+
+    sku_code = forms.CharField(
+        max_length=50,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "e.g., QOS_CUSTOM_TIER1",
+            }
+        ),
+        help_text="Unique identifier (alphanumeric and underscores)",
+    )
+    name = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "e.g., Custom QoS Tier 1",
+            }
+        ),
+        help_text="Display name for this SKU",
+    )
+    description = forms.CharField(
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 3,
+                "placeholder": "Optional description...",
+            }
+        ),
+        help_text="Optional description",
+    )
+    sku_type = forms.ChoiceField(
+        choices=[
+            ("QOS", "Rentable QoS"),
+            ("MAINTENANCE", "Maintenance Fee"),
+        ],
+        initial="QOS",
+        widget=forms.Select(attrs={"class": "form-control"}),
+        help_text="Type of SKU (QoS is billed monthly)",
+    )
+    initial_rate = forms.DecimalField(
+        max_digits=12,
+        decimal_places=6,
+        min_value=0,
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "step": "0.000001",
+                "placeholder": "0.000000",
+            }
+        ),
+        help_text="Initial rate per month",
+    )
+
+    def clean_sku_code(self):
+        sku_code = self.cleaned_data["sku_code"].upper()
+
+        # Validate format
+        import re
+        if not re.match(r'^[A-Z0-9_]+$', sku_code):
+            raise ValidationError(
+                "SKU code can only contain letters, numbers, and underscores"
+            )
+
+        # Check uniqueness
+        from coldfront_orcd_direct_charge.models import RentalSKU
+        if RentalSKU.objects.filter(sku_code=sku_code).exists():
+            raise ValidationError(f"SKU code '{sku_code}' already exists")
+
+        return sku_code

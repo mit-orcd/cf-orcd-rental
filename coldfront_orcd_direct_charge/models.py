@@ -1050,6 +1050,162 @@ def has_approved_cost_allocation(project):
 
 
 # =============================================================================
+# Rate Management Models
+# =============================================================================
+
+
+class RentalSKU(TimeStampedModel):
+    """A rentable item/service with associated rates.
+
+    SKUs represent billable items that can be rented or subscribed to.
+    Each SKU has a type (NODE, MAINTENANCE, QOS) and billing unit
+    (HOURLY for nodes, MONTHLY for subscriptions).
+
+    NODE SKUs are automatically created from NodeType records and linked
+    via the linked_model field. MAINTENANCE and QOS SKUs are created
+    manually by Rate Managers.
+
+    Attributes:
+        sku_code (str): Unique identifier (e.g., "NODE_H200x8", "MAINT_BASIC")
+        name (str): Display name (e.g., "H200x8 GPU Node")
+        description (str): Optional description
+        sku_type (str): Category of SKU (NODE, MAINTENANCE, QOS)
+        billing_unit (str): How the SKU is billed (HOURLY, MONTHLY)
+        is_active (bool): Whether this SKU is currently active
+        linked_model (str): Optional link to source model (e.g., "NodeType:H200x8")
+    """
+
+    class SKUType(models.TextChoices):
+        NODE = "NODE", "Node Rental"
+        MAINTENANCE = "MAINTENANCE", "Maintenance Fee"
+        QOS = "QOS", "Rentable QoS"
+
+    class BillingUnit(models.TextChoices):
+        HOURLY = "HOURLY", "Per Hour"
+        MONTHLY = "MONTHLY", "Per Month"
+
+    sku_code = models.CharField(
+        max_length=50,
+        unique=True,
+        help_text="Unique identifier for this SKU (e.g., NODE_H200x8)",
+    )
+    name = models.CharField(
+        max_length=100,
+        help_text="Display name for this SKU",
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Optional description of this SKU",
+    )
+    sku_type = models.CharField(
+        max_length=20,
+        choices=SKUType.choices,
+        help_text="Type of rentable item",
+    )
+    billing_unit = models.CharField(
+        max_length=20,
+        choices=BillingUnit.choices,
+        help_text="How this SKU is billed",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this SKU is currently active and available",
+    )
+    linked_model = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Optional link to source model (e.g., 'NodeType:H200x8')",
+    )
+
+    class Meta:
+        ordering = ["sku_type", "name"]
+        verbose_name = "Rental SKU"
+        verbose_name_plural = "Rental SKUs"
+        permissions = [
+            ("can_manage_rates", "Can manage rental rates"),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.sku_code})"
+
+    def get_rate_for_date(self, target_date):
+        """Get the effective rate for a specific date.
+
+        Finds the most recent rate that was effective on or before the target date.
+
+        Args:
+            target_date: The date to find the rate for
+
+        Returns:
+            RentalRate instance or None if no rate exists
+        """
+        return self.rates.filter(
+            effective_date__lte=target_date
+        ).order_by("-effective_date").first()
+
+    @property
+    def current_rate(self):
+        """Get the current effective rate.
+
+        Returns:
+            RentalRate instance or None if no rate exists
+        """
+        from datetime import date
+        return self.get_rate_for_date(date.today())
+
+
+class RentalRate(TimeStampedModel):
+    """A rate for a SKU with effective date for history tracking.
+
+    Rates are immutable once created - new rates are added with future
+    effective dates rather than modifying existing rates. This preserves
+    complete rate history for billing accuracy.
+
+    Attributes:
+        sku (RentalSKU): The SKU this rate applies to
+        rate (Decimal): The rate per billing unit
+        effective_date (date): When this rate becomes active
+        set_by (User): The Rate Manager who set this rate
+        notes (str): Optional notes about the rate change
+    """
+
+    sku = models.ForeignKey(
+        RentalSKU,
+        on_delete=models.CASCADE,
+        related_name="rates",
+        help_text="The SKU this rate applies to",
+    )
+    rate = models.DecimalField(
+        max_digits=12,
+        decimal_places=6,
+        help_text="Rate per billing unit (hourly or monthly)",
+    )
+    effective_date = models.DateField(
+        help_text="Date when this rate becomes effective",
+    )
+    set_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="rates_set",
+        help_text="The Rate Manager who set this rate",
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Optional notes about this rate change",
+    )
+
+    class Meta:
+        ordering = ["-effective_date"]
+        verbose_name = "Rental Rate"
+        verbose_name_plural = "Rental Rates"
+        unique_together = ["sku", "effective_date"]
+
+    def __str__(self):
+        return f"{self.sku.sku_code}: ${self.rate}/{self.sku.get_billing_unit_display()} (effective {self.effective_date})"
+
+
+# =============================================================================
 # Activity Log Model and Helpers
 # =============================================================================
 
@@ -1066,6 +1222,7 @@ class ActivityLog(models.Model):
         BILLING = "billing", "Billing"
         INVOICE = "invoice", "Invoice"
         MAINTENANCE = "maintenance", "Maintenance Status"
+        RATE = "rate", "Rate Management"
         API = "api", "API Access"
         VIEW = "view", "Page View"
 

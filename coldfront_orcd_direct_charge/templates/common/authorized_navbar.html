@@ -24,7 +24,7 @@
           <div class="dropdown-menu">
             <a id="navbar-project" class="dropdown-item" href="{% url 'project-list' %}">Projects</a>
             <a id="navbar-my-reservations" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:my-reservations' %}">My Reservations</a>
-            {% if perms.coldfront_orcd_direct_charge.can_manage_rentals or perms.coldfront_orcd_direct_charge.can_manage_billing %}
+            {% if perms.coldfront_orcd_direct_charge.can_manage_rentals or perms.coldfront_orcd_direct_charge.can_manage_billing or perms.coldfront_orcd_direct_charge.can_manage_rates %}
               <div class="dropdown-divider"></div>
               <h6 class="dropdown-header">Admin Functions</h6>
               {% if perms.coldfront_orcd_direct_charge.can_manage_rentals %}
@@ -32,6 +32,11 @@
               {% endif %}
               {% if perms.coldfront_orcd_direct_charge.can_manage_billing %}
                 <a id="navbar-manage-billing" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:pending-cost-allocations' %}">Manage Billing</a>
+              {% endif %}
+              {% if perms.coldfront_orcd_direct_charge.can_manage_rates %}
+                <a id="navbar-manage-rates" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:rate-management' %}">
+                  <i class="fas fa-dollar-sign fa-fw mr-1"></i> Manage Rates
+                </a>
               {% endif %}
               <a id="navbar-activity-log" class="dropdown-item" href="{% url 'coldfront_orcd_direct_charge:activity-log' %}">Activity Log</a>
             {% endif %}

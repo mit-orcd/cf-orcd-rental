@@ -11,6 +11,8 @@ from coldfront_orcd_direct_charge.models import (
     ProjectMemberRole,
     Reservation,
     ReservationMetadataEntry,
+    RentalSKU,
+    RentalRate,
 )
 
 
@@ -170,6 +172,90 @@ class ReservationAdmin(admin.ModelAdmin):
             status=Reservation.StatusChoices.DECLINED
         )
         self.message_user(request, f"{count} reservation(s) declined.")
+
+
+class RentalRateInline(admin.TabularInline):
+    """Inline admin for rates on RentalSKU."""
+    model = RentalRate
+    extra = 0
+    readonly_fields = ("created", "set_by")
+    fields = ("rate", "effective_date", "set_by", "notes", "created")
+    ordering = ("-effective_date",)
+
+
+@admin.register(RentalSKU)
+class RentalSKUAdmin(admin.ModelAdmin):
+    """Admin for RentalSKU model."""
+    list_display = (
+        "sku_code",
+        "name",
+        "sku_type",
+        "billing_unit",
+        "is_active",
+        "current_rate_display",
+        "rate_count",
+        "modified",
+    )
+    list_filter = ("sku_type", "billing_unit", "is_active")
+    search_fields = ("sku_code", "name", "description", "linked_model")
+    ordering = ("sku_type", "name")
+    readonly_fields = ("created", "modified")
+    inlines = [RentalRateInline]
+
+    fieldsets = (
+        (None, {
+            "fields": ("sku_code", "name", "description")
+        }),
+        ("Configuration", {
+            "fields": ("sku_type", "billing_unit", "is_active", "linked_model")
+        }),
+        ("Timestamps", {
+            "fields": ("created", "modified"),
+            "classes": ("collapse",)
+        }),
+    )
+
+    @admin.display(description="Current Rate")
+    def current_rate_display(self, obj):
+        rate = obj.current_rate
+        if rate:
+            unit = "hr" if obj.billing_unit == "HOURLY" else "mo"
+            return f"${rate.rate}/{unit}"
+        return "-"
+
+    @admin.display(description="Rates")
+    def rate_count(self, obj):
+        return obj.rates.count()
+
+
+@admin.register(RentalRate)
+class RentalRateAdmin(admin.ModelAdmin):
+    """Admin for RentalRate model."""
+    list_display = (
+        "sku",
+        "rate",
+        "effective_date",
+        "set_by",
+        "created",
+    )
+    list_filter = ("sku__sku_type", "effective_date", "sku")
+    search_fields = ("sku__sku_code", "sku__name", "notes", "set_by__username")
+    ordering = ("-effective_date",)
+    readonly_fields = ("created", "modified")
+    raw_id_fields = ("sku", "set_by")
+
+    fieldsets = (
+        (None, {
+            "fields": ("sku", "rate", "effective_date")
+        }),
+        ("Details", {
+            "fields": ("set_by", "notes")
+        }),
+        ("Timestamps", {
+            "fields": ("created", "modified"),
+            "classes": ("collapse",)
+        }),
+    )
 
 
 @admin.register(ActivityLog)

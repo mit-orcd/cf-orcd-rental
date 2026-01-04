@@ -1,0 +1,156 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}
+Add Rate - {{ sku.name }}
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item">
+        <a href="{% url 'coldfront_orcd_direct_charge:rate-management' %}">Rate Management</a>
+      </li>
+      <li class="breadcrumb-item">
+        <a href="{% url 'coldfront_orcd_direct_charge:sku-rate-detail' sku.pk %}">{{ sku.name }}</a>
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">Add Rate</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">
+          <i class="fas fa-plus-circle"></i> Add New Rate for {{ sku.name }}
+        </h5>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="form-group">
+            <label for="id_rate">
+              Rate ({{ sku.get_billing_unit_display|lower }}) <span class="text-danger">*</span>
+            </label>
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text">$</span>
+              </div>
+              {{ form.rate }}
+            </div>
+            {% if form.rate.errors %}
+              <div class="invalid-feedback d-block">{{ form.rate.errors.0 }}</div>
+            {% endif %}
+            <small class="form-text text-muted">
+              Enter the rate in dollars (e.g., 15.00 for $15.00 per {{ sku.get_billing_unit_display|lower }}). Up to 6 decimal places supported.
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="id_effective_date">
+              Effective Date <span class="text-danger">*</span>
+            </label>
+            {{ form.effective_date }}
+            {% if form.effective_date.errors %}
+              <div class="invalid-feedback d-block">{{ form.effective_date.errors.0 }}</div>
+            {% endif %}
+            <small class="form-text text-muted">
+              Date when this rate becomes active. Use a future date to schedule rate changes.
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="id_notes">Notes</label>
+            {{ form.notes }}
+            {% if form.notes.errors %}
+              <div class="invalid-feedback d-block">{{ form.notes.errors.0 }}</div>
+            {% endif %}
+            <small class="form-text text-muted">
+              Optional notes explaining the reason for this rate change
+            </small>
+          </div>
+
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+              {% for error in form.non_field_errors %}
+                {{ error }}
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <hr>
+
+          <div class="d-flex justify-content-between">
+            <a href="{% url 'coldfront_orcd_direct_charge:sku-rate-detail' sku.pk %}" class="btn btn-secondary">
+              <i class="fas fa-times"></i> Cancel
+            </a>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-check"></i> Add Rate
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="fas fa-info-circle"></i> SKU Info</h6>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm table-borderless mb-0">
+          <tr>
+            <th>SKU:</th>
+            <td><code>{{ sku.sku_code }}</code></td>
+          </tr>
+          <tr>
+            <th>Name:</th>
+            <td>{{ sku.name }}</td>
+          </tr>
+          <tr>
+            <th>Billing:</th>
+            <td>{{ sku.get_billing_unit_display }}</td>
+          </tr>
+        </table>
+
+        <hr>
+
+        <h6>Current Rate</h6>
+        {% if current_rate %}
+          <div class="alert alert-info mb-0 py-2">
+            <strong>${{ current_rate.rate }}</strong>
+            / {{ sku.get_billing_unit_display|lower }}
+            <br>
+            <small class="text-muted">Since {{ current_rate.effective_date|date:"M d, Y" }}</small>
+          </div>
+        {% else %}
+          <div class="alert alert-warning mb-0 py-2">
+            <i class="fas fa-exclamation-triangle"></i> No rate set
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="fas fa-lightbulb"></i> Tips</h6>
+      </div>
+      <div class="card-body">
+        <ul class="mb-0 pl-3">
+          <li>Rates cannot be deleted or modified once created</li>
+          <li>Use future effective dates to schedule rate changes</li>
+          <li>Only one rate per effective date is allowed</li>
+          <li>The most recent rate (by date) is automatically used for billing</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

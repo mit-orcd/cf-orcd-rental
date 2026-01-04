@@ -1,0 +1,160 @@
+{% extends "common/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}
+Create Custom SKU
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item">
+        <a href="{% url 'coldfront_orcd_direct_charge:rate-management' %}">Rate Management</a>
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">Create SKU</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">
+          <i class="fas fa-plus-circle"></i> Create New SKU
+        </h5>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="form-group">
+            <label for="id_sku_code">
+              SKU Code <span class="text-danger">*</span>
+            </label>
+            {{ form.sku_code }}
+            {% if form.sku_code.errors %}
+              <div class="invalid-feedback d-block">{{ form.sku_code.errors.0 }}</div>
+            {% endif %}
+            <small class="form-text text-muted">
+              Unique identifier using letters, numbers, and underscores (e.g., QOS_CUSTOM_TIER1)
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="id_name">
+              Display Name <span class="text-danger">*</span>
+            </label>
+            {{ form.name }}
+            {% if form.name.errors %}
+              <div class="invalid-feedback d-block">{{ form.name.errors.0 }}</div>
+            {% endif %}
+            <small class="form-text text-muted">
+              Human-readable name for this SKU
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="id_description">Description</label>
+            {{ form.description }}
+            {% if form.description.errors %}
+              <div class="invalid-feedback d-block">{{ form.description.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <div class="form-group">
+            <label for="id_sku_type">
+              SKU Type <span class="text-danger">*</span>
+            </label>
+            {{ form.sku_type }}
+            {% if form.sku_type.errors %}
+              <div class="invalid-feedback d-block">{{ form.sku_type.errors.0 }}</div>
+            {% endif %}
+            <small class="form-text text-muted">
+              Type determines how the SKU is categorized and displayed
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="id_initial_rate">
+              Initial Rate (per month) <span class="text-danger">*</span>
+            </label>
+            <div class="input-group">
+              <div class="input-group-prepend">
+                <span class="input-group-text">$</span>
+              </div>
+              {{ form.initial_rate }}
+              <div class="input-group-append">
+                <span class="input-group-text">/month</span>
+              </div>
+            </div>
+            {% if form.initial_rate.errors %}
+              <div class="invalid-feedback d-block">{{ form.initial_rate.errors.0 }}</div>
+            {% endif %}
+            <small class="form-text text-muted">
+              The initial rate for this SKU (effective immediately)
+            </small>
+          </div>
+
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+              {% for error in form.non_field_errors %}
+                {{ error }}
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <hr>
+
+          <div class="d-flex justify-content-between">
+            <a href="{% url 'coldfront_orcd_direct_charge:rate-management' %}" class="btn btn-secondary">
+              <i class="fas fa-times"></i> Cancel
+            </a>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-check"></i> Create SKU
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="fas fa-info-circle"></i> About Custom SKUs</h6>
+      </div>
+      <div class="card-body">
+        <p>
+          Custom SKUs are typically used for:
+        </p>
+        <ul>
+          <li><strong>QoS Tiers</strong> - Custom Quality of Service configurations</li>
+          <li><strong>Special Subscriptions</strong> - Custom maintenance packages</li>
+        </ul>
+        <hr>
+        <p class="mb-0">
+          <i class="fas fa-lightbulb text-warning"></i>
+          Node SKUs are automatically created from NodeType records and cannot be manually created.
+        </p>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="fas fa-exclamation-triangle text-warning"></i> Important</h6>
+      </div>
+      <div class="card-body">
+        <ul class="mb-0 pl-3">
+          <li>SKU codes are permanent and cannot be changed</li>
+          <li>All custom SKUs use monthly billing</li>
+          <li>Once created, SKUs can be deactivated but not deleted</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
