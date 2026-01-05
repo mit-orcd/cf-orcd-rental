@@ -1,0 +1,179 @@
+# Test Environment Setup
+
+This directory contains scripts for setting up a complete ColdFront environment with the plugin installed. The setup is CI-agnostic and works with GitHub Actions, GitLab CI, Woodpecker CI, or local development.
+
+## Quick Start
+
+```bash
+./setup_environment.sh
+```
+
+This will:
+1. Clone ColdFront v1.1.7 to the parent directory
+2. Create a Python virtual environment
+3. Install ColdFront and the plugin
+4. Configure local settings
+5. Apply database migrations
+6. Load fixtures
+7. Start the development server
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `setup_environment.sh` | Main setup script |
+| `local_settings.py.template` | ColdFront configuration template |
+| `README.md` | This documentation |
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `COLDFRONT_VERSION` | `1.1.7` | ColdFront version to clone |
+| `WORKSPACE` | `../` | Parent directory for ColdFront clone |
+| `USE_UV` | `true` | Use `uv` for faster installs (falls back to pip) |
+| `RUNNER_TYPE` | `github` | Runner type: `github`, `self-hosted`, `local` |
+| `SERVER_PORT` | `8000` | Port for development server |
+| `SKIP_SERVER` | `false` | Skip starting the server |
+| `SKIP_FIXTURES` | `false` | Skip loading fixtures |
+
+## Usage Examples
+
+### Local Development
+
+```bash
+# Full setup with defaults
+./setup_environment.sh
+
+# Skip server (you'll start it manually)
+SKIP_SERVER=true ./setup_environment.sh
+
+# Use a different ColdFront version
+COLDFRONT_VERSION=1.1.8 ./setup_environment.sh
+
+# Use pip instead of uv
+USE_UV=false ./setup_environment.sh
+```
+
+### CI/CD Integration
+
+#### GitHub Actions
+
+```yaml
+- name: Setup Environment
+  run: ./tests/setup/setup_environment.sh
+  env:
+    RUNNER_TYPE: github
+```
+
+#### GitLab CI
+
+```yaml
+setup:
+  script:
+    - ./tests/setup/setup_environment.sh
+  variables:
+    RUNNER_TYPE: gitlab
+```
+
+#### Woodpecker CI
+
+```yaml
+steps:
+  - name: setup
+    commands:
+      - ./tests/setup/setup_environment.sh
+    environment:
+      RUNNER_TYPE: woodpecker
+```
+
+### Self-Hosted Runners
+
+For self-hosted runners with pre-installed dependencies:
+
+```bash
+RUNNER_TYPE=self-hosted ./setup_environment.sh
+```
+
+## Directory Structure After Setup
+
+```
+your-workspace/
+├── coldfront/                          # ColdFront installation
+│   ├── .venv/                          # Python virtual environment
+│   ├── coldfront/
+│   │   └── config/
+│   │       ├── local_settings.py       # Generated from template
+│   │       └── urls.py                 # Modified to include plugin URLs
+│   └── db.sqlite3                      # SQLite database
+└── coldfront-orcd-direct-charge/       # This plugin
+    └── tests/
+        └── setup/                      # This directory
+```
+
+## Troubleshooting
+
+### Server won't start
+
+Check the server log:
+```bash
+cat /tmp/coldfront_server.log
+```
+
+### Port already in use
+
+Kill existing processes on the port:
+```bash
+lsof -ti:8000 | xargs kill -9
+```
+
+### Missing dependencies
+
+Ensure you have:
+- `git`
+- `python3` (3.9+)
+- `curl`
+- `uv` (optional, for faster installs)
+
+### Migration errors
+
+Try resetting the database:
+```bash
+rm ../coldfront/db.sqlite3
+./setup_environment.sh
+```
+
+## Customization
+
+### Custom Settings
+
+Edit `local_settings.py.template` to change default settings. Key options:
+
+```python
+# Branding
+CENTER_NAME = 'Your Center Name'
+
+# Features
+AUTO_PI_ENABLE = True              # Auto-set users as PIs
+AUTO_DEFAULT_PROJECT_ENABLE = True  # Auto-create user projects
+
+# Database (for production)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        # ...
+    }
+}
+```
+
+### Using External Database
+
+For CI with PostgreSQL services:
+
+```bash
+export DATABASE_URL="postgres://user:pass@localhost:5432/coldfront"
+./setup_environment.sh
+```
+
+(Requires adding DATABASE_URL support to local_settings.py.template)
+

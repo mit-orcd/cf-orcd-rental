@@ -12,10 +12,25 @@ Each test lives in its own subdirectory with:
 tests/
 ├── README.md              # This file
 ├── run_all_tests.sh       # Master script to run all tests
+├── setup/                 # Environment setup scripts
+│   ├── README.md          # Setup documentation
+│   ├── setup_environment.sh        # Main setup script
+│   └── local_settings.py.template  # ColdFront config template
 └── smoke_http/            # HTTP connectivity smoke test
     ├── README.md
     └── test.sh
 ```
+
+## Setting Up the Test Environment
+
+For CI/CD or fresh development environments, use the setup script:
+
+```bash
+./tests/setup/setup_environment.sh
+```
+
+This clones ColdFront, installs dependencies, configures settings, and starts the server.
+See `tests/setup/README.md` for full documentation.
 
 ## Running Tests
 

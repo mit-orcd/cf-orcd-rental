@@ -1,0 +1,69 @@
+# ColdFront Local Settings for Testing
+#
+# This file is used by setup_environment.sh to configure ColdFront
+# for plugin testing. Copy this to coldfront/config/local_settings.py
+#
+# For production deployments, see the main ColdFront documentation.
+#
+
+# =============================================================================
+# Plugin Configuration
+# =============================================================================
+
+INSTALLED_APPS += ['coldfront_orcd_direct_charge']
+
+# =============================================================================
+# Auto-Configuration Features
+# =============================================================================
+
+# Automatically set all users as PIs (allows project creation)
+AUTO_PI_ENABLE = True
+
+# Automatically create personal and group projects for each user
+AUTO_DEFAULT_PROJECT_ENABLE = True
+
+# =============================================================================
+# Center Branding
+# =============================================================================
+
+CENTER_NAME = 'MIT ORCD Rental Services'
+
+# =============================================================================
+# API Configuration
+# =============================================================================
+
+# Enable the REST API
+PLUGIN_API = True
+
+# =============================================================================
+# UI Configuration
+# =============================================================================
+
+# Hide Center Summary from navigation (plugin overrides this)
+CENTER_SUMMARY_ENABLE = False
+
+# Hide allocations section from home page (uses rental system instead)
+HOME_PAGE_ALLOCATIONS_ENABLE = False
+
+# =============================================================================
+# Database (Optional - defaults to SQLite)
+# =============================================================================
+
+# For testing, SQLite is sufficient. For production, use PostgreSQL:
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'coldfront',
+#         'USER': 'coldfront',
+#         'PASSWORD': 'your_password',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
+# }
+
+# =============================================================================
+# Debug Settings (for development/testing only)
+# =============================================================================
+
+DEBUG = True
+
