@@ -22,6 +22,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Terminology change**: "Maintenance Fee" → "Account Maintenance Fee"
 - **New Migration**: `0024_rentalsku_metadata_visibility`
 
+#### Fixed - JavaScript Block Name (`09d0793`)
+- Fixed JavaScript not loading in rate_management.html
+- Changed `{% block extra_js %}` to `{% block javascript %}` to match base.html
+- Toggle switches now have proper event handlers
+
+#### Fixed - SKU Visibility Toggle (`2c57cd0`)
+- Fixed CSRF token not available for AJAX requests
+- Moved CSRF token to hidden form inside content block
+- Added proper error handling and console logging
+- Toggle changes now persist correctly
+
 #### Fixed - Template Error (`ebc9547`)
 - Remove invalid split/trim filters from sku_public_detail.html
 
@@ -459,6 +470,8 @@ Recent commits in reverse chronological order:
 
 | Commit | Date | Description |
 |--------|------|-------------|
+| `09d0793` | 2026-01-04 | Fix JavaScript block name in rate_management.html |
+| `2c57cd0` | 2026-01-04 | Fix SKU visibility toggle CSRF and persistence |
 | `ebc9547` | 2026-01-04 | Fix template error in sku_public_detail.html |
 | `573b72d` | 2026-01-04 | Add Current Rates public page with dynamic filtering |
 | `51b462b` | 2026-01-04 | Merge branch 'main' |
