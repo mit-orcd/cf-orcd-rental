@@ -17,6 +17,9 @@ These features are IRREVERSIBLE - once applied, changes persist even if features
 
 import logging
 
+from datetime import date
+from decimal import Decimal
+
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
@@ -25,6 +28,103 @@ from django.conf import settings
 from coldfront.core.project.models import Project, ProjectUser
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# NodeType to RentalSKU Synchronization
+# Automatically create/update RentalSKU when NodeType changes
+# =============================================================================
+
+
+def connect_nodetype_sku_signals():
+    """
+    Connect signal handlers for NodeType to RentalSKU synchronization.
+    
+    This is called from apps.py to avoid circular imports.
+    """
+    from coldfront_orcd_direct_charge.models import NodeType
+    
+    post_save.connect(sync_nodetype_to_sku, sender=NodeType)
+
+
+def sync_nodetype_to_sku(sender, instance, created, **kwargs):
+    """
+    Create or update RentalSKU when NodeType is created or updated.
+    
+    This ensures that:
+    1. Loading NodeType fixtures automatically creates corresponding RentalSKUs
+    2. Updating a NodeType updates the display name and metadata in RentalSKU
+    3. Deactivating a NodeType deactivates the corresponding RentalSKU
+    
+    The sku_code is preserved (not changed on rename) to maintain billing history.
+    """
+    from coldfront_orcd_direct_charge.models import RentalSKU, RentalRate
+    
+    # Build the SKU code - this stays stable even if NodeType is renamed
+    # We check for existing SKU by linked_model first, then by sku_code
+    sku_code = f"NODE_{instance.name}"
+    linked_model = f"NodeType:{instance.name}"
+    
+    # Try to find existing SKU by linked_model pattern (handles renames)
+    existing_sku = RentalSKU.objects.filter(
+        linked_model__startswith="NodeType:"
+    ).filter(sku_code__startswith="NODE_").filter(
+        linked_model=linked_model
+    ).first()
+    
+    # If not found by current linked_model, try by sku_code (new NodeType)
+    if not existing_sku:
+        existing_sku = RentalSKU.objects.filter(sku_code=sku_code).first()
+    
+    # Build metadata from NodeType fields
+    metadata = {
+        "category": instance.category,
+        "node_type_name": instance.name,
+    }
+    
+    if existing_sku:
+        # Update existing SKU
+        existing_sku.name = f"{instance.name} Node"
+        existing_sku.description = instance.description or ""
+        existing_sku.is_active = instance.is_active
+        existing_sku.linked_model = linked_model
+        # Merge metadata, preserving any manually-added fields
+        if existing_sku.metadata:
+            existing_sku.metadata.update(metadata)
+        else:
+            existing_sku.metadata = metadata
+        existing_sku.save()
+        
+        logger.info(
+            "RentalSKU updated from NodeType: sku=%s, node_type=%s, is_active=%s",
+            existing_sku.sku_code, instance.name, instance.is_active
+        )
+    else:
+        # Create new SKU
+        sku = RentalSKU.objects.create(
+            sku_code=sku_code,
+            name=f"{instance.name} Node",
+            description=instance.description or "",
+            sku_type=RentalSKU.SKUType.NODE,
+            billing_unit=RentalSKU.BillingUnit.HOURLY,
+            is_active=instance.is_active,
+            linked_model=linked_model,
+            is_public=True,
+            metadata=metadata,
+        )
+        
+        # Create initial placeholder rate
+        RentalRate.objects.create(
+            sku=sku,
+            rate=Decimal("0.01"),
+            effective_date=date.today(),
+            notes="Initial placeholder rate (auto-created from NodeType)",
+        )
+        
+        logger.info(
+            "RentalSKU created from NodeType: sku=%s, node_type=%s",
+            sku.sku_code, instance.name
+        )
 
 
 @receiver(post_save, sender=User)

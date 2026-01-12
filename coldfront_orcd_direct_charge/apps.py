@@ -22,6 +22,10 @@ class OrcdDirectChargeConfig(AppConfig):
         # Connect activity logging signals
         signals.connect_activity_log_signals()
 
+        # Connect NodeType to RentalSKU synchronization signals
+        # This ensures RentalSKU records are created/updated when NodeTypes change
+        signals.connect_nodetype_sku_signals()
+
         # Dynamically add the plugin templates directory to TEMPLATES['DIRS']
         # This allows the plugin to override core ColdFront templates
         plugin_templates_dir = os.path.join(
