@@ -1,143 +1,99 @@
-# Node SKUs Missing After Plugin Installation
+# NodeType to RentalSKU Synchronization
 
-## Problem Summary
+## Overview
 
-When deploying the `coldfront-orcd-direct-charge` plugin to a new environment, the **Node Rentals** section on the Rate Management page may show "No node SKUs configured" even though NodeType records exist in the database.
+The `coldfront-orcd-direct-charge` plugin automatically synchronizes `NodeType` records with `RentalSKU` records. This ensures that the Rates tab correctly displays all available node types.
 
-## Root Cause
+## How It Works
 
-The migration `0022_rentalsku_rentalrate.py` creates `RentalSKU` records for nodes by iterating over existing `NodeType` records **at the time the migration runs**:
+### Automatic Synchronization (Signal Handler)
 
-```python
-# From migration 0022
-for node_type in NodeType.objects.filter(is_active=True):
-    sku = RentalSKU.objects.create(
-        sku_code=f"NODE_{node_type.name}",
-        ...
-    )
-```
+When a `NodeType` record is created or updated (including via `loaddata` fixtures), a Django signal handler automatically:
 
-If the NodeType fixtures are loaded **after** the migration has already completed, no node SKUs will be created. The migration only runs once.
+1. **Creates a new RentalSKU** if one doesn't exist for the NodeType
+2. **Updates the existing RentalSKU** if the NodeType changes (name, description, is_active)
+3. **Creates an initial placeholder rate** of $0.01/hour for new SKUs
 
-**Typical problematic sequence:**
-1. Run `python manage.py migrate` → Migration 0022 runs, finds no NodeTypes, creates only maintenance fee SKUs
-2. Run `python manage.py loaddata node_types.json` → NodeTypes now exist
-3. Node SKUs were never created because the migration already completed
+The signal handler is defined in `signals.py`:
+- `sync_nodetype_to_sku()` - Handles NodeType post_save signals
+- `connect_nodetype_sku_signals()` - Connects the signal in `apps.py`
 
-## Diagnosis
+### SKU Code Stability
 
-Check the database to verify the issue:
+The `sku_code` (e.g., `NODE_H200x8`) is based on the NodeType name at creation time and is **not changed** if the NodeType is renamed. This preserves billing history references. However, the display name and linked_model are updated to reflect the current NodeType name.
 
-```bash
-python -c "
-import sqlite3
-conn = sqlite3.connect('coldfront.db')
-cursor = conn.cursor()
+### Metadata Sync
 
-print('=== NodeType records ===')
-cursor.execute('SELECT name, is_active FROM coldfront_orcd_direct_charge_nodetype')
-rows = cursor.fetchall()
-for row in rows:
-    print(f'  {row[0]}: is_active={row[1]}')
+The signal handler copies metadata from NodeType to RentalSKU:
+- `category` - GPU or CPU
+- `node_type_name` - Current name of the NodeType
 
-print()
-print('=== RentalSKU records ===')
-cursor.execute('SELECT sku_code, name, sku_type FROM coldfront_orcd_direct_charge_rentalsku')
-rows = cursor.fetchall()
-for row in rows:
-    print(f'  {row[0]}: {row[1]} (type={row[2]}')
+## Manual Synchronization
 
-conn.close()
-"
-```
-
-**If you see NodeType records but no NODE-type RentalSKU records, this confirms the issue.**
-
-## Solution
-
-### Option 1: Manual Database Fix (for existing deployments)
-
-Run this Python script to create the missing node SKUs:
-
-```python
-import sqlite3
-from datetime import date
-
-conn = sqlite3.connect('coldfront.db')
-cursor = conn.cursor()
-
-today = date.today().isoformat()
-placeholder_rate = '0.01'
-
-# Get all active NodeTypes
-cursor.execute('SELECT name, description FROM coldfront_orcd_direct_charge_nodetype WHERE is_active = 1')
-node_types = cursor.fetchall()
-
-print('Creating node SKUs...')
-for name, description in node_types:
-    sku_code = f'NODE_{name}'
-    sku_name = f'{name} Node'
-    
-    # Check if already exists
-    cursor.execute('SELECT id FROM coldfront_orcd_direct_charge_rentalsku WHERE sku_code = ?', (sku_code,))
-    if cursor.fetchone():
-        print(f'  {sku_code} already exists, skipping')
-        continue
-    
-    # Insert the SKU
-    cursor.execute('''
-        INSERT INTO coldfront_orcd_direct_charge_rentalsku 
-        (created, modified, sku_code, name, description, sku_type, billing_unit, is_active, linked_model, is_public, metadata)
-        VALUES (datetime('now'), datetime('now'), ?, ?, ?, 'NODE', 'HOURLY', 1, ?, 1, '{}')
-    ''', (sku_code, sku_name, description or '', f'NodeType:{name}'))
-    
-    sku_id = cursor.lastrowid
-    
-    # Insert the initial rate
-    cursor.execute('''
-        INSERT INTO coldfront_orcd_direct_charge_rentalrate
-        (created, modified, rate, effective_date, notes, set_by_id, sku_id)
-        VALUES (datetime('now'), datetime('now'), ?, ?, 'Initial placeholder rate', NULL, ?)
-    ''', (placeholder_rate, today, sku_id))
-    
-    print(f'  Created {sku_code} with $0.01 placeholder rate')
-
-conn.commit()
-conn.close()
-print('Done!')
-```
-
-### Option 2: Correct Installation Order (for new deployments)
-
-When setting up a new environment, ensure fixtures are loaded **before** running migrations:
+For existing deployments or to verify synchronization, use the management command:
 
 ```bash
-# 1. Run migrations up to (but not including) 0022
-python manage.py migrate coldfront_orcd_direct_charge 0021
+# Sync all active NodeTypes (creates missing SKUs, updates existing)
+coldfront sync_node_skus
 
-# 2. Load NodeType fixtures
-python manage.py loaddata coldfront_orcd_direct_charge/fixtures/node_types.json
+# Include inactive NodeTypes
+coldfront sync_node_skus --all
 
-# 3. Run remaining migrations (including 0022 which creates SKUs)
-python manage.py migrate coldfront_orcd_direct_charge
+# Preview what would be done without making changes
+coldfront sync_node_skus --dry-run
 ```
 
-### Option 3: Use Django Admin
+## Installation Order (No Longer Critical)
 
-If you have access to Django Admin:
-1. Navigate to Admin → Rental SKUs
-2. Manually create RentalSKU records for each NodeType
-3. Create corresponding RentalRate records
+With automatic synchronization, the installation order is no longer critical:
 
-## Prevention
+1. Run all migrations: `coldfront migrate`
+2. Load fixtures: `coldfront loaddata node_types.json` (triggers automatic SKU creation)
+3. Verify: `coldfront sync_node_skus --dry-run` (should show all SKUs as "already synced")
 
-For future deployments, consider:
-1. Documenting the correct installation order in the README
-2. Creating a management command that syncs NodeTypes to RentalSKUs
-3. Adding a post-fixture-load hook that creates missing SKUs
+The Rates tab will automatically display all NodeTypes that have been loaded.
+
+## Troubleshooting
+
+### Rates Tab Shows "No node SKUs configured"
+
+If you see this after loading NodeType fixtures:
+
+1. **Verify NodeTypes exist:**
+   ```python
+   from coldfront_orcd_direct_charge.models import NodeType
+   print(NodeType.objects.filter(is_active=True).count())
+   ```
+
+2. **Run manual sync:**
+   ```bash
+   coldfront sync_node_skus
+   ```
+
+3. **Check RentalSKU records:**
+   ```python
+   from coldfront_orcd_direct_charge.models import RentalSKU
+   print(RentalSKU.objects.filter(sku_type='NODE').count())
+   ```
+
+### SKUs Have Placeholder Rates
+
+New SKUs are created with $0.01/hour placeholder rates. Use the Rate Management interface to set actual rates:
+
+1. Log in as a Rate Manager
+2. Go to Project → Manage Rates
+3. Select each SKU and add the correct rate
+
+## Historical Context
+
+Prior to this fix, `RentalSKU` records were only created during migration 0022. If `NodeType` fixtures were loaded after the migration ran, no SKUs would be created, causing the Rates tab to appear empty.
+
+The automatic synchronization via signals resolves this issue permanently.
 
 ## Related Files
 
-- Migration: `coldfront_orcd_direct_charge/migrations/0022_rentalsku_rentalrate.py`
-- Models: `coldfront_orcd_direct_charge/models.py` (RentalSKU, RentalRate, NodeType)
-- Fixtures: `coldfront_orcd_direct_charge/fixtures/node_types.json`
+- `coldfront_orcd_direct_charge/signals.py` - Signal handler for sync
+- `coldfront_orcd_direct_charge/apps.py` - Signal connection
+- `coldfront_orcd_direct_charge/management/commands/sync_node_skus.py` - Manual sync command
+- `coldfront_orcd_direct_charge/models.py` - NodeType and RentalSKU models
+- `coldfront_orcd_direct_charge/migrations/0022_rentalsku_rentalrate.py` - Original migration (still runs but sync ensures completeness)
