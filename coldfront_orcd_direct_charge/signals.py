@@ -58,7 +58,22 @@ def sync_nodetype_to_sku(sender, instance, created, **kwargs):
     
     The sku_code is preserved (not changed on rename) to maintain billing history.
     """
+    from django.db import connection
     from coldfront_orcd_direct_charge.models import RentalSKU, RentalRate
+    
+    # Check if RentalSKU table exists (might not during initial migrations)
+    # This prevents errors when loading NodeType fixtures before migration 0022
+    try:
+        table_names = connection.introspection.table_names()
+        if "coldfront_orcd_direct_charge_rentalsku" not in table_names:
+            logger.debug(
+                "RentalSKU table does not exist yet, skipping sync for NodeType %s",
+                instance.name
+            )
+            return
+    except Exception:
+        # Database introspection failed, skip sync
+        return
     
     # Build the SKU code - this stays stable even if NodeType is renamed
     # We check for existing SKU by linked_model first, then by sku_code
