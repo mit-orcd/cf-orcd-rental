@@ -123,13 +123,22 @@ coldfront loaddata cpu_node_instances   # CPU node instances
 coldfront loaddata node_resource_types  # Optional: ColdFront ResourceType entries
 ```
 
-### Step 6: Set Up Rental Manager (Optional)
+### Step 6: Set Up Management Roles (Optional)
 
-Create the Rental Manager group and add users:
+Create the management groups and add users as needed:
 
 ```bash
+# Rental Manager - can approve/decline reservations
 coldfront setup_rental_manager --create-group
 coldfront setup_rental_manager --add-user <username>
+
+# Rate Manager - can manage rental rates and SKUs
+coldfront setup_rate_manager --create-group
+coldfront setup_rate_manager --add-user <username>
+
+# Billing Manager - can approve cost allocations and manage invoices
+coldfront setup_billing_manager --create-group
+coldfront setup_billing_manager --add-user <username>
 ```
 
 ### Step 7: Restart ColdFront
@@ -408,20 +417,45 @@ AUTO_DEFAULT_PROJECT_ENABLE = True  # Create USERNAME_personal and USERNAME_grou
 
 ### setup_rental_manager
 
-Manage the Rental Manager group:
+Manage the Rental Manager group (can approve/decline reservations):
 
 ```bash
-# Create the group with can_manage_rentals permission
-coldfront setup_rental_manager --create-group
+coldfront setup_rental_manager --create-group           # Create group with can_manage_rentals permission
+coldfront setup_rental_manager --add-user <username>    # Add user to group
+coldfront setup_rental_manager --remove-user <username> # Remove user from group
+coldfront setup_rental_manager --list                   # List all rental managers
+```
 
-# Add user to group
-coldfront setup_rental_manager --add-user <username>
+### setup_rate_manager
 
-# Remove user from group
-coldfront setup_rental_manager --remove-user <username>
+Manage the Rate Manager group (can manage rental rates and SKUs):
 
-# List all rental managers
-coldfront setup_rental_manager --list
+```bash
+coldfront setup_rate_manager --create-group           # Create group with can_manage_rates permission
+coldfront setup_rate_manager --add-user <username>    # Add user to group
+coldfront setup_rate_manager --remove-user <username> # Remove user from group
+coldfront setup_rate_manager --list                   # List all rate managers
+```
+
+### setup_billing_manager
+
+Manage the Billing Manager group (can approve cost allocations and manage invoices):
+
+```bash
+coldfront setup_billing_manager --create-group           # Create group with can_manage_billing permission
+coldfront setup_billing_manager --add-user <username>    # Add user to group
+coldfront setup_billing_manager --remove-user <username> # Remove user from group
+coldfront setup_billing_manager --list                   # List all billing managers
+```
+
+### sync_node_skus
+
+Synchronize RentalSKUs with NodeTypes (creates missing SKUs for the Rates tab):
+
+```bash
+coldfront sync_node_skus           # Sync all active NodeTypes
+coldfront sync_node_skus --all     # Include inactive NodeTypes
+coldfront sync_node_skus --dry-run # Preview what would be done
 ```
 
 ---
@@ -480,11 +514,13 @@ This plugin overrides the following ColdFront templates:
 
 ## Permissions
 
-| Permission | Description |
-|------------|-------------|
-| `can_manage_rentals` | Access to rental manager dashboard, approve/decline reservations, add metadata |
+| Permission | Description | Management Command |
+|------------|-------------|-------------------|
+| `can_manage_rentals` | Approve/decline reservations, manage booking metadata | `setup_rental_manager` |
+| `can_manage_rates` | Manage rental rates and SKUs, toggle rate visibility | `setup_rate_manager` |
+| `can_manage_billing` | Approve cost allocations, manage invoices | `setup_billing_manager` |
 
-Assign via Django admin or using the `setup_rental_manager` command.
+Assign via Django admin or using the corresponding management command.
 
 ---
 
