@@ -40,7 +40,7 @@ def get_plugin_version():
             "tag": tag,
             "commit": commit,
             "datetime": datetime,
-            "github_url": f"{GITHUB_REPO}/commit/{commit}",
+            "github_url": f"{GITHUB_REPO}/tree/{commit}",
         }
     except Exception:
         return {
