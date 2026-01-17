@@ -1,15 +1,15 @@
 {% load plugin_version %}
 {% get_plugin_version as version %}
 
-<footer class="footer bg-dark text-white mt-auto py-3" style="position: fixed; bottom: 0; width: 100%;">
+<footer class="footer mt-auto py-4" style="position: fixed; bottom: 0; width: 100%; background-color: #1a1a1a;">
   <div class="container text-center">
-    <span>
+    <span class="text-white">
       Powered by <a href="https://coldfront.io" class="text-white">ColdFront</a> Version 1.1.7 | 
-      <a href="https://github.com/ubccr/coldfront" class="text-white">GitHub</a>
+      <a href="https://github.com/ubccr/coldfront" class="text-white"><i class="fab fa-github"></i> GitHub</a>
     </span>
     <br>
-    <span class="small">
-      Plugin <a href="{{ version.github_url }}" class="text-info">{{ version.tag }}-{{ version.commit }}</a> {{ version.datetime }} EST
+    <span class="text-white small">
+      Plugin <a href="{{ version.github_url }}" class="text-info" target="_blank" rel="noopener">{{ version.tag }}-{{ version.commit }}</a> {{ version.datetime }} EST
     </span>
   </div>
 </footer>
