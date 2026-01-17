@@ -1,0 +1,42 @@
+name: Update Version Footer
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Get version info
+        id: version
+        run: |
+          TAG=$(git describe --tags --exact-match 2>/dev/null || git rev-parse --abbrev-ref HEAD)
+          COMMIT=$(git rev-parse --short HEAD)
+          DATETIME=$(TZ="America/New_York" date +"%Y-%m-%d_%H:%M")
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+          echo "datetime=$DATETIME" >> $GITHUB_OUTPUT
+          
+      - name: Update VERSION_FOOTER.md
+        run: |
+          cat > coldfront_orcd_direct_charge/VERSION_FOOTER.md << EOF
+          ${{ steps.version.outputs.tag }}
+          ${{ steps.version.outputs.commit }}
+          ${{ steps.version.outputs.datetime }}
+          EOF
+          
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add coldfront_orcd_direct_charge/VERSION_FOOTER.md
+          git diff --staged --quiet || git commit -m "Update VERSION_FOOTER.md [skip ci]"
+          git push
