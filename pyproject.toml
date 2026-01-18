@@ -25,3 +25,6 @@ dependencies = [
 [tool.hatch.build.targets.wheel]
 packages = ["coldfront_orcd_direct_charge"]
 
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
+
