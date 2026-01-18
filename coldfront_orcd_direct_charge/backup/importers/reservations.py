@@ -80,6 +80,11 @@ class ReservationImporter(BaseImporter):
     # Track pk mapping from export to import
     _pk_mapping: Dict[int, int] = {}
     
+    def import_records(self, records, mode="create-or-update", dry_run=False):
+        """Import records, clearing PK mapping first to prevent memory leak."""
+        type(self)._pk_mapping = {}
+        return super().import_records(records, mode, dry_run)
+    
     def get_existing(self, natural_key) -> Optional[Reservation]:
         """Find existing Reservation by pk.
         

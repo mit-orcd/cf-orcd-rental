@@ -198,6 +198,11 @@ class CostAllocationSnapshotImporter(BaseImporter):
     # Track pk mapping
     _pk_mapping: Dict[int, int] = {}
     
+    def import_records(self, records, mode="create-or-update", dry_run=False):
+        """Import records, clearing PK mapping first to prevent memory leak."""
+        type(self)._pk_mapping = {}
+        return super().import_records(records, mode, dry_run)
+    
     def get_existing(self, natural_key) -> Optional[CostAllocationSnapshot]:
         """Snapshots don't have natural keys, always create new."""
         return None
@@ -406,12 +411,26 @@ class InvoiceLineOverrideImporter(BaseImporter):
         except InvoicePeriod.DoesNotExist:
             raise ValueError(f"InvoicePeriod not found: {year}-{month:02d}")
         
-        # Resolve reservation
-        reservation_pk = fields.get("reservation_pk")
-        try:
-            reservation = Reservation.objects.get(pk=reservation_pk)
-        except Reservation.DoesNotExist:
-            raise ValueError(f"Reservation not found: {reservation_pk}")
+        # Resolve reservation using PK mapping from ReservationImporter
+        from .reservations import ReservationImporter
+        original_pk = fields.get("reservation_pk")
+        
+        # Try to get mapped pk first (for imports from different databases)
+        new_pk = ReservationImporter.get_new_pk(original_pk)
+        if new_pk:
+            try:
+                reservation = Reservation.objects.get(pk=new_pk)
+            except Reservation.DoesNotExist:
+                raise ValueError(f"Mapped reservation not found: {new_pk} (from {original_pk})")
+        else:
+            # Fall back to original pk (for same database or re-imports)
+            try:
+                reservation = Reservation.objects.get(pk=original_pk)
+            except Reservation.DoesNotExist:
+                raise ValueError(
+                    f"Reservation not found: {original_pk}. "
+                    "Ensure reservations are imported before invoice overrides."
+                )
         
         created_by = get_user_by_username(fields.get("created_by_username"))
         

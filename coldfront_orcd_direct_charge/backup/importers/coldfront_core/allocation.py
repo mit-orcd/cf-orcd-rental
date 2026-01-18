@@ -85,6 +85,11 @@ class AllocationImporter(BaseImporter):
     # Map old PKs to new PKs for foreign key resolution
     pk_mapping: Dict[int, int] = {}
     
+    def import_records(self, records, mode="create-or-update", dry_run=False):
+        """Import records, clearing PK mapping first to prevent memory leak."""
+        type(self).pk_mapping = {}
+        return super().import_records(records, mode, dry_run)
+    
     def get_existing(self, natural_key) -> Optional[Any]:
         """Look up by PK (may not exist in new database)."""
         try:
