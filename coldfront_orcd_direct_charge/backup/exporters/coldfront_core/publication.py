@@ -29,8 +29,7 @@ class PublicationSourceExporter(BaseExporter):
             from coldfront.core.publication.models import PublicationSource
             return PublicationSource.objects.all().order_by("name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize PublicationSource to dict."""
@@ -60,8 +59,7 @@ class PublicationExporter(BaseExporter):
                 "source",
             ).order_by("project__title", "title")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize Publication to dict."""
@@ -104,8 +102,7 @@ class GrantFundingAgencyExporter(BaseExporter):
             from coldfront.core.grant.models import GrantFundingAgency
             return GrantFundingAgency.objects.all().order_by("name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize GrantFundingAgency to dict."""
@@ -130,8 +127,7 @@ class GrantStatusExporter(BaseExporter):
             from coldfront.core.grant.models import GrantStatusChoice
             return GrantStatusChoice.objects.all().order_by("name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize GrantStatusChoice to dict."""
@@ -160,8 +156,7 @@ class GrantExporter(BaseExporter):
                 "status",
             ).order_by("project__title", "title")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize Grant to dict."""

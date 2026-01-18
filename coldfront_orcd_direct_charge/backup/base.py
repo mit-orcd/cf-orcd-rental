@@ -166,7 +166,8 @@ class BaseExporter(ABC):
         
         try:
             queryset = self.get_queryset()
-            total = queryset.count()
+            # Handle both QuerySet and list returns (list for ImportError fallback)
+            total = len(queryset) if isinstance(queryset, list) else queryset.count()
             
             logger.info(f"Exporting {total} {self.model_name} records...")
             

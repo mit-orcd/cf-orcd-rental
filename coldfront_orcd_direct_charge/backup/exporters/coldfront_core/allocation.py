@@ -33,8 +33,7 @@ class AllocationStatusExporter(BaseExporter):
             from coldfront.core.allocation.models import AllocationStatusChoice
             return AllocationStatusChoice.objects.all().order_by("name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize AllocationStatusChoice to dict."""
@@ -64,8 +63,7 @@ class AllocationExporter(BaseExporter):
                 "resources",
             ).order_by("project__title", "pk")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize Allocation to dict."""
@@ -106,8 +104,7 @@ class AllocationAttributeTypeExporter(BaseExporter):
             from coldfront.core.allocation.models import AllocationAttributeType
             return AllocationAttributeType.objects.all().order_by("name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize AllocationAttributeType to dict."""
@@ -141,8 +138,7 @@ class AllocationAttributeExporter(BaseExporter):
                 "allocation_attribute_type",
             ).order_by("allocation__pk", "allocation_attribute_type__name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize AllocationAttribute to dict."""
@@ -172,8 +168,7 @@ class AllocationUserStatusExporter(BaseExporter):
             from coldfront.core.allocation.models import AllocationUserStatusChoice
             return AllocationUserStatusChoice.objects.all().order_by("name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize AllocationUserStatusChoice to dict."""
@@ -202,8 +197,7 @@ class AllocationUserExporter(BaseExporter):
                 "status",
             ).order_by("allocation__pk", "user__username")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize AllocationUser to dict."""

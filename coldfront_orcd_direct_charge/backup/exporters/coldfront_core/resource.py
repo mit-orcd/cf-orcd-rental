@@ -31,8 +31,7 @@ class ResourceTypeExporter(BaseExporter):
             from coldfront.core.resource.models import ResourceType
             return ResourceType.objects.all().order_by("name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize ResourceType to dict."""
@@ -63,8 +62,7 @@ class ResourceExporter(BaseExporter):
                 "allowed_users",
             ).order_by("name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize Resource to dict."""
@@ -104,8 +102,7 @@ class ResourceAttributeTypeExporter(BaseExporter):
             from coldfront.core.resource.models import ResourceAttributeType
             return ResourceAttributeType.objects.all().order_by("name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize ResourceAttributeType to dict."""
@@ -139,8 +136,7 @@ class ResourceAttributeExporter(BaseExporter):
                 "resource_attribute_type",
             ).order_by("resource__name", "resource_attribute_type__name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize ResourceAttribute to dict."""

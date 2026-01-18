@@ -31,9 +31,7 @@ class FieldOfScienceExporter(BaseExporter):
             from coldfront.core.field_of_science.models import FieldOfScience
             return FieldOfScience.objects.all().order_by("description")
         except ImportError:
-            # Return empty if model doesn't exist
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize FieldOfScience to dict."""
@@ -63,8 +61,7 @@ class ProjectExporter(BaseExporter):
                 "status",
             ).order_by("title")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize Project to dict."""
@@ -100,8 +97,7 @@ class ProjectStatusExporter(BaseExporter):
             from coldfront.core.project.models import ProjectStatusChoice
             return ProjectStatusChoice.objects.all().order_by("name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize ProjectStatusChoice to dict."""
@@ -131,8 +127,7 @@ class ProjectUserExporter(BaseExporter):
                 "status",
             ).order_by("project__title", "user__username")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize ProjectUser to dict."""
@@ -165,8 +160,7 @@ class ProjectUserRoleExporter(BaseExporter):
             from coldfront.core.project.models import ProjectUserRoleChoice
             return ProjectUserRoleChoice.objects.all().order_by("name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize ProjectUserRoleChoice to dict."""
@@ -191,8 +185,7 @@ class ProjectUserStatusExporter(BaseExporter):
             from coldfront.core.project.models import ProjectUserStatusChoice
             return ProjectUserStatusChoice.objects.all().order_by("name")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize ProjectUserStatusChoice to dict."""
@@ -220,8 +213,7 @@ class ProjectReviewExporter(BaseExporter):
                 "status",
             ).order_by("project__title", "-created")
         except ImportError:
-            from django.db.models import QuerySet
-            return QuerySet().none()
+            return []
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize ProjectReview to dict."""
