@@ -59,6 +59,23 @@ class BaseRegistry:
     component: str = ""
     
     @classmethod
+    def validate_dependencies(cls, items_dict: Dict) -> List[str]:
+        """Validate all dependencies are registered.
+        
+        Args:
+            items_dict: Dict of registered items
+            
+        Returns:
+            List of error messages (empty if valid)
+        """
+        errors = []
+        for name, item in items_dict.items():
+            for dep in item.dependencies:
+                if dep not in items_dict:
+                    errors.append(f"{name} depends on unregistered '{dep}'")
+        return errors
+    
+    @classmethod
     def _topological_sort(cls, model_names: set, items_dict: Dict) -> List:
         """Perform topological sort on items.
         
@@ -129,6 +146,11 @@ class CoreExporterRegistry(BaseRegistry):
         exclude: List[str] = None,
     ) -> List[Type[BaseExporter]]:
         """Return core exporters in dependency order."""
+        # Validate dependencies first
+        errors = cls.validate_dependencies(cls._exporters)
+        if errors:
+            raise RegistryError("Dependency validation failed:\n" + "\n".join(errors))
+        
         if include:
             for name in include:
                 if name not in cls._exporters:
@@ -188,6 +210,11 @@ class PluginExporterRegistry(BaseRegistry):
         exclude: List[str] = None,
     ) -> List[Type[BaseExporter]]:
         """Return plugin exporters in dependency order."""
+        # Validate dependencies first
+        errors = cls.validate_dependencies(cls._exporters)
+        if errors:
+            raise RegistryError("Dependency validation failed:\n" + "\n".join(errors))
+        
         if include:
             for name in include:
                 if name not in cls._exporters:
@@ -244,6 +271,11 @@ class CoreImporterRegistry(BaseRegistry):
         exclude: List[str] = None,
     ) -> List[Type[BaseImporter]]:
         """Return core importers in dependency order."""
+        # Validate dependencies first
+        errors = cls.validate_dependencies(cls._importers)
+        if errors:
+            raise RegistryError("Dependency validation failed:\n" + "\n".join(errors))
+        
         if include:
             for name in include:
                 if name not in cls._importers:
@@ -300,6 +332,11 @@ class PluginImporterRegistry(BaseRegistry):
         exclude: List[str] = None,
     ) -> List[Type[BaseImporter]]:
         """Return plugin importers in dependency order."""
+        # Validate dependencies first
+        errors = cls.validate_dependencies(cls._importers)
+        if errors:
+            raise RegistryError("Dependency validation failed:\n" + "\n".join(errors))
+        
         if include:
             for name in include:
                 if name not in cls._importers:
