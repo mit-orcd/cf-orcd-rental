@@ -87,6 +87,14 @@ class UserImporter(BaseImporter):
             user = self.deserialize_record(data)
             user.save()
             return user
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -155,6 +163,14 @@ class GroupImporter(BaseImporter):
             group.permissions.set(permissions)
         
         return group
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -200,6 +216,14 @@ class PermissionImporter(BaseImporter):
     ) -> Optional[Any]:
         """Permissions are usually created by migrations, so skip creation."""
         return existing  # Don't create/update permissions
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -242,6 +266,14 @@ class UserGroupMembershipImporter(BaseImporter):
         existing.groups.set(groups)
         
         return existing
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -299,3 +331,11 @@ class UserPermissionImporter(BaseImporter):
         existing.user_permissions.set(permissions)
         
         return existing
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")

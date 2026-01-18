@@ -70,6 +70,14 @@ class FieldOfScienceImporter(BaseImporter):
             if instance:
                 instance.save()
             return instance
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -112,6 +120,14 @@ class ProjectStatusImporter(BaseImporter):
         if instance:
             instance.save()
         return instance
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -219,6 +235,14 @@ class ProjectImporter(BaseImporter):
                 return instance
         except ImportError:
             return None
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -261,6 +285,14 @@ class ProjectUserRoleImporter(BaseImporter):
         if instance:
             instance.save()
         return instance
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -303,6 +335,14 @@ class ProjectUserStatusImporter(BaseImporter):
         if instance:
             instance.save()
         return instance
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -407,6 +447,14 @@ class ProjectUserImporter(BaseImporter):
                 return instance
         except Exception:
             return None
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -474,3 +522,11 @@ class ProjectReviewImporter(BaseImporter):
         if instance:
             instance.save()
         return instance
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")

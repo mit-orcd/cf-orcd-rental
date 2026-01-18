@@ -60,6 +60,14 @@ class AllocationStatusImporter(BaseImporter):
         if instance:
             instance.save()
         return instance
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -176,6 +184,14 @@ class AllocationImporter(BaseImporter):
             return allocation
         except Exception:
             return None
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -218,6 +234,14 @@ class AllocationAttributeTypeImporter(BaseImporter):
         if instance:
             instance.save()
         return instance
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -295,6 +319,14 @@ class AllocationAttributeImporter(BaseImporter):
             if instance:
                 instance.save()
             return instance
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -337,6 +369,14 @@ class AllocationUserStatusImporter(BaseImporter):
         if instance:
             instance.save()
         return instance
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -430,3 +470,11 @@ class AllocationUserImporter(BaseImporter):
                 return instance
         except Exception:
             return None
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")

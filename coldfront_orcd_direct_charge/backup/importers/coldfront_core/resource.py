@@ -66,6 +66,14 @@ class ResourceTypeImporter(BaseImporter):
             if instance:
                 instance.save()
             return instance
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -155,6 +163,14 @@ class ResourceImporter(BaseImporter):
             return resource
         except ImportError:
             return None
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -199,6 +215,14 @@ class ResourceAttributeTypeImporter(BaseImporter):
         if instance:
             instance.save()
         return instance
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
 
 
 @CoreImporterRegistry.register
@@ -270,3 +294,11 @@ class ResourceAttributeImporter(BaseImporter):
             if instance:
                 instance.save()
             return instance
+    
+    def create_record(self, data: Dict[str, Any]) -> Any:
+        """Create new record."""
+        return self.create_or_update(data, existing=None, mode="create-only")
+    
+    def update_record(self, existing: Any, data: Dict[str, Any]) -> Any:
+        """Update existing record."""
+        return self.create_or_update(data, existing=existing, mode="update-only")
