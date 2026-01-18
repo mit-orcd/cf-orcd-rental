@@ -2,7 +2,7 @@ name: Update Version Footer
 
 on:
   push:
-    branches: [main]
+    branches: ['**']  # All branches
     tags: ['v*']
 
 jobs:
