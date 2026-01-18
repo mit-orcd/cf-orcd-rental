@@ -143,6 +143,7 @@ def resolve_foreign_key(
     model_class,
     natural_key,
     field_name: str = "pk",
+    strict: bool = False,
 ) -> Optional[Any]:
     """Resolve a foreign key reference using natural key.
     
@@ -150,9 +151,13 @@ def resolve_foreign_key(
         model_class: Django model class
         natural_key: Natural key value(s)
         field_name: Field name for error messages
+        strict: If True, raise ValueError instead of returning None
         
     Returns:
-        Model instance or None if not found
+        Model instance or None if not found (when strict=False)
+        
+    Raises:
+        ValueError: If strict=True and resolution fails
     """
     if natural_key is None:
         return None
@@ -170,9 +175,10 @@ def resolve_foreign_key(
             else:
                 return model_class.objects.get(pk=natural_key)
     except model_class.DoesNotExist:
-        logger.warning(
-            f"Could not resolve {model_class.__name__} with key {natural_key}"
-        )
+        msg = f"Could not resolve {model_class.__name__} with key {natural_key}"
+        if strict:
+            raise ValueError(msg)
+        logger.warning(msg)
         return None
 
 
