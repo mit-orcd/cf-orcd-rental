@@ -54,10 +54,10 @@ class PublicationExporter(BaseExporter):
         """Return all publications."""
         try:
             from coldfront.core.publication.models import Publication
+            # Note: 'status' is not a ForeignKey in Publication model
             return Publication.objects.select_related(
                 "project",
                 "source",
-                "status",
             ).order_by("project__title", "title")
         except ImportError:
             from django.db.models import QuerySet
@@ -66,6 +66,14 @@ class PublicationExporter(BaseExporter):
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize Publication to dict."""
         unique_id = getattr(instance, "unique_id", None) or str(instance.pk)
+        
+        # Handle status - may be a CharField or not exist
+        status = getattr(instance, "status", None)
+        if status and hasattr(status, "name"):
+            status_value = status.name
+        else:
+            status_value = str(status) if status else None
+        
         return {
             "natural_key": (unique_id,),
             "fields": {
@@ -76,7 +84,7 @@ class PublicationExporter(BaseExporter):
                 "year": getattr(instance, "year", None),
                 "journal": getattr(instance, "journal", ""),
                 "source": instance.source.name if instance.source else None,
-                "status": instance.status.name if instance.status else None,
+                "status": status_value,
                 "created": serialize_datetime(instance.created),
                 "modified": serialize_datetime(instance.modified),
             }
