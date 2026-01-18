@@ -145,26 +145,42 @@ export_YYYYMMDD_HHMMSS/
 
 ### Class Hierarchy
 
+Exporters and importers are organized into two registries:
+- **CoreExporterRegistry / CoreImporterRegistry**: ColdFront core models
+- **PluginExporterRegistry / PluginImporterRegistry**: ORCD plugin models
+
 ```
 BaseExporter (ABC)
-├── NodeTypeExporter
-├── GpuNodeInstanceExporter
-├── CpuNodeInstanceExporter
-├── ReservationExporter
-├── ReservationMetadataEntryExporter
-├── ProjectCostAllocationExporter
-├── ProjectCostObjectExporter
-├── CostAllocationSnapshotExporter
-├── CostObjectSnapshotExporter
-├── InvoicePeriodExporter
-├── InvoiceLineOverrideExporter
-├── UserMaintenanceStatusExporter
-├── ProjectMemberRoleExporter
-├── RentalSKUExporter
-└── RentalRateExporter
+│
+├── [CoreExporterRegistry - ColdFront Core]
+│   ├── UserExporter
+│   ├── GroupExporter
+│   ├── ProjectExporter
+│   ├── ProjectUserExporter
+│   ├── ResourceExporter
+│   ├── AllocationExporter
+│   ├── PublicationExporter
+│   └── GrantExporter
+│
+└── [PluginExporterRegistry - ORCD Plugin]
+    ├── NodeTypeExporter
+    ├── GpuNodeInstanceExporter
+    ├── CpuNodeInstanceExporter
+    ├── ReservationExporter
+    ├── ReservationMetadataEntryExporter
+    ├── ProjectCostAllocationExporter
+    ├── ProjectCostObjectExporter
+    ├── CostAllocationSnapshotExporter
+    ├── CostObjectSnapshotExporter
+    ├── InvoicePeriodExporter
+    ├── InvoiceLineOverrideExporter
+    ├── UserMaintenanceStatusExporter
+    ├── ProjectMemberRoleExporter
+    ├── RentalSKUExporter
+    └── RentalRateExporter
 
 BaseImporter (ABC)
-└── (Mirror structure of exporters)
+└── (Mirror structure of exporters for both registries)
 ```
 
 ### Data Flow
@@ -310,7 +326,7 @@ Each model exports to a separate JSON file:
 
 ```json
 {
-  "export_version": "1.0.0",
+  "export_version": "2.0.0",
   "export_format": "orcd-portal-export",
   "created_at": "2026-01-17T14:45:00-05:00",
   "source_portal": {
@@ -534,34 +550,69 @@ coldfront check_import_compatibility /backups/portal/export_20260117/
 
 ```python
 from coldfront_orcd_direct_charge.backup import (
-    ExporterRegistry,
-    ImporterRegistry,
-    Manifest,
+    CoreExporterRegistry,
+    PluginExporterRegistry,
+    CoreImporterRegistry,
+    PluginImporterRegistry,
+    RootManifest,
     check_compatibility,
-    generate_manifest,
+    generate_root_manifest,
+    generate_component_manifest,
+    COMPONENT_COLDFRONT_CORE,
+    COMPONENT_ORCD_PLUGIN,
 )
 from coldfront_orcd_direct_charge.backup.utils import create_export_directory
 
-# Export
-output_dir = create_export_directory("/backups/portal/")
-data_counts = {}
+# Export (two-component structure)
+export_dir = create_export_directory("/backups/portal/")
+component_data = {}
 
-for exporter_class in ExporterRegistry.get_ordered_exporters():
+# Export ColdFront core data
+core_dir = export_dir / COMPONENT_COLDFRONT_CORE
+core_dir.mkdir()
+core_counts = {}
+for exporter_class in CoreExporterRegistry.get_ordered_exporters():
     exporter = exporter_class()
-    result = exporter.export(output_dir)
-    data_counts[exporter.model_name] = result.count
+    result = exporter.export(str(core_dir))
+    core_counts[exporter.model_name] = result.count
+component_data[COMPONENT_COLDFRONT_CORE] = core_counts
+core_manifest = generate_component_manifest(str(core_dir), COMPONENT_COLDFRONT_CORE, core_counts)
+core_manifest.save(str(core_dir))
 
-manifest = generate_manifest(output_dir, data_counts)
-manifest.save(output_dir)
+# Export ORCD plugin data
+plugin_dir = export_dir / COMPONENT_ORCD_PLUGIN
+plugin_dir.mkdir()
+plugin_counts = {}
+for exporter_class in PluginExporterRegistry.get_ordered_exporters():
+    exporter = exporter_class()
+    result = exporter.export(str(plugin_dir))
+    plugin_counts[exporter.model_name] = result.count
+component_data[COMPONENT_ORCD_PLUGIN] = plugin_counts
+plugin_manifest = generate_component_manifest(str(plugin_dir), COMPONENT_ORCD_PLUGIN, plugin_counts)
+plugin_manifest.save(str(plugin_dir))
+
+# Generate root manifest
+root_manifest = generate_root_manifest(str(export_dir), component_data)
+root_manifest.save(str(export_dir))
 
 # Import
-manifest = Manifest.from_file("/backups/portal/export_20260117/")
-report = check_compatibility(manifest)
+root_manifest = RootManifest.from_file("/backups/portal/export_20260117/")
+report = check_compatibility(root_manifest)
 
 if report.is_safe_to_import():
-    for importer_class in ImporterRegistry.get_ordered_importers():
+    # Import core data
+    core_import_dir = "/backups/portal/export_20260117/coldfront_core"
+    for importer_class in CoreImporterRegistry.get_ordered_importers():
         importer = importer_class()
-        records = importer.load_records("/backups/portal/export_20260117/")
+        records = importer.load_records(core_import_dir)
+        result = importer.import_records(records, mode="create-or-update")
+        print(f"{importer.model_name}: {result.created} created, {result.updated} updated")
+    
+    # Import plugin data
+    plugin_import_dir = "/backups/portal/export_20260117/orcd_plugin"
+    for importer_class in PluginImporterRegistry.get_ordered_importers():
+        importer = importer_class()
+        records = importer.load_records(plugin_import_dir)
         result = importer.import_records(records, mode="create-or-update")
         print(f"{importer.model_name}: {result.created} created, {result.updated} updated")
 ```
@@ -821,7 +872,7 @@ Update `EXPORT_VERSION` in `manifest.py`:
 | Constant | Location | Value | Purpose |
 |----------|----------|-------|---------|
 | `EXPORT_FORMAT` | `manifest.py` | `"orcd-portal-export"` | Format identifier |
-| `EXPORT_VERSION` | `manifest.py` | `"1.0.0"` | Current export format version |
+| `EXPORT_VERSION` | `manifest.py` | `"2.0.0"` | Current export format version |
 | `MANIFEST_FILENAME` | `manifest.py` | `"manifest.json"` | Manifest filename |
 
 ---
