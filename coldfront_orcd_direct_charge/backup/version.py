@@ -236,20 +236,32 @@ def check_schema_compatibility(
     return (CompatibilityStatus.COMPATIBLE, warnings, errors)
 
 
-def check_compatibility(manifest: Manifest) -> CompatibilityReport:
+def check_compatibility(
+    manifest: Manifest,
+    component: str = None,
+) -> CompatibilityReport:
     """Check if export is compatible with current instance.
     
     Performs comprehensive compatibility checks including:
     - Export format version
-    - Database schema version
+    - Database schema version (component-specific if provided)
     - Required dependencies
     
     Args:
         manifest: Export manifest to check
+        component: Optional component name for component-specific schema checks.
+                   If 'coldfront_core', checks core Django/ColdFront migrations.
+                   If 'orcd_plugin', checks plugin migrations.
+                   If None, defaults to plugin schema.
         
     Returns:
         CompatibilityReport with detailed results
     """
+    from .manifest import (
+        COMPONENT_COLDFRONT_CORE,
+        COMPONENT_ORCD_PLUGIN,
+    )
+    
     all_warnings = []
     all_errors = []
     overall_status = CompatibilityStatus.COMPATIBLE
@@ -257,10 +269,26 @@ def check_compatibility(manifest: Manifest) -> CompatibilityReport:
     target_version = EXPORT_VERSION
     target_schema = get_current_schema_version()
     
-    # Get export schema (use plugin schema)
-    export_schema = manifest.schema_versions.get(
-        "coldfront_orcd_direct_charge", "unknown"
-    )
+    # Get export schema based on component
+    if component == COMPONENT_COLDFRONT_CORE:
+        # For core component, check ColdFront-related app migrations
+        # Look for any core app schema in the manifest
+        core_apps = ["auth", "project", "resource", "allocation", "publication", "grant"]
+        export_schema = "unknown"
+        for app in core_apps:
+            if app in manifest.schema_versions:
+                export_schema = manifest.schema_versions[app]
+                break
+        # For core, we need to compare against ColdFront app migrations
+        # Since we may not have the exact target, use a more lenient check
+        if export_schema == "unknown" and manifest.schema_versions:
+            # Use any available schema version
+            export_schema = next(iter(manifest.schema_versions.values()), "unknown")
+    else:
+        # Default: plugin schema
+        export_schema = manifest.schema_versions.get(
+            "coldfront_orcd_direct_charge", "unknown"
+        )
     
     # Check version compatibility
     version_status, version_warnings, version_errors = check_version_compatibility(

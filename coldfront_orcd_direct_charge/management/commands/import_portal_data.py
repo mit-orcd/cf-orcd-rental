@@ -204,6 +204,43 @@ class Command(BaseCommand):
         import_core = component_filter in ["all", COMPONENT_COLDFRONT_CORE]
         import_plugin = component_filter in ["all", COMPONENT_ORCD_PLUGIN]
         
+        # Check compatibility for each component
+        self.stdout.write("\nChecking compatibility...")
+        
+        has_compat_errors = False
+        has_compat_warnings = False
+        
+        for component in root_manifest.get_component_names():
+            should_check = (
+                (component == COMPONENT_COLDFRONT_CORE and import_core) or
+                (component == COMPONENT_ORCD_PLUGIN and import_plugin)
+            )
+            
+            if should_check:
+                component_manifest_path = export_path / component / MANIFEST_FILENAME
+                if component_manifest_path.exists():
+                    component_manifest = Manifest.from_file(str(component_manifest_path))
+                    report = check_compatibility(component_manifest, component=component)
+                    
+                    self.stdout.write(f"  {component}: {report.status.value}")
+                    
+                    for warning in report.warnings:
+                        self.stdout.write(self.style.WARNING(f"    Warning: {warning}"))
+                        has_compat_warnings = True
+                    
+                    for error in report.errors:
+                        self.stdout.write(self.style.ERROR(f"    Error: {error}"))
+                    
+                    if report.status == CompatibilityStatus.INCOMPATIBLE:
+                        has_compat_errors = True
+        
+        if has_compat_errors:
+            raise CommandError("Import cannot proceed due to compatibility errors.")
+        
+        if has_compat_warnings and not force:
+            if not dry_run and not validate_only:
+                raise CommandError("Import aborted due to warnings. Use --force to proceed.")
+        
         # Verify checksum
         if not options["no_verify_checksum"]:
             self.stdout.write("\nVerifying checksum...")

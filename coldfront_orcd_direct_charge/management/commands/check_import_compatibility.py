@@ -163,8 +163,8 @@ class Command(BaseCommand):
                         for model, count in component_info.get("data_counts", {}).items():
                             self.stdout.write(f"    - {model}: {count}")
                     
-                    # Check component compatibility
-                    report = check_compatibility(component_manifest)
+                    # Check component compatibility with component-specific schema
+                    report = check_compatibility(component_manifest, component=component_name)
                     all_warnings.extend(report.warnings)
                     all_errors.extend(report.errors)
                     
