@@ -20,47 +20,10 @@ from django.contrib.auth.models import User
 
 from ..base import BaseImporter
 from ..registry import ImporterRegistry
-from ..utils import deserialize_date
+from ..utils import deserialize_date, get_project_by_title, get_user_by_username
 from ...models import Reservation, ReservationMetadataEntry, GpuNodeInstance
 
 logger = logging.getLogger(__name__)
-
-
-def get_project_by_title(title: str):
-    """Get ColdFront project by title.
-    
-    Args:
-        title: Project title to look up
-        
-    Returns:
-        Project instance or None
-    """
-    if not title:
-        return None
-    
-    try:
-        from coldfront.core.project.models import Project
-        return Project.objects.get(title=title)
-    except Exception:
-        return None
-
-
-def get_user_by_username(username: str) -> Optional[User]:
-    """Get user by username.
-    
-    Args:
-        username: Username to look up
-        
-    Returns:
-        User instance or None
-    """
-    if not username:
-        return None
-    
-    try:
-        return User.objects.get(username=username)
-    except User.DoesNotExist:
-        return None
 
 
 @ImporterRegistry.register

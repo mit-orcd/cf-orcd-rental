@@ -222,3 +222,52 @@ def validate_import_directory(path: str) -> bool:
         return False
     
     return True
+
+
+def get_project_by_title(title: str) -> Optional[Any]:
+    """Get ColdFront project by title.
+    
+    Centralized helper for resolving project references during import.
+    
+    Args:
+        title: Project title to look up
+        
+    Returns:
+        Project instance or None if not found
+    """
+    if not title:
+        return None
+    try:
+        from coldfront.core.project.models import Project
+        return Project.objects.get(title=title)
+    except ImportError:
+        logger.warning("ColdFront project module not available")
+        return None
+    except Exception as e:
+        # Handle DoesNotExist without importing the exception
+        if "DoesNotExist" in type(e).__name__:
+            logger.warning(f"Project not found: {title}")
+        else:
+            logger.warning(f"Error looking up project {title}: {e}")
+        return None
+
+
+def get_user_by_username(username: str) -> Optional[Any]:
+    """Get user by username.
+    
+    Centralized helper for resolving user references during import.
+    
+    Args:
+        username: Username to look up
+        
+    Returns:
+        User instance or None if not found
+    """
+    if not username:
+        return None
+    try:
+        from django.contrib.auth.models import User
+        return User.objects.get(username=username)
+    except User.DoesNotExist:
+        logger.warning(f"User not found: {username}")
+        return None

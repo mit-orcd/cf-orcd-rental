@@ -21,7 +21,12 @@ from django.contrib.auth.models import User
 
 from ..base import BaseImporter
 from ..registry import ImporterRegistry
-from ..utils import deserialize_datetime, deserialize_decimal
+from ..utils import (
+    deserialize_datetime,
+    deserialize_decimal,
+    get_project_by_title,
+    get_user_by_username,
+)
 from ...models import (
     ProjectCostAllocation,
     ProjectCostObject,
@@ -33,27 +38,6 @@ from ...models import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def get_project_by_title(title: str):
-    """Get ColdFront project by title."""
-    if not title:
-        return None
-    try:
-        from coldfront.core.project.models import Project
-        return Project.objects.get(title=title)
-    except Exception:
-        return None
-
-
-def get_user_by_username(username: str) -> Optional[User]:
-    """Get user by username."""
-    if not username:
-        return None
-    try:
-        return User.objects.get(username=username)
-    except User.DoesNotExist:
-        return None
 
 
 @ImporterRegistry.register
