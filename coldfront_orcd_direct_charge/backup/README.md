@@ -1,7 +1,7 @@
 # Portal Backup System
 
 **Module**: `coldfront_orcd_direct_charge.backup`  
-**Version**: 1.0.0  
+**Version**: 2.0.0  
 **Last Updated**: 2026-01-18
 
 ---
@@ -10,16 +10,17 @@
 
 1. [Overview](#overview)
 2. [Architecture](#architecture)
-3. [Technical Deep Dive](#technical-deep-dive)
-4. [Usage Examples](#usage-examples)
-5. [Keeping the Schema Updated](#keeping-the-schema-updated)
-6. [Reference](#reference)
+3. [Export Structure](#export-structure)
+4. [Technical Deep Dive](#technical-deep-dive)
+5. [Usage Examples](#usage-examples)
+6. [Keeping the Schema Updated](#keeping-the-schema-updated)
+7. [Reference](#reference)
 
 ---
 
 ## Overview
 
-The Portal Backup System provides a comprehensive solution for exporting and importing all plugin data. It enables:
+The Portal Backup System provides a comprehensive solution for exporting and importing both ColdFront core data and ORCD plugin data. It enables:
 
 - **Full data export** to a directory of JSON files with manifest
 - **Data import** from another portal instance with conflict handling
@@ -46,24 +47,100 @@ The Portal Backup System provides a comprehensive solution for exporting and imp
 backup/
 ├── __init__.py              # Package exports
 ├── base.py                  # Abstract base classes
-├── registry.py              # Exporter/Importer registries
-├── manifest.py              # Manifest generation and validation
+├── registry.py              # Core and Plugin exporter/importer registries
+├── manifest.py              # Root and component manifest generation
 ├── version.py               # Compatibility checking
 ├── utils.py                 # Shared utilities
-├── exporters/               # Model-specific exporters
+├── exporters/
 │   ├── __init__.py
+│   ├── coldfront_core/      # ColdFront core model exporters
+│   │   ├── __init__.py
+│   │   ├── auth.py          # User, Group, Permission
+│   │   ├── project.py       # Project, ProjectUser, FieldOfScience
+│   │   ├── resource.py      # Resource, ResourceType, ResourceAttribute
+│   │   ├── allocation.py    # Allocation, AllocationUser, AllocationAttribute
+│   │   └── publication.py   # Publication, Grant
 │   ├── nodes.py             # NodeType, GpuNodeInstance, CpuNodeInstance
 │   ├── reservations.py      # Reservation, ReservationMetadataEntry
 │   ├── billing.py           # Cost allocations, snapshots, invoices
 │   ├── users.py             # UserMaintenanceStatus, ProjectMemberRole
 │   └── rates.py             # RentalSKU, RentalRate
-└── importers/               # Model-specific importers
+└── importers/               # Mirror structure for importers
     ├── __init__.py
+    ├── coldfront_core/      # ColdFront core model importers
     ├── nodes.py
     ├── reservations.py
     ├── billing.py
     ├── users.py
     └── rates.py
+```
+
+---
+
+## Export Structure
+
+### v2.0 Two-Directory Layout
+
+Exports are organized into two component directories, each with its own manifest:
+
+```
+export_YYYYMMDD_HHMMSS/
+├── manifest.json               # Root manifest (summary of both components)
+├── coldfront_core/             # ColdFront core data
+│   ├── manifest.json           # Core-specific manifest
+│   ├── users.json              # Django User accounts
+│   ├── groups.json             # Django Groups
+│   ├── permissions.json        # User/Group permissions
+│   ├── projects.json           # ColdFront Projects
+│   ├── project_users.json      # Project memberships
+│   ├── resources.json          # Resource definitions
+│   ├── allocations.json        # Resource allocations
+│   └── ...                     # Other core models
+└── orcd_plugin/                # ORCD plugin data
+    ├── manifest.json           # Plugin-specific manifest
+    ├── node_types.json         # Node type definitions
+    ├── gpu_node_instances.json # GPU node instances
+    ├── reservations.json       # Rental reservations
+    ├── project_cost_allocations.json
+    └── ...                     # Other plugin models
+```
+
+### Components
+
+| Component | Registry | Description |
+|-----------|----------|-------------|
+| `coldfront_core` | `CoreExporterRegistry` | Django auth, ColdFront Projects, Resources, Allocations |
+| `orcd_plugin` | `PluginExporterRegistry` | ORCD plugin models (nodes, reservations, billing) |
+
+### Root Manifest Structure (v2.0)
+
+```json
+{
+  "export_version": "2.0.0",
+  "export_format": "orcd-portal-export",
+  "created_at": "2026-01-18T14:45:00-05:00",
+  "source_portal": {
+    "url": "https://portal.example.com",
+    "name": "ORCD Rental Portal"
+  },
+  "software_versions": {...},
+  "components": {
+    "coldfront_core": {
+      "path": "coldfront_core/",
+      "manifest": "coldfront_core/manifest.json",
+      "data_counts": {"users": 150, "projects": 45, ...},
+      "record_count": 500
+    },
+    "orcd_plugin": {
+      "path": "orcd_plugin/",
+      "manifest": "orcd_plugin/manifest.json", 
+      "data_counts": {"node_types": 5, "reservations": 230, ...},
+      "record_count": 750
+    }
+  },
+  "total_records": 1250,
+  "checksum": {"algorithm": "sha256", "value": "..."}
+}
 ```
 
 ### Class Hierarchy
@@ -332,14 +409,23 @@ class ReservationImporter(BaseImporter):
 ### Export Commands
 
 ```bash
-# Full export with timestamp directory
+# Full export (both core and plugin) with timestamp directory
 coldfront export_portal_data --output /backups/portal/
+
+# Export only ColdFront core data (users, projects, allocations)
+coldfront export_portal_data -o /backups/ --component coldfront_core
+
+# Export only ORCD plugin data (nodes, reservations, billing)
+coldfront export_portal_data -o /backups/ --component orcd_plugin
 
 # Export to specific directory (no timestamp)
 coldfront export_portal_data -o /backups/portal/my_export --no-timestamp
 
-# Export specific models only
-coldfront export_portal_data -o /backups/ \
+# List all available models
+coldfront export_portal_data -o /tmp --list-models
+
+# Export specific models within a component
+coldfront export_portal_data -o /backups/ --component orcd_plugin \
     --models node_types,gpu_node_instances,cpu_node_instances
 
 # Exclude specific models
@@ -361,14 +447,23 @@ coldfront export_portal_data -o /backups/ \
 # Check compatibility first
 coldfront check_import_compatibility /backups/portal/export_20260117/
 
+# Check compatibility with verbose output
+coldfront check_import_compatibility /backups/portal/export_20260117/ -v
+
 # Dry run import (validate without changes)
 coldfront import_portal_data /backups/portal/export_20260117/ --dry-run
 
 # Validation only
 coldfront import_portal_data /backups/portal/export_20260117/ --validate
 
-# Full import (create or update)
+# Full import (create or update) - both components
 coldfront import_portal_data /backups/portal/export_20260117/
+
+# Import only ColdFront core data
+coldfront import_portal_data /backups/portal/export_20260117/ --component coldfront_core
+
+# Import only ORCD plugin data
+coldfront import_portal_data /backups/portal/export_20260117/ --component orcd_plugin
 
 # Create-only mode (skip existing records)
 coldfront import_portal_data /backups/portal/export_20260117/ --mode create-only
@@ -376,7 +471,10 @@ coldfront import_portal_data /backups/portal/export_20260117/ --mode create-only
 # Update-only mode (skip new records)
 coldfront import_portal_data /backups/portal/export_20260117/ --mode update-only
 
-# Import specific models
+# Import with force (ignore warnings)
+coldfront import_portal_data /backups/portal/export_20260117/ --force
+
+# Import specific models within a component
 coldfront import_portal_data /backups/portal/export_20260117/ \
     --models node_types,rental_skus,rental_rates
 
