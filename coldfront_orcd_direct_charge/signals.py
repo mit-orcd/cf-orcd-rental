@@ -6,7 +6,7 @@
 Signal handlers for auto-configuration features.
 
 When AUTO_PI_ENABLE is True, new users automatically get is_pi=True.
-When AUTO_DEFAULT_PROJECT_ENABLE is True, new users get USERNAME_personal and USERNAME_group projects.
+When AUTO_DEFAULT_PROJECT_ENABLE is True, new users get a USERNAME_group project.
 New users always get a UserMaintenanceStatus record with 'inactive' default.
 
 When a user is removed from a project that is their billing project for maintenance fees,
@@ -157,9 +157,8 @@ def auto_configure_user(sender, instance, created, **kwargs):
             instance.userprofile.is_pi = True
             instance.userprofile.save()
 
-    # Auto Default Projects: create USERNAME_personal and USERNAME_group
+    # Auto Default Projects: create USERNAME_group
     if getattr(settings, "AUTO_DEFAULT_PROJECT_ENABLE", False):
-        create_default_project_for_user(instance)
         create_group_project_for_user(instance)
 
 

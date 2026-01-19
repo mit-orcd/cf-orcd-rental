@@ -11,7 +11,7 @@ A ColdFront plugin providing ORCD-specific customizations for direct charge reso
 
 ### User Auto-Configuration (Optional)
 - **Auto-PI**: Automatically set all users as PIs (`is_pi=True`)
-- **Auto Default Projects**: Create `USERNAME_personal` and `USERNAME_group` projects for each user
+- **Auto Default Projects**: Create `USERNAME_group` project for each user
 - Configured via environment variables or `local_settings.py`
 - Changes are irreversible (persist when features are disabled)
 
@@ -369,7 +369,7 @@ These optional features automatically configure user accounts. **Changes are IRR
 | Setting | Env Variable | Default | Description |
 |---------|--------------|---------|-------------|
 | `AUTO_PI_ENABLE` | `AUTO_PI_ENABLE` | `False` | Set `is_pi=True` for all users |
-| `AUTO_DEFAULT_PROJECT_ENABLE` | `AUTO_DEFAULT_PROJECT_ENABLE` | `False` | Create `USERNAME_personal` and `USERNAME_group` projects for each user |
+| `AUTO_DEFAULT_PROJECT_ENABLE` | `AUTO_DEFAULT_PROJECT_ENABLE` | `False` | Create `USERNAME_group` project for each user |
 
 **Precedence**: `local_settings.py` > Environment Variable > Default
 
@@ -390,7 +390,7 @@ Add to your `local_settings.py`:
 ```python
 # ORCD Auto-Configuration Features (IRREVERSIBLE once applied)
 AUTO_PI_ENABLE = True              # Set all users as PIs
-AUTO_DEFAULT_PROJECT_ENABLE = True  # Create USERNAME_personal and USERNAME_group projects
+AUTO_DEFAULT_PROJECT_ENABLE = True  # Create USERNAME_group project
 ```
 
 #### Behavior
@@ -401,7 +401,7 @@ AUTO_DEFAULT_PROJECT_ENABLE = True  # Create USERNAME_personal and USERNAME_grou
 - Users can create projects without manual PI approval
 
 **When AUTO_DEFAULT_PROJECT_ENABLE is True:**
-- All existing users get `USERNAME_personal` and `USERNAME_group` projects on app startup
+- All existing users get a `USERNAME_group` project on app startup
 - All new users automatically get the project via signal
 - User is set as PI (required to own a project)
 - User is added as Manager on their project with Active status

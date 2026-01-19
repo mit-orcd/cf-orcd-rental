@@ -19,7 +19,7 @@ INSTALLED_APPS += ['coldfront_orcd_direct_charge']
 # Automatically set all users as PIs (allows project creation)
 AUTO_PI_ENABLE = True
 
-# Automatically create personal and group projects for each user
+# Automatically create a group project for each user
 AUTO_DEFAULT_PROJECT_ENABLE = True
 
 # =============================================================================
