@@ -58,7 +58,7 @@ HOME_PAGE_ALLOCATIONS_ENABLE = False
 #   - Users can create projects without manual PI approval
 #
 # When AUTO_DEFAULT_PROJECT_ENABLE is True:
-#   - All existing users get USERNAME_personal and USERNAME_group projects on app startup
+#   - All existing users get a USERNAME_group project on app startup
 #   - All new users automatically get the project via signal
 #   - User is set as PI (required to own a project)
 #   - User is added as Manager on their project with Active status

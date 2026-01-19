@@ -93,9 +93,8 @@ def auto_configure_user(sender, instance, created, **kwargs):
             instance.userprofile.is_pi = True
             instance.userprofile.save()
 
-    # Auto Default Projects: create USERNAME_personal and USERNAME_group
+    # Auto Default Projects: create USERNAME_group
     if getattr(settings, "AUTO_DEFAULT_PROJECT_ENABLE", False):
-        create_default_project_for_user(instance)
         create_group_project_for_user(instance)
 ```
 
@@ -112,12 +111,12 @@ def create_maintenance_status_for_user(user):
     )
 ```
 
-#### create_default_project_for_user
+#### create_group_project_for_user
 
 ```python
-def create_default_project_for_user(user):
-    """Create USERNAME_personal project for a user."""
-    project_title = f"{user.username}_personal"
+def create_group_project_for_user(user):
+    """Create USERNAME_group project for a user."""
+    project_title = f"{user.username}_group"
     
     if Project.objects.filter(title=project_title, pi=user).exists():
         return
@@ -132,7 +131,7 @@ def create_default_project_for_user(user):
         title=project_title,
         pi=user,
         status=ProjectStatusChoice.objects.get(name="Active"),
-        description=f"Personal project for {user.username}",
+        description=f"Group project for {user.username}",
     )
     
     ProjectUser.objects.create(
@@ -142,10 +141,6 @@ def create_default_project_for_user(user):
         status=ProjectUserStatusChoice.objects.get(name="Active"),
     )
 ```
-
-#### create_group_project_for_user
-
-Similar to `create_default_project_for_user` but creates `USERNAME_group` project.
 
 ---
 
@@ -517,7 +512,6 @@ def _apply_auto_features(self):
     # AUTO_DEFAULT_PROJECT_ENABLE: Create projects
     if settings.AUTO_DEFAULT_PROJECT_ENABLE:
         for user in User.objects.all():
-            create_default_project_for_user(user)
             create_group_project_for_user(user)
 ```
 
@@ -549,7 +543,7 @@ When `True`, all users are automatically set as PIs (`is_pi=True`).
 **Type**: Boolean  
 **Default**: `False`
 
-When `True`, creates `USERNAME_personal` and `USERNAME_group` projects for each user.
+When `True`, creates a `USERNAME_group` project for each user.
 
 **Configuration Priority**:
 1. `local_settings.py` - `AUTO_DEFAULT_PROJECT_ENABLE = True`
@@ -557,12 +551,12 @@ When `True`, creates `USERNAME_personal` and `USERNAME_group` projects for each 
 3. Default - `False`
 
 **Behavior**:
-- On app startup: Creates projects for all existing users (if they don't exist)
-- On new user creation: Signal creates both projects
+- On app startup: Creates project for all existing users (if it doesn't exist)
+- On new user creation: Signal creates the project
 
 **Side Effects**:
-- User is set as PI (required to own projects)
-- User is added as Manager on their own projects
+- User is set as PI (required to own project)
+- User is added as Manager on their own project
 
 ### CENTER_SUMMARY_ENABLE
 
