@@ -1,3 +1,3 @@
-main
-709fd9f
-2026-01-19_10:53
+fix/cost-allocation-cancel-bug
+fc07d4e
+2026-01-19_19:20
