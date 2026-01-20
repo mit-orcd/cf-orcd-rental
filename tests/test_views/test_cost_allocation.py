@@ -323,3 +323,109 @@ class TestActivityLogging(CostAllocationViewTestCase):
             action="cost_allocation.created"
         ).count()
         self.assertEqual(final_count, initial_count + 1)
+
+
+class TestTransactionRollback(CostAllocationViewTestCase):
+    """Test that database operations are atomic and rollback on failure."""
+
+    def test_allocation_not_created_if_formset_save_fails(self):
+        """
+        If formset.save() raises an exception, the allocation should NOT be saved.
+
+        This tests that the transaction.atomic() block works correctly - if the
+        formset save fails, the allocation save should be rolled back.
+        """
+        from unittest.mock import patch
+        from django.db import IntegrityError
+
+        # Verify no allocation exists before
+        self.assertFalse(
+            ProjectCostAllocation.objects.filter(project=self.project).exists()
+        )
+
+        # Mock formset.save() to raise an exception after allocation.save()
+        with patch(
+            "coldfront_orcd_direct_charge.forms.ProjectCostObjectFormSet.save",
+            side_effect=IntegrityError("Simulated database error"),
+        ):
+            post_data = {
+                "notes": "Test allocation notes",
+                "cost_objects-TOTAL_FORMS": "1",
+                "cost_objects-INITIAL_FORMS": "0",
+                "cost_objects-MIN_NUM_FORMS": "0",
+                "cost_objects-MAX_NUM_FORMS": "1000",
+                "cost_objects-0-cost_object": "TEST-COST-001",
+                "cost_objects-0-percentage": "100.00",
+            }
+
+            # The view should raise the exception (not caught)
+            with self.assertRaises(IntegrityError):
+                self.client.post(self.cost_allocation_url, data=post_data)
+
+        # Verify NO allocation was created (transaction was rolled back)
+        self.assertFalse(
+            ProjectCostAllocation.objects.filter(project=self.project).exists(),
+            "Allocation should NOT exist if formset save fails - transaction should rollback",
+        )
+
+    def test_approval_rollback_on_snapshot_error(self):
+        """
+        If CostObjectSnapshot creation fails during approval, allocation status
+        should remain unchanged (transaction rolled back).
+        """
+        from unittest.mock import patch
+        from django.db import IntegrityError
+        from coldfront_orcd_direct_charge.models import CostObjectSnapshot
+
+        # Create a pending allocation
+        allocation = ProjectCostAllocation.objects.create(
+            project=self.project,
+            notes="Test allocation",
+            status=ProjectCostAllocation.StatusChoices.PENDING,
+        )
+        ProjectCostObject.objects.create(
+            allocation=allocation,
+            cost_object="PENDING-001",
+            percentage=100.00,
+        )
+
+        # Create a billing manager user
+        billing_manager = User.objects.create_user(
+            username="billing_manager",
+            email="billing@example.com",
+            password="testpassword123",
+        )
+        # Add billing permission
+        from django.contrib.auth.models import Permission
+        from django.contrib.contenttypes.models import ContentType
+
+        content_type = ContentType.objects.get_for_model(ProjectCostAllocation)
+        permission, _ = Permission.objects.get_or_create(
+            codename="can_manage_billing",
+            name="Can manage billing",
+            content_type=content_type,
+        )
+        billing_manager.user_permissions.add(permission)
+
+        # Login as billing manager
+        self.client.login(username="billing_manager", password="testpassword123")
+
+        # Mock CostObjectSnapshot.objects.create to raise an exception
+        with patch.object(
+            CostObjectSnapshot.objects,
+            "create",
+            side_effect=IntegrityError("Simulated snapshot creation error"),
+        ):
+            approval_url = f"/direct-charge/cost-allocation/{allocation.pk}/review/"
+            with self.assertRaises(IntegrityError):
+                self.client.post(approval_url, data={"action": "approve"})
+
+        # Refresh allocation from DB
+        allocation.refresh_from_db()
+
+        # Status should still be PENDING (transaction was rolled back)
+        self.assertEqual(
+            allocation.status,
+            ProjectCostAllocation.StatusChoices.PENDING,
+            "Allocation status should remain PENDING if snapshot creation fails",
+        )

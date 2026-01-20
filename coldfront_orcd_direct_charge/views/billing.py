@@ -15,6 +15,7 @@ from datetime import date, datetime, time, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
@@ -96,20 +97,25 @@ class ProjectCostAllocationView(LoginRequiredMixin, TemplateView):
         is_new_allocation = context.get("is_new_allocation", False)
 
         if form.is_valid() and formset.is_valid():
-            # Save allocation and reset status to PENDING for approval
-            allocation = form.save(commit=False)
-            allocation.status = ProjectCostAllocation.StatusChoices.PENDING
-            allocation.reviewed_by = None
-            allocation.reviewed_at = None
-            allocation.review_notes = ""
-            allocation.save()
+            # Wrap all database operations in a transaction for atomicity
+            # If formset save fails, allocation save will be rolled back
+            with transaction.atomic():
+                # Save allocation and reset status to PENDING for approval
+                allocation = form.save(commit=False)
+                allocation.status = ProjectCostAllocation.StatusChoices.PENDING
+                allocation.reviewed_by = None
+                allocation.reviewed_at = None
+                allocation.review_notes = ""
+                allocation.save()
 
-            # For new allocations, we need to set the formset's instance
-            # to the now-saved allocation before saving the formset
-            if is_new_allocation:
-                formset.instance = allocation
+                # For new allocations, we need to set the formset's instance
+                # to the now-saved allocation before saving the formset
+                if is_new_allocation:
+                    formset.instance = allocation
 
-            formset.save()
+                formset.save()
+
+            # Logging and messages outside transaction
             logger.info(
                 f"Cost allocation submitted for approval: project={self.project.pk}, "
                 f"submitted_by={request.user.username}"
@@ -181,33 +187,38 @@ class CostAllocationApprovalView(LoginRequiredMixin, PermissionRequiredMixin, Te
         if action == "approve":
             approval_time = timezone.now()
 
-            # Mark any existing current snapshots as superseded
-            CostAllocationSnapshot.objects.filter(
-                allocation=self.allocation,
-                superseded_at__isnull=True,
-            ).update(superseded_at=approval_time)
+            # Wrap all database operations in a transaction for atomicity
+            # If any operation fails, all changes will be rolled back
+            with transaction.atomic():
+                # Mark any existing current snapshots as superseded
+                CostAllocationSnapshot.objects.filter(
+                    allocation=self.allocation,
+                    superseded_at__isnull=True,
+                ).update(superseded_at=approval_time)
 
-            # Create a new snapshot of the current cost objects
-            snapshot = CostAllocationSnapshot.objects.create(
-                allocation=self.allocation,
-                approved_at=approval_time,
-                approved_by=request.user,
-                superseded_at=None,
-            )
-
-            # Copy all current cost objects to the snapshot
-            for cost_object in self.allocation.cost_objects.all():
-                CostObjectSnapshot.objects.create(
-                    snapshot=snapshot,
-                    cost_object=cost_object.cost_object,
-                    percentage=cost_object.percentage,
+                # Create a new snapshot of the current cost objects
+                snapshot = CostAllocationSnapshot.objects.create(
+                    allocation=self.allocation,
+                    approved_at=approval_time,
+                    approved_by=request.user,
+                    superseded_at=None,
                 )
 
-            self.allocation.status = ProjectCostAllocation.StatusChoices.APPROVED
-            self.allocation.reviewed_by = request.user
-            self.allocation.reviewed_at = approval_time
-            self.allocation.review_notes = review_notes
-            self.allocation.save()
+                # Copy all current cost objects to the snapshot
+                for cost_object in self.allocation.cost_objects.all():
+                    CostObjectSnapshot.objects.create(
+                        snapshot=snapshot,
+                        cost_object=cost_object.cost_object,
+                        percentage=cost_object.percentage,
+                    )
+
+                self.allocation.status = ProjectCostAllocation.StatusChoices.APPROVED
+                self.allocation.reviewed_by = request.user
+                self.allocation.reviewed_at = approval_time
+                self.allocation.review_notes = review_notes
+                self.allocation.save()
+
+            # Logging and messages outside transaction
             logger.info(
                 f"Cost allocation approved: project={self.allocation.project.pk}, "
                 f"approved_by={request.user.username}, snapshot_id={snapshot.pk}"
@@ -236,11 +247,15 @@ class CostAllocationApprovalView(LoginRequiredMixin, PermissionRequiredMixin, Te
                 messages.error(request, "Please provide a reason for rejection.")
                 return self.render_to_response(self.get_context_data(**kwargs))
 
-            self.allocation.status = ProjectCostAllocation.StatusChoices.REJECTED
-            self.allocation.reviewed_by = request.user
-            self.allocation.reviewed_at = timezone.now()
-            self.allocation.review_notes = review_notes
-            self.allocation.save()
+            # Wrap database operations in a transaction for atomicity
+            with transaction.atomic():
+                self.allocation.status = ProjectCostAllocation.StatusChoices.REJECTED
+                self.allocation.reviewed_by = request.user
+                self.allocation.reviewed_at = timezone.now()
+                self.allocation.review_notes = review_notes
+                self.allocation.save()
+
+            # Logging and messages outside transaction
             logger.info(
                 f"Cost allocation rejected: project={self.allocation.project.pk}, "
                 f"rejected_by={request.user.username}, reason={review_notes}"
