@@ -61,11 +61,19 @@ class ProjectCostAllocationView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         context["project"] = self.project
 
-        # Get or create the cost allocation for this project
-        allocation, _ = ProjectCostAllocation.objects.get_or_create(
-            project=self.project,
-            defaults={"notes": ""},
-        )
+        # Try to get existing allocation, but don't create one just for viewing
+        # This prevents creating a PENDING allocation when user just views then cancels
+        allocation = ProjectCostAllocation.objects.filter(
+            project=self.project
+        ).first()
+
+        # If no allocation exists, create an unsaved instance for form display only
+        if allocation is None:
+            allocation = ProjectCostAllocation(project=self.project)
+            context["is_new_allocation"] = True
+        else:
+            context["is_new_allocation"] = False
+
         context["allocation"] = allocation
 
         if self.request.method == "POST":
@@ -85,6 +93,7 @@ class ProjectCostAllocationView(LoginRequiredMixin, TemplateView):
         context = self.get_context_data(**kwargs)
         form = context["form"]
         formset = context["formset"]
+        is_new_allocation = context.get("is_new_allocation", False)
 
         if form.is_valid() and formset.is_valid():
             # Save allocation and reset status to PENDING for approval
@@ -94,6 +103,12 @@ class ProjectCostAllocationView(LoginRequiredMixin, TemplateView):
             allocation.reviewed_at = None
             allocation.review_notes = ""
             allocation.save()
+
+            # For new allocations, we need to set the formset's instance
+            # to the now-saved allocation before saving the formset
+            if is_new_allocation:
+                formset.instance = allocation
+
             formset.save()
             logger.info(
                 f"Cost allocation submitted for approval: project={self.project.pk}, "
