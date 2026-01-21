@@ -123,7 +123,7 @@ class GpuNodeInstance(TimeStampedModel):
     objects = GpuNodeInstanceManager()
 
     def __str__(self):
-        return f"{self.node_type.name} ({self.status})"
+        return f"{self.associated_resource_address}, {self.node_type.name} ({self.status})"
 
     def natural_key(self):
         """Return natural key for serialization/deserialization.
@@ -192,7 +192,7 @@ class CpuNodeInstance(TimeStampedModel):
     objects = CpuNodeInstanceManager()
 
     def __str__(self):
-        return f"{self.node_type.name} ({self.status})"
+        return f"{self.associated_resource_address}, {self.node_type.name} ({self.status})"
 
     def natural_key(self):
         """Return natural key for serialization/deserialization.
