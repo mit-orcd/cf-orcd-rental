@@ -24,6 +24,7 @@ from coldfront_orcd_direct_charge.models import (
     ProjectMemberRole,
     Reservation,
     can_view_activity_log,
+    get_sku_for_reservation,
     log_activity,
 )
 
@@ -272,6 +273,9 @@ class InvoiceReportView(APIView):
         for res in reservations:
             override = overrides.get(res.pk)
 
+            # Get SKU for this reservation
+            sku = get_sku_for_reservation(res)
+
             # If excluded via override, mark it
             if override and override.override_type == InvoiceLineOverride.OverrideTypeChoices.EXCLUDE:
                 invoice_lines.append({
@@ -280,6 +284,7 @@ class InvoiceReportView(APIView):
                     "override": override,
                     "hours_in_month": 0,
                     "cost_breakdown": [],
+                    "sku": sku,
                 })
                 continue
 
@@ -304,6 +309,7 @@ class InvoiceReportView(APIView):
                 "override": override,
                 "hours_in_month": hours_in_month,
                 "cost_breakdown": cost_breakdown,
+                "sku": sku,
             })
 
         # Group by project
@@ -356,10 +362,13 @@ class InvoiceReportView(APIView):
             for line in proj_data["lines"]:
                 res = line["reservation"]
                 override = line["override"]
+                sku = line.get("sku")
 
                 res_export = {
                     "reservation_id": res.pk,
                     "node": res.node_instance.associated_resource_address,
+                    "sku_code": sku.sku_code if sku else None,
+                    "sku_name": sku.name if sku else None,
                     "start_date": res.start_date.isoformat(),
                     "start_datetime": res.start_datetime.isoformat(),
                     "end_date": res.end_date.isoformat(),
