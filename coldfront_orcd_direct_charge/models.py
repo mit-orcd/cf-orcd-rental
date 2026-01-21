@@ -1419,3 +1419,31 @@ def can_view_activity_log(user):
         or user.has_perm("coldfront_orcd_direct_charge.can_manage_billing")
         or user.has_perm("coldfront_orcd_direct_charge.can_manage_rentals")
     )
+
+
+def get_sku_for_reservation(reservation):
+    """Get the RentalSKU for a reservation.
+
+    Currently supports NODE-type reservations that are linked to a GpuNodeInstance.
+    Designed to be extended for future QoS reservations that link directly to a SKU.
+
+    Args:
+        reservation: A Reservation instance
+
+    Returns:
+        RentalSKU instance or None if no matching SKU exists
+    """
+    # Future: Check if reservation has a direct SKU reference (for QoS reservations)
+    # if hasattr(reservation, 'sku') and reservation.sku:
+    #     return reservation.sku
+
+    # Current: Derive SKU from node type
+    if reservation.node_instance and reservation.node_instance.node_type:
+        node_type_name = reservation.node_instance.node_type.name
+        sku_code = f"NODE_{node_type_name}"
+        try:
+            return RentalSKU.objects.get(sku_code=sku_code)
+        except RentalSKU.DoesNotExist:
+            return None
+
+    return None
