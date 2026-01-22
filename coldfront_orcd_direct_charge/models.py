@@ -1066,7 +1066,7 @@ class RentalSKU(TimeStampedModel):
     manually by Rate Managers.
 
     Attributes:
-        sku_code (str): Unique identifier (e.g., "NODE_H200x8", "MAINT_BASIC")
+        sku_code (str): Unique identifier (e.g., "NODE_H200x8", "MAINT_STANDARD")
         name (str): Display name (e.g., "H200x8 GPU Node")
         description (str): Optional description
         sku_type (str): Category of SKU (NODE, MAINTENANCE, QOS)
