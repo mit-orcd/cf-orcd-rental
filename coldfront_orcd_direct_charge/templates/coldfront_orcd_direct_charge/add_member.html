@@ -97,6 +97,7 @@ Add Member - {{ project.title }}
   const usernameInput = document.getElementById('id_username');
   const suggestions = document.getElementById('username-suggestions');
   const projectId = {{ project.pk }};
+  const userSearchApiUrl = "{% url 'coldfront_orcd_direct_charge:user-search' %}";
 
   if (!usernameInput || !suggestions) return;
 
@@ -110,7 +111,7 @@ Add Member - {{ project.title }}
     }
     
     debounceTimer = setTimeout(() => {
-      fetch(`/nodes/api/users/search/?q=${encodeURIComponent(query)}&project_id=${projectId}`)
+      fetch(`${userSearchApiUrl}?q=${encodeURIComponent(query)}&project_id=${projectId}`)
         .then(response => response.json())
         .then(users => {
           suggestions.innerHTML = '';

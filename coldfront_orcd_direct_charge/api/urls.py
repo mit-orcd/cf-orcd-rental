@@ -11,7 +11,7 @@ router = routers.DefaultRouter()
 router.register(r"rentals", views.ReservationViewSet, basename="rentals")
 
 urlpatterns = router.urls + [
-    path("users/search/", views.UserSearchView.as_view(), name="user-search"),
+    path("user-search/", views.UserSearchView.as_view(), name="user-search"),
     # Invoice API endpoints
     path("invoice/", views.InvoiceListView.as_view(), name="invoice-list"),
     path("invoice/<int:year>/<int:month>/", views.InvoiceReportView.as_view(), name="invoice-report"),

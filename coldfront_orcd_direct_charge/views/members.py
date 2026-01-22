@@ -477,8 +477,46 @@ class RemoveMemberView(LoginRequiredMixin, View):
 
 
 # =============================================================================
-# Add Users Search Results Views (Override ColdFront's add-users flow)
+# Add Users Search Views (Override ColdFront's add-users flow)
 # =============================================================================
+
+
+class ProjectAddUsersSearchView(LoginRequiredMixin, TemplateView):
+    """View for the autocomplete add-users interface.
+
+    This renders the project_add_users.html template which provides an
+    autocomplete search interface for finding and adding users to a project.
+    The template uses JavaScript to call the user-search API endpoint.
+    """
+
+    template_name = "project/project_add_users.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        """Check user has permission to add members and project is active."""
+        from coldfront.core.project.models import Project
+
+        self.project = get_object_or_404(Project, pk=self.kwargs.get("pk"))
+
+        if self.project.status.name not in ["Active", "New"]:
+            messages.error(request, "You cannot add members to an archived project.")
+            return HttpResponseRedirect(
+                reverse("project-detail", kwargs={"pk": self.project.pk})
+            )
+
+        if not can_manage_members(request.user, self.project):
+            messages.error(
+                request, "You do not have permission to add members to this project."
+            )
+            return HttpResponseRedirect(
+                reverse("project-detail", kwargs={"pk": self.project.pk})
+            )
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["project"] = self.project
+        return context
 
 
 class ProjectAddUsersSearchResultsView(LoginRequiredMixin, TemplateView):
