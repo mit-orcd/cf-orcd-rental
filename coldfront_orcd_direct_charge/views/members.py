@@ -486,7 +486,7 @@ class ProjectAddUsersSearchView(LoginRequiredMixin, TemplateView):
 
     This renders the project_add_users.html template which provides an
     autocomplete search interface for finding and adding users to a project.
-    The template uses JavaScript to call the /nodes/api/users/search/ endpoint.
+    The template uses JavaScript to call the user-search API endpoint.
     """
 
     template_name = "project/project_add_users.html"
