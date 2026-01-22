@@ -248,7 +248,7 @@ The migration `0022_rentalsku_rentalrate` creates initial SKUs:
 - NODE_CPU_384G, NODE_CPU_1500G
 
 **Maintenance SKUs (2 total):**
-- MAINT_BASIC
+- MAINT_STANDARD
 - MAINT_ADVANCED
 
 All initial SKUs receive a placeholder rate of $0.01 effective on the migration date.
@@ -395,7 +395,7 @@ Displays all SKUs grouped by type (Node, Maintenance, QoS) with:
 │                                                                  │
 │  ┌─ Maintenance Fees (Monthly) ────────────────────────────────┐ │
 │  │ SKU          │ Current Rate │ Effective │ Actions           │ │
-│  │ MAINT_BASIC  │ $50.00/mo    │ Jan 1     │ [Add] [History]   │ │
+│  │ MAINT_STANDARD │ $50.00/mo  │ Jan 1     │ [Add] [History]   │ │
 │  └──────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 │  ┌─ Rentable QoS (Monthly) ────────────────────────────────────┐ │
