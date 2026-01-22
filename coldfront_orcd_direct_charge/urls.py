@@ -23,9 +23,9 @@ urlpatterns = [
     path("reservation/<int:pk>/", views.ReservationDetailView.as_view(), name="reservation-detail"),
     # User profile
     path("user/update-maintenance-status/", views.update_maintenance_status, name="update-maintenance-status"),
-    # Project cost allocation
-    path("project/<int:pk>/cost-allocation/", views.ProjectCostAllocationView.as_view(), name="project-cost-allocation"),
-    path("project/<int:pk>/reservations/", views.ProjectReservationsView.as_view(), name="project-reservations"),
+    # Project cost allocation (use orcd-project/ prefix to avoid conflict with ColdFront core URLs)
+    path("orcd-project/<int:pk>/cost-allocation/", views.ProjectCostAllocationView.as_view(), name="project-cost-allocation"),
+    path("orcd-project/<int:pk>/reservations/", views.ProjectReservationsView.as_view(), name="project-reservations"),
     # Billing Manager views
     path("billing/pending/", views.PendingCostAllocationsView.as_view(), name="pending-cost-allocations"),
     path("billing/allocation/<int:pk>/review/", views.CostAllocationApprovalView.as_view(), name="cost-allocation-review"),
@@ -37,15 +37,15 @@ urlpatterns = [
     path("billing/invoice/<int:year>/<int:month>/override/<int:override_id>/delete/", views.InvoiceDeleteOverrideView.as_view(), name="invoice-delete-override"),
     # Activity Log
     path("activity-log/", views.ActivityLogView.as_view(), name="activity-log"),
-    # Project member management
-    path("project/<int:pk>/members/", views.ProjectMembersView.as_view(), name="project-members"),
-    path("project/<int:pk>/members/add/", views.AddMemberView.as_view(), name="add-member"),
-    path("project/<int:pk>/members/<int:user_pk>/update/", views.UpdateMemberRoleView.as_view(), name="update-member-role"),
-    path("project/<int:pk>/members/<int:user_pk>/remove/", views.RemoveMemberView.as_view(), name="remove-member"),
-    # Project add users search (override ColdFront's flow)
-    path("project/<int:pk>/add-users-search/", views.ProjectAddUsersSearchView.as_view(), name="project-add-users-search"),
-    path("project/<int:pk>/add-users-search-results/", views.ProjectAddUsersSearchResultsView.as_view(), name="project-add-users-search-results"),
-    path("project/<int:pk>/add-users/", views.ProjectAddUsersView.as_view(), name="project-add-users"),
+    # Project member management (use orcd-project/ prefix to avoid conflict with ColdFront core URLs)
+    path("orcd-project/<int:pk>/members/", views.ProjectMembersView.as_view(), name="project-members"),
+    path("orcd-project/<int:pk>/members/add/", views.AddMemberView.as_view(), name="add-member"),
+    path("orcd-project/<int:pk>/members/<int:user_pk>/update/", views.UpdateMemberRoleView.as_view(), name="update-member-role"),
+    path("orcd-project/<int:pk>/members/<int:user_pk>/remove/", views.RemoveMemberView.as_view(), name="remove-member"),
+    # Project add users search (use orcd-project/ prefix to avoid conflict with ColdFront's add-users flow)
+    path("orcd-project/<int:pk>/add-users-search/", views.ProjectAddUsersSearchView.as_view(), name="project-add-users-search"),
+    path("orcd-project/<int:pk>/add-users-search-results/", views.ProjectAddUsersSearchResultsView.as_view(), name="project-add-users-search-results"),
+    path("orcd-project/<int:pk>/add-users/", views.ProjectAddUsersView.as_view(), name="project-add-users"),
     # User's personal views
     path("my/reservations/", views.MyReservationsView.as_view(), name="my-reservations"),
     # Rate Management views (Rate Managers only)

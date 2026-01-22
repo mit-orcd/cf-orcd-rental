@@ -566,6 +566,13 @@ class ProjectAddUsersSearchResultsView(LoginRequiredMixin, TemplateView):
 
         project_obj = get_object_or_404(Project, pk=pk)
 
+        # Validate search string is provided
+        if not user_search_string:
+            messages.error(request, "Please enter a search term to find users.")
+            return HttpResponseRedirect(
+                reverse("coldfront_orcd_direct_charge:project-add-users-search", kwargs={"pk": pk})
+            )
+
         # Get users already in project (either as owner or via ProjectMemberRole)
         users_to_exclude = [project_obj.pi.username]
         users_to_exclude.extend([
@@ -587,7 +594,8 @@ class ProjectAddUsersSearchResultsView(LoginRequiredMixin, TemplateView):
             context["user_search_string"] = user_search_string
             context["search_by"] = search_by
 
-        if len(user_search_string.split()) > 1:
+        # Check for multiple usernames in search (guard against None already handled above)
+        if user_search_string and len(user_search_string.split()) > 1:
             users_already_in_project = []
             for ele in user_search_string.split():
                 if ele in users_to_exclude:
