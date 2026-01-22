@@ -1,3 +1,3 @@
-main
-35223c1
-2026-01-22_12:45
+fix/navbar-user-profile-link
+dc137cd
+2026-01-22_12:57
