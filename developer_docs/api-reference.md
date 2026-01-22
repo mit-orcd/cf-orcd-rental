@@ -32,7 +32,7 @@ The plugin provides a REST API built with [Django REST Framework](https://www.dj
 |----------|--------|-------------|------------|
 | `/nodes/api/rentals/` | GET | List all reservations | `can_manage_rentals` |
 | `/nodes/api/rentals/<pk>/` | GET | Single reservation detail | `can_manage_rentals` |
-| `/nodes/api/users/search/` | GET | Search users for autocomplete | Authenticated |
+| `/nodes/api/user-search/` | GET | Search users for autocomplete | Authenticated |
 | `/nodes/api/invoice/` | GET | List months with reservations | `can_manage_billing` |
 | `/nodes/api/invoice/<year>/<month>/` | GET | Full invoice report | `can_manage_billing` |
 | `/nodes/api/activity-log/` | GET | Query activity logs | Billing/Rental Manager |
@@ -157,7 +157,7 @@ Returns details for a single reservation.
 ### User Search API
 
 ```
-GET /nodes/api/users/search/
+GET /nodes/api/user-search/
 ```
 
 Search for users by username, name, or email. Used for autocomplete in the Add Member form.
@@ -174,7 +174,7 @@ Search for users by username, name, or email. Used for autocomplete in the Add M
 **Example Request**:
 ```bash
 curl -H "Authorization: Token YOUR_TOKEN" \
-     "http://localhost:8000/nodes/api/users/search/?q=john&project_id=5"
+     "http://localhost:8000/nodes/api/user-search/?q=john&project_id=5"
 ```
 
 **Example Response**:
@@ -463,7 +463,7 @@ class HasActivityLogPermission(permissions.BasePermission):
 | Endpoint | Required Permission |
 |----------|---------------------|
 | `/api/rentals/` | `can_manage_rentals` |
-| `/api/users/search/` | Authenticated |
+| `/nodes/api/user-search/` | Authenticated |
 | `/api/invoice/` | `can_manage_billing` |
 | `/api/invoice/<year>/<month>/` | `can_manage_billing` |
 | `/api/activity-log/` | `can_manage_billing` OR `can_manage_rentals` OR Superuser |
