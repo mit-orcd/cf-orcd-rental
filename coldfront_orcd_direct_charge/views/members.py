@@ -137,7 +137,7 @@ class AddMemberView(LoginRequiredMixin, TemplateView):
     template_name = "coldfront_orcd_direct_charge/add_member.html"
 
     def dispatch(self, request, *args, **kwargs):
-        """Check user has permission to add members."""
+        """Redirect legacy add-member route to the new add-users-search flow."""
         from coldfront.core.project.models import Project
 
         self.project = get_object_or_404(Project, pk=kwargs.get("pk"))
@@ -146,7 +146,10 @@ class AddMemberView(LoginRequiredMixin, TemplateView):
             messages.error(request, "You do not have permission to add members to this project.")
             return redirect("coldfront_orcd_direct_charge:project-members", pk=self.project.pk)
 
-        return super().dispatch(request, *args, **kwargs)
+        return redirect(
+            "coldfront_orcd_direct_charge:project-add-users-search",
+            pk=self.project.pk,
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
