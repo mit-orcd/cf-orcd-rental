@@ -43,6 +43,7 @@ urlpatterns = [
     path("project/<int:pk>/members/<int:user_pk>/update/", views.UpdateMemberRoleView.as_view(), name="update-member-role"),
     path("project/<int:pk>/members/<int:user_pk>/remove/", views.RemoveMemberView.as_view(), name="remove-member"),
     # Project add users search (override ColdFront's flow)
+    path("project/<int:pk>/add-users-search/", views.ProjectAddUsersSearchView.as_view(), name="project-add-users-search"),
     path("project/<int:pk>/add-users-search-results/", views.ProjectAddUsersSearchResultsView.as_view(), name="project-add-users-search-results"),
     path("project/<int:pk>/add-users/", views.ProjectAddUsersView.as_view(), name="project-add-users"),
     # User's personal views

@@ -39,7 +39,7 @@ Project Detail
     </div>
     <div class="card-body">
       {% if project.status.name != 'Archived' %}
-        <a class="btn btn-success" href="{% url 'project-add-users-search' project.pk %}" role="button"><i class="fas fa-user-plus" aria-hidden="true"></i> Add Members</a>
+        <a class="btn btn-success" href="{% url 'coldfront_orcd_direct_charge:project-add-users-search' project.pk %}" role="button"><i class="fas fa-user-plus" aria-hidden="true"></i> Add Members</a>
       {% endif %}
       <a class="btn btn-info" href="{% url 'coldfront_orcd_direct_charge:project-reservations' project.pk %}" role="button"><i class="fas fa-calendar-alt" aria-hidden="true"></i> View Project Reservations</a>
     </div>
