@@ -59,7 +59,7 @@ All plugin URLs are prefixed with `/nodes/` (configured in ColdFront's `urls.py`
 | | `/nodes/billing/invoice/<year>/<month>/edit/` | Edit overrides |
 | | `/nodes/billing/invoice/<year>/<month>/export/` | Export JSON |
 | **Members** | `/nodes/orcd-project/<pk>/members/` | List members |
-| | `/nodes/orcd-project/<pk>/members/add/` | Add member |
+| | `/nodes/orcd-project/<pk>/add-users-search/` | Add members (autocomplete) |
 | | `/nodes/orcd-project/<pk>/members/<user_pk>/update/` | Update roles |
 | | `/nodes/orcd-project/<pk>/members/<user_pk>/remove/` | Remove member |
 | **Project Add Users** | `/nodes/orcd-project/<pk>/add-users-search/` | Autocomplete search interface |
@@ -722,17 +722,14 @@ List project members with their ORCD roles.
 
 ---
 
-### AddMemberView
+### AddMemberView (legacy redirect)
 
 **URL**: `/nodes/orcd-project/<pk>/members/add/`  
 **Name**: `coldfront_orcd_direct_charge:add-member`  
-**Template**: `coldfront_orcd_direct_charge/add_member.html`
+**Behavior**: Redirects to `project-add-users-search` after permission check.  
+**Template**: (legacy) `coldfront_orcd_direct_charge/add_member.html` (no longer rendered)
 
-Add a new member with role selection.
-
-**Form**: `AddMemberForm`
-- `username` - Username to add (with autocomplete)
-- `roles` - Multiple choice checkboxes
+Legacy entry point retained for bookmarks; all adds now go through the autocomplete UI.
 
 ---
 

@@ -18,7 +18,7 @@ Project Members - {{ project.title }}
     <i class="fas fa-arrow-left"></i> Back to Project
   </a>
   {% if can_manage_members %}
-    <a href="{% url 'coldfront_orcd_direct_charge:add-member' project.pk %}" class="btn btn-success">
+    <a href="{% url 'coldfront_orcd_direct_charge:project-add-users-search' project.pk %}" class="btn btn-success">
       <i class="fas fa-user-plus"></i> Add Member
     </a>
   {% endif %}
