@@ -1,0 +1,76 @@
+# ORCD Direct Charge Plugin - Runtime Configuration
+# =============================================================================
+# This file is read at startup and can be reloaded at runtime with:
+#   systemctl reload coldfront
+#
+# Location:
+#   Default: /srv/coldfront/plugin_config.yaml
+#   Override: Set ORCD_PLUGIN_CONFIG environment variable
+#
+# Configuration Precedence (highest to lowest):
+#   1. Django local_settings.py (static, requires restart)
+#   2. This config file (reloadable at runtime)
+#   3. Environment variables (backward compatibility)
+#   4. Code defaults (in config.py DEFAULT_CONFIG)
+#
+# These are the CODE DEFAULTS (conservative values for development/testing).
+# Production deployments typically enable auto-features - see deployment docs.
+# =============================================================================
+
+
+# =============================================================================
+# UI Options
+# =============================================================================
+
+# Show "Center Summary" link in the navigation bar
+# When false, the Center Summary page is still accessible via direct URL,
+# but the navbar link is hidden.
+# Default: false
+center_summary_enable: false
+
+# Show the "Allocations" section on the home page
+# When false, users won't see the allocations table on their dashboard.
+# Default: true
+home_page_allocations_enable: true
+
+
+# =============================================================================
+# Auto-Configuration Features
+# =============================================================================
+# WARNING: These settings modify user accounts. Changes are IRREVERSIBLE!
+#
+# Once applied to a user account, the settings persist even if the feature
+# is later disabled. For example:
+#   - auto_pi_enable: Users set to is_pi=True stay as PIs
+#   - auto_default_project_enable: Created USERNAME_group projects persist
+#
+# Code defaults are false (conservative), but production deployments
+# typically set these to true to streamline user onboarding.
+# =============================================================================
+
+# Auto-PI Feature
+# When true, all users are automatically set as Principal Investigators (is_pi=True).
+# This allows all users to create and manage their own projects.
+#
+# Use case: Environments where all users should have PI privileges by default.
+# Default: false
+auto_pi_enable: false
+
+# Auto-Default-Project Feature
+# When true, each user automatically gets a personal project named USERNAME_group.
+# This project is created when the user first logs in or when this feature is enabled.
+#
+# Use case: Environments where all users need a personal project for allocations.
+# Default: false
+auto_default_project_enable: false
+
+
+# =============================================================================
+# Future Options
+# =============================================================================
+# Additional runtime configuration options can be added here.
+# After adding a new option:
+#   1. Add the default value to config.py DEFAULT_CONFIG
+#   2. Reference it using config.get('option_name', default_value)
+#   3. Document it in this example file
+# =============================================================================

@@ -16,6 +16,7 @@ These features are IRREVERSIBLE - once applied, changes persist even if features
 """
 
 import logging
+import signal
 
 from datetime import date
 from decimal import Decimal
@@ -28,6 +29,34 @@ from django.conf import settings
 from coldfront.core.project.models import Project, ProjectUser
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Configuration Reload Handler
+# Reload plugin configuration on SIGHUP signal (systemctl reload)
+# =============================================================================
+
+
+def register_sighup_handler():
+    """
+    Register SIGHUP handler for runtime configuration reload.
+    
+    This enables reloading plugin configuration without restarting the service:
+        systemctl reload coldfront
+    
+    When Gunicorn receives SIGHUP, it gracefully restarts workers and this
+    handler is called to re-read the configuration file.
+    """
+    from coldfront_orcd_direct_charge import config
+    
+    def handle_sighup(signum, frame):
+        """Handle SIGHUP signal by reloading configuration."""
+        logger.info("Received SIGHUP, reloading configuration...")
+        config.reload_config()
+    
+    # Register the signal handler
+    signal.signal(signal.SIGHUP, handle_sighup)
+    logger.info("SIGHUP handler registered for config reload")
 
 
 # =============================================================================
