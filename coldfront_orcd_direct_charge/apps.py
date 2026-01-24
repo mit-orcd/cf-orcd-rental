@@ -99,6 +99,15 @@ class OrcdDirectChargeConfig(AppConfig):
         if "HOME_PAGE_ALLOCATIONS_ENABLE" not in settings.SETTINGS_EXPORT:
             settings.SETTINGS_EXPORT.append("HOME_PAGE_ALLOCATIONS_ENABLE")
 
+        # PASSWORD_LOGIN_ENABLE: Allow username/password login form
+        # Precedence: local_settings.py > config file > default (False)
+        if not hasattr(settings, "PASSWORD_LOGIN_ENABLE"):
+            settings.PASSWORD_LOGIN_ENABLE = config.get('password_login_enable', False)
+
+        # Ensure PASSWORD_LOGIN_ENABLE is exported to templates
+        if "PASSWORD_LOGIN_ENABLE" not in settings.SETTINGS_EXPORT:
+            settings.SETTINGS_EXPORT.append("PASSWORD_LOGIN_ENABLE")
+
         # ---------------------------------------------------------------------
         # Auto-Configuration Features
         # These features modify user accounts. Changes are IRREVERSIBLE - once

@@ -47,6 +47,8 @@ DEFAULT_CONFIG = {
     # These defaults are fallbacks only used when no config file exists
     'auto_pi_enable': False,               # Default: False - Users must be manually set as PIs
     'auto_default_project_enable': False,  # Default: False - No auto USERNAME_group project
+    # Authentication Options
+    'password_login_enable': False,        # Default: False - Password login disabled
 }
 
 

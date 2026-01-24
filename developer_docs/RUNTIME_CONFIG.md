@@ -147,6 +147,19 @@ else:
 - Users set to `is_pi=True` remain as PIs
 - Created `USERNAME_group` projects persist
 
+### Authentication Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `password_login_enable` | bool | `false` | Enable username/password login via `/user/login?opt=password` |
+
+When enabled, users can access a traditional username/password login form by visiting `/user/login?opt=password`. The standard OIDC/Touchstone login remains available at `/user/login` (without the query parameter). This provides an alternative authentication method for:
+- Service accounts without OIDC credentials
+- Local development and testing
+- Fallback authentication when OIDC is unavailable
+
+When disabled (default), any attempt to access `/user/login?opt=password` redirects to the standard OIDC authentication flow.
+
 ### Production vs Development Defaults
 
 The code defaults are conservative (features disabled) for safe development and testing. Production deployments typically enable auto-features:
@@ -155,6 +168,7 @@ The code defaults are conservative (features disabled) for safe development and 
 |--------|--------------|-------------------|
 | `auto_pi_enable` | `false` | `true` |
 | `auto_default_project_enable` | `false` | `true` |
+| `password_login_enable` | `false` | `false` |
 
 ---
 
