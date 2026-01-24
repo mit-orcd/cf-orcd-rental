@@ -79,6 +79,11 @@ from coldfront_orcd_direct_charge.views.dashboard import (
     ActivityLogView,
 )
 
+# Auth views
+from coldfront_orcd_direct_charge.views.auth import (
+    PasswordLoginView,
+)
+
 # Export all views for `from coldfront_orcd_direct_charge.views import *`
 __all__ = [
     # Nodes
@@ -124,5 +129,7 @@ __all__ = [
     # Dashboard
     "Home2View",
     "ActivityLogView",
+    # Auth
+    "PasswordLoginView",
 ]
 

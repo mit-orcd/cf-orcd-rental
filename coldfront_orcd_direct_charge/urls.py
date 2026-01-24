@@ -5,6 +5,7 @@
 from django.urls import include, path
 
 from coldfront_orcd_direct_charge import views
+from coldfront_orcd_direct_charge.views.auth import PasswordLoginView
 
 app_name = "coldfront_orcd_direct_charge"
 
@@ -22,6 +23,7 @@ urlpatterns = [
     # Reservation detail
     path("reservation/<int:pk>/", views.ReservationDetailView.as_view(), name="reservation-detail"),
     # User profile
+    path("user/login", PasswordLoginView.as_view(), name="password-login"),
     path("user/update-maintenance-status/", views.update_maintenance_status, name="update-maintenance-status"),
     # Project cost allocation (use orcd-project/ prefix to avoid conflict with ColdFront core URLs)
     path("orcd-project/<int:pk>/cost-allocation/", views.ProjectCostAllocationView.as_view(), name="project-cost-allocation"),

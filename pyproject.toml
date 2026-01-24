@@ -17,6 +17,7 @@ classifiers = [
 ]
 dependencies = [
     "coldfront>=1.1.0",
+    "pyyaml>=6.0",
 ]
 
 [project.urls]

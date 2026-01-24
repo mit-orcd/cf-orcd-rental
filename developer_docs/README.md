@@ -199,6 +199,7 @@ coldfront-orcd-direct-charge/
 | [Views & URLs](views-urls.md) | View classes, URL patterns, and request flow |
 | [API Reference](api-reference.md) | REST API endpoints, authentication, examples |
 | [Signals](signals.md) | Signal handlers, auto-configuration, activity logging |
+| [Runtime Config](RUNTIME_CONFIG.md) | Runtime configuration with hot-reload via SIGHUP |
 | [Rate Manager](RATE_MANAGER.md) | Rate management feature for rental charging rates |
 | [Code Organization](CODE_ORGANIZATION.md) | Views package structure and module organization |
 | [Changelog](CHANGELOG.md) | Version history and changes |

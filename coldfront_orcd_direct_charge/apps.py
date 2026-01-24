@@ -26,6 +26,17 @@ class OrcdDirectChargeConfig(AppConfig):
         # This ensures RentalSKU records are created/updated when NodeTypes change
         signals.connect_nodetype_sku_signals()
 
+        # =============================================================================
+        # Runtime Configuration
+        # Load plugin configuration from YAML file and register SIGHUP handler
+        # for hot-reloading via: systemctl reload coldfront
+        # =============================================================================
+        from coldfront_orcd_direct_charge import config
+        config.load_config()
+
+        # Register SIGHUP handler for runtime configuration reload
+        signals.register_sighup_handler()
+
         # Dynamically add the plugin templates directory to TEMPLATES['DIRS']
         # This allows the plugin to override core ColdFront templates
         plugin_templates_dir = os.path.join(
@@ -39,49 +50,8 @@ class OrcdDirectChargeConfig(AppConfig):
                     template_setting["DIRS"]
                 )
 
-        # Set default for CENTER_SUMMARY_ENABLE if not already set
-        if not hasattr(settings, "CENTER_SUMMARY_ENABLE"):
-            settings.CENTER_SUMMARY_ENABLE = False
-
-        # Ensure CENTER_SUMMARY_ENABLE is exported to templates
-        if "CENTER_SUMMARY_ENABLE" not in settings.SETTINGS_EXPORT:
-            settings.SETTINGS_EXPORT.append("CENTER_SUMMARY_ENABLE")
-
-        # Set default for HOME_PAGE_ALLOCATIONS_ENABLE if not already set
-        # Default is True to maintain backward compatibility
-        if not hasattr(settings, "HOME_PAGE_ALLOCATIONS_ENABLE"):
-            settings.HOME_PAGE_ALLOCATIONS_ENABLE = True
-
-        # Ensure HOME_PAGE_ALLOCATIONS_ENABLE is exported to templates
-        if "HOME_PAGE_ALLOCATIONS_ENABLE" not in settings.SETTINGS_EXPORT:
-            settings.SETTINGS_EXPORT.append("HOME_PAGE_ALLOCATIONS_ENABLE")
-
-        # =============================================================================
-        # Auto-Configuration Features
-        # These features modify user accounts. Changes are IRREVERSIBLE - once applied,
-        # accounts keep their settings even if the feature is disabled.
-        # =============================================================================
-
-        # AUTO_PI_ENABLE: When True, all users are automatically set as PIs (is_pi=True)
-        # This allows all users to create projects without manual PI approval.
-        # Precedence: local_settings.py > environment variable > default (False)
-        if not hasattr(settings, "AUTO_PI_ENABLE"):
-            settings.AUTO_PI_ENABLE = (
-                os.environ.get("AUTO_PI_ENABLE", "").lower() == "true"
-            )
-
-        # Export AUTO_PI_ENABLE to templates (used to hide PI Status when always True)
-        if "AUTO_PI_ENABLE" not in settings.SETTINGS_EXPORT:
-            settings.SETTINGS_EXPORT.append("AUTO_PI_ENABLE")
-
-        # AUTO_DEFAULT_PROJECT_ENABLE: When True, creates a USERNAME_group project for each user
-        # Each user gets a group project they own as PI.
-        # Requires user to be a PI (will auto-enable is_pi for project owners).
-        # Precedence: local_settings.py > environment variable > default (False)
-        if not hasattr(settings, "AUTO_DEFAULT_PROJECT_ENABLE"):
-            settings.AUTO_DEFAULT_PROJECT_ENABLE = (
-                os.environ.get("AUTO_DEFAULT_PROJECT_ENABLE", "").lower() == "true"
-            )
+        # Apply runtime configuration to Django settings
+        self._apply_runtime_config()
 
         # Apply auto features to existing users (deferred to avoid issues during migrations)
         # Always ensure maintenance status exists for all users
@@ -89,6 +59,90 @@ class OrcdDirectChargeConfig(AppConfig):
 
         if settings.AUTO_PI_ENABLE or settings.AUTO_DEFAULT_PROJECT_ENABLE:
             self._apply_auto_features_if_ready()
+
+    def _apply_runtime_config(self):
+        """
+        Apply runtime configuration to Django settings.
+
+        Configuration precedence (highest to lowest):
+        1. Django local_settings.py (checked via hasattr)
+        2. plugin_config.yaml (read by config module)
+        3. Environment variables (backward compatibility)
+        4. Code defaults (in config.DEFAULT_CONFIG)
+        """
+        from coldfront_orcd_direct_charge import config
+
+        # Check if config file exists for precedence decisions
+        config_file_exists = os.path.exists(config.get_config_path())
+
+        # ---------------------------------------------------------------------
+        # UI Options
+        # ---------------------------------------------------------------------
+
+        # CENTER_SUMMARY_ENABLE: Show Center Summary in navbar
+        # Precedence: local_settings.py > config file > default (False)
+        if not hasattr(settings, "CENTER_SUMMARY_ENABLE"):
+            settings.CENTER_SUMMARY_ENABLE = config.get('center_summary_enable', False)
+
+        # Ensure CENTER_SUMMARY_ENABLE is exported to templates
+        if "CENTER_SUMMARY_ENABLE" not in settings.SETTINGS_EXPORT:
+            settings.SETTINGS_EXPORT.append("CENTER_SUMMARY_ENABLE")
+
+        # HOME_PAGE_ALLOCATIONS_ENABLE: Show Allocations section on home page
+        # Precedence: local_settings.py > config file > default (True)
+        if not hasattr(settings, "HOME_PAGE_ALLOCATIONS_ENABLE"):
+            settings.HOME_PAGE_ALLOCATIONS_ENABLE = config.get(
+                'home_page_allocations_enable', True
+            )
+
+        # Ensure HOME_PAGE_ALLOCATIONS_ENABLE is exported to templates
+        if "HOME_PAGE_ALLOCATIONS_ENABLE" not in settings.SETTINGS_EXPORT:
+            settings.SETTINGS_EXPORT.append("HOME_PAGE_ALLOCATIONS_ENABLE")
+
+        # PASSWORD_LOGIN_ENABLE: Allow username/password login form
+        # Precedence: local_settings.py > config file > default (False)
+        if not hasattr(settings, "PASSWORD_LOGIN_ENABLE"):
+            settings.PASSWORD_LOGIN_ENABLE = config.get('password_login_enable', False)
+
+        # Ensure PASSWORD_LOGIN_ENABLE is exported to templates
+        if "PASSWORD_LOGIN_ENABLE" not in settings.SETTINGS_EXPORT:
+            settings.SETTINGS_EXPORT.append("PASSWORD_LOGIN_ENABLE")
+
+        # ---------------------------------------------------------------------
+        # Auto-Configuration Features
+        # These features modify user accounts. Changes are IRREVERSIBLE - once
+        # applied, accounts keep their settings even if the feature is disabled.
+        # ---------------------------------------------------------------------
+
+        # AUTO_PI_ENABLE: When True, all users are automatically set as PIs
+        # Precedence: local_settings.py > config file > env var > default (False)
+        if not hasattr(settings, "AUTO_PI_ENABLE"):
+            if config_file_exists:
+                # Config file takes precedence when it exists
+                settings.AUTO_PI_ENABLE = config.get('auto_pi_enable', False)
+            else:
+                # Backward compatibility: use env var when no config file
+                settings.AUTO_PI_ENABLE = (
+                    os.environ.get("AUTO_PI_ENABLE", "").lower() == "true"
+                )
+
+        # Export AUTO_PI_ENABLE to templates (used to hide PI Status when always True)
+        if "AUTO_PI_ENABLE" not in settings.SETTINGS_EXPORT:
+            settings.SETTINGS_EXPORT.append("AUTO_PI_ENABLE")
+
+        # AUTO_DEFAULT_PROJECT_ENABLE: When True, creates USERNAME_group project
+        # Precedence: local_settings.py > config file > env var > default (False)
+        if not hasattr(settings, "AUTO_DEFAULT_PROJECT_ENABLE"):
+            if config_file_exists:
+                # Config file takes precedence when it exists
+                settings.AUTO_DEFAULT_PROJECT_ENABLE = config.get(
+                    'auto_default_project_enable', False
+                )
+            else:
+                # Backward compatibility: use env var when no config file
+                settings.AUTO_DEFAULT_PROJECT_ENABLE = (
+                    os.environ.get("AUTO_DEFAULT_PROJECT_ENABLE", "").lower() == "true"
+                )
 
     def _ensure_maintenance_status_if_ready(self):
         """Ensure all users have a maintenance status if database is ready."""
