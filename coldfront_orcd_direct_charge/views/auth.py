@@ -9,11 +9,12 @@ Provides optional username/password login when enabled via runtime config,
 as an alternative to the default OIDC/Touchstone authentication.
 """
 
-from django.conf import settings
 from django.contrib.auth import login
 from django.contrib.auth.forms import AuthenticationForm
 from django.shortcuts import redirect, render
 from django.views import View
+
+from coldfront_orcd_direct_charge import config
 
 
 class PasswordLoginView(View):
@@ -21,16 +22,20 @@ class PasswordLoginView(View):
 
     This view provides an alternative username/password login form that
     bypasses OIDC authentication. It is only accessible when:
-    1. PASSWORD_LOGIN_ENABLE is True in settings (via plugin_config.yaml)
+    1. password_login_enable is True in plugin_config.yaml
     2. The ?opt=password query parameter is present in the URL
 
     If either condition is not met, the view redirects to OIDC authentication.
+
+    Note: This view reads directly from the config module (not Django settings)
+    to ensure runtime config changes via SIGHUP are reflected immediately.
     """
 
     def dispatch(self, request, *args, **kwargs):
         """Check if password login is enabled before processing the request."""
-        # If password login disabled or no opt=password param, redirect to OIDC
-        if not getattr(settings, "PASSWORD_LOGIN_ENABLE", False):
+        # Read directly from config module to pick up runtime changes
+        # (Django settings are only set once at startup)
+        if not config.get("password_login_enable", False):
             return redirect("oidc_authentication_init")
         if request.GET.get("opt") != "password":
             return redirect("oidc_authentication_init")
