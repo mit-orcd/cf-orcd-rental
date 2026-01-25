@@ -27,6 +27,7 @@ This document describes all view classes and URL patterns in the ORCD Direct Cha
 - [Rate Management Views](#rate-management-views)
 - [Current Rates Views](#current-rates-views)
 - [Activity Log Views](#activity-log-views)
+- [Authentication Views](#authentication-views)
 - [Template Override Views](#template-override-views)
 
 ---
@@ -67,12 +68,13 @@ All plugin URLs are prefixed with `/nodes/` (configured in ColdFront's `urls.py`
 | | `/nodes/orcd-project/<pk>/add-users/` | Add selected users |
 | **Rate Management** | `/nodes/rates/` | Rate management dashboard |
 | | `/nodes/rates/sku/<pk>/` | SKU rate detail and history |
-| | `/nodes/rates/sku/<pk>/add-rate/` | Add new rate for SKU |
+| | `/nodes/rates/sku/<pk>/add/` | Add new rate for SKU |
 | | `/nodes/rates/sku/create/` | Create new SKU |
-| | `/nodes/rates/sku/<pk>/toggle-visibility/` | Toggle SKU public visibility |
-| **Current Rates** | `/nodes/current-rates/` | Public rates page (all users) |
-| | `/nodes/current-rates/sku/<pk>/` | Public SKU detail |
+| | `/nodes/rates/sku/<pk>/visibility/` | Toggle SKU public visibility (AJAX) |
+| **Current Rates** | `/nodes/rates/current/` | Public rates page (all users) |
+| | `/nodes/rates/current/<pk>/` | Public SKU detail |
 | **Activity Log** | `/nodes/activity-log/` | View activity log |
+| **Authentication** | `/nodes/user/login?opt=password` | Password login (when enabled) |
 | **API** | `/nodes/api/...` | REST API endpoints |
 
 ---
@@ -118,7 +120,7 @@ if "coldfront_orcd_direct_charge" in settings.INSTALLED_APPS:
 
 The dashboard is now the **default home page** for authenticated users. It replaces ColdFront's original home via template override.
 
-> **Note**: The original `Home2View` class and `/nodes/home2/` URL were removed in commit `ac437c1`. The dashboard functionality was merged into `portal/authorized_home.html` using a template tag for context.
+> **Note**: The `/nodes/home2/` URL route was removed in commit `ac437c1`. The `Home2View` class still exists in `views/dashboard.py` but is no longer routed. Dashboard functionality was merged into `portal/authorized_home.html` using a template tag for context.
 
 ### Implementation
 
@@ -859,7 +861,7 @@ Shows complete rate history for a specific SKU.
 
 ### AddRateView
 
-**URL**: `/nodes/rates/sku/<pk>/add-rate/`  
+**URL**: `/nodes/rates/sku/<pk>/add/`  
 **Name**: `coldfront_orcd_direct_charge:add-rate`  
 **Template**: `coldfront_orcd_direct_charge/add_rate_form.html`  
 **Module**: `views/rates.py`
@@ -891,7 +893,7 @@ Form to create a new custom QoS SKU.
 
 ### ToggleSKUVisibilityView
 
-**URL**: `/nodes/rates/sku/<pk>/toggle-visibility/`  
+**URL**: `/nodes/rates/sku/<pk>/visibility/`  
 **Name**: `coldfront_orcd_direct_charge:toggle-sku-visibility`  
 **Module**: `views/rates.py`
 
@@ -913,7 +915,7 @@ These views are accessible to all logged-in users (no special permission require
 
 ### CurrentRatesView
 
-**URL**: `/nodes/current-rates/`  
+**URL**: `/nodes/rates/current/`  
 **Name**: `coldfront_orcd_direct_charge:current-rates`  
 **Template**: `coldfront_orcd_direct_charge/current_rates.html`  
 **Module**: `views/rates.py`
@@ -936,7 +938,7 @@ Public-facing page showing current pricing for all visible SKUs.
 
 ### SKUPublicDetailView
 
-**URL**: `/nodes/current-rates/sku/<pk>/`  
+**URL**: `/nodes/rates/current/<pk>/`  
 **Name**: `coldfront_orcd_direct_charge:sku-public-detail`  
 **Template**: `coldfront_orcd_direct_charge/sku_public_detail.html`  
 **Module**: `views/rates.py`
@@ -980,6 +982,44 @@ if not can_view_activity_log(request.user):
 
 ---
 
+## Authentication Views
+
+### PasswordLoginView
+
+**URL**: `/nodes/user/login?opt=password`  
+**Name**: `coldfront_orcd_direct_charge:password-login`  
+**Template**: `user/login_password.html`  
+**Module**: `views/auth.py`
+
+Optional password-based login view as an alternative to OIDC/Touchstone authentication.
+
+**Activation Requirements**:
+1. `password_login_enable` must be `True` in `plugin_config.yaml`
+2. URL must include the query parameter `?opt=password`
+
+If either condition is not met, the view redirects to OIDC authentication.
+
+```python
+class PasswordLoginView(View):
+    """Handle password login when enabled via runtime config.
+    
+    Provides an alternative username/password login form that
+    bypasses OIDC authentication when enabled.
+    """
+```
+
+**Dispatch Behavior**:
+- Checks `config.get("password_login_enable", False)` at runtime
+- Reads directly from config module (not Django settings) to pick up runtime config changes via SIGHUP
+- If disabled or missing query param, redirects to `oidc_authentication_init`
+
+**Use Cases**:
+- Development and testing environments
+- Emergency access when OIDC is unavailable
+- Administrative access for support
+
+---
+
 ## Template Override Views
 
 The plugin overrides several ColdFront templates via template directory injection in `apps.py`.
@@ -989,38 +1029,51 @@ The plugin overrides several ColdFront templates via template directory injectio
 ```
 templates/
 ├── coldfront_orcd_direct_charge/   # Plugin-specific templates
-│   ├── activity_log.html
-│   ├── add_member.html
-│   ├── cost_allocation_review.html
-│   ├── cpu_node_detail.html
-│   ├── gpu_node_detail.html
-│   ├── invoice_detail.html
-│   ├── invoice_edit.html
-│   ├── invoice_preparation.html
-│   ├── my_reservations.html         # User's reservations page
-│   ├── node_instance_list.html
-│   ├── pending_cost_allocations.html
-│   ├── project_cost_allocation.html
-│   ├── project_members.html         # Updated: removal modal with notes
-│   ├── rental_manager.html
-│   ├── renting_calendar.html
-│   ├── reservation_request.html
-│   └── update_member_role.html
+│   ├── activity_log.html           # Activity log viewer
+│   ├── add_member.html             # Legacy add member (redirects)
+│   ├── add_rate_form.html          # Add rate to SKU form
+│   ├── cost_allocation_review.html # Billing manager approval page
+│   ├── cpu_node_detail.html        # CPU node detail view
+│   ├── create_sku_form.html        # Create new SKU form
+│   ├── current_rates.html          # Public current rates page
+│   ├── gpu_node_detail.html        # GPU node detail view
+│   ├── invoice_detail.html         # Invoice detail/finalize page
+│   ├── invoice_edit.html           # Invoice override editing
+│   ├── invoice_preparation.html    # Month selector for invoices
+│   ├── my_reservations.html        # User's reservations page
+│   ├── node_instance_list.html     # GPU/CPU node inventory
+│   ├── pending_cost_allocations.html  # Pending approvals list
+│   ├── project_cost_allocation.html   # Cost allocation form
+│   ├── project_members.html        # Member list with removal modal
+│   ├── project_reservations.html   # Project-specific reservations
+│   ├── rate_management.html        # Rate manager dashboard
+│   ├── rental_manager.html         # Rental manager dashboard
+│   ├── renting_calendar.html       # Node availability calendar
+│   ├── reservation_detail.html     # Single reservation detail
+│   ├── reservation_request.html    # Submit reservation form
+│   ├── sku_public_detail.html      # Public SKU detail page
+│   ├── sku_rate_detail.html        # SKU rate history (managers)
+│   └── update_member_role.html     # Update member roles form
 ├── common/                          # Override core ColdFront
 │   ├── authorized_navbar.html       # Navigation links
 │   ├── base.html                    # Favicon, title
+│   ├── footer.html                  # Version footer
 │   ├── navbar_brand.html            # ORCD logo
-│   └── nonauthorized_navbar.html
+│   ├── navbar_login.html            # Login dropdown
+│   └── nonauthorized_navbar.html    # Pre-login navbar
 ├── portal/
-│   ├── authorized_home.html         # Dashboard home page (NEW: replaces ColdFront home)
+│   ├── authorized_home.html         # Dashboard home page
 │   └── nonauthorized_home.html      # Pre-login page
 ├── project/
 │   ├── add_user_search_results.html # ORCD role selection
-│   ├── project_add_users.html       # Updated: autocomplete interface
+│   ├── project_add_users.html       # Autocomplete add users interface
+│   ├── project_archive.html         # Project archive page
+│   ├── project_create_form.html     # Create project form
 │   ├── project_detail.html          # Simplified layout
 │   ├── project_list.html            # "Project Owner" column
-│   └── project_update_form.html
+│   └── project_update_form.html     # Edit project form
 └── user/
+    ├── login_password.html          # Password login form (when enabled)
     ├── user_profile.html            # Maintenance status, API token
     └── user_projects_managers.html  # "Project Owner" terminology
 ```
@@ -1052,6 +1105,7 @@ This prepends the plugin's templates directory, allowing templates with matching
 |------------|--------------|
 | `can_manage_rentals` | Rental manager dashboard, approve/decline, metadata, activity log |
 | `can_manage_billing` | Cost allocation approval, invoice management, activity log |
+| `can_manage_rates` | Rate management dashboard, add/edit rates, create SKUs, toggle visibility |
 | Superuser | All features, admin access |
 
 **Role-based Permissions** (project level):
