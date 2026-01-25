@@ -77,7 +77,7 @@ coldfront-orcd-direct-charge/
 ├── developer_docs/                 # This directory - developer documentation
 │   ├── README.md                   # This file
 │   ├── data-models.md              # Model documentation
-│   ├── views-urls.md               # Views and URL routing
+│   ├── views-urls/                 # Views and URL routing (split into subdirectory)
 │   ├── api-reference.md            # REST API documentation
 │   ├── signals.md                  # Signals and auto-configuration
 │   └── CHANGELOG.md                # Change log
@@ -196,7 +196,7 @@ coldfront-orcd-direct-charge/
 | Document | Description |
 |----------|-------------|
 | [Data Models](data-models.md) | Complete model reference with fields and relationships |
-| [Views & URLs](views-urls.md) | View classes, URL patterns, and request flow |
+| [Views & URLs](views-urls/) | View classes, URL patterns, and request flow |
 | [API Reference](api-reference.md) | REST API endpoints, authentication, examples |
 | [Signals](signals.md) | Signal handlers, auto-configuration, activity logging |
 | [Runtime Config](RUNTIME_CONFIG.md) | Runtime configuration with hot-reload via SIGHUP |

@@ -627,7 +627,7 @@ def log_rate_change(sender, instance, created, **kwargs):
 ## Related Documentation
 
 - [Data Models](data-models.md) - Model definitions including ActivityLog
-- [Views & URLs](views-urls.md) - Activity log view
+- [Views & URLs](views-urls/) - Activity log view
 - [API Reference](api-reference.md) - Activity log API endpoint
 - [Django Signals](https://docs.djangoproject.com/en/4.2/topics/signals/) - Framework documentation
 
