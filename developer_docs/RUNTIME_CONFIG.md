@@ -506,6 +506,6 @@ all_values = config.get_all()
 ## Related Documentation
 
 - [Signals](signals.md) - Signal handlers including SIGHUP registration
-- [Views & URLs](views-urls.md) - Views that use configuration values
+- [Views & URLs](views-urls/) - Views that use configuration values
 - [Django Settings](https://docs.djangoproject.com/en/4.2/topics/settings/) - Framework documentation
 - [Gunicorn Signal Handling](https://docs.gunicorn.org/en/stable/signals.html) - SIGHUP behavior in Gunicorn

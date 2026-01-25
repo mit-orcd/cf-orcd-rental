@@ -564,7 +564,7 @@ Recent commits in reverse chronological order:
 
 - [README](README.md) - Architecture overview
 - [Data Models](data-models.md) - Complete model reference
-- [Views & URLs](views-urls.md) - View and URL documentation
+- [Views & URLs](views-urls/) - View and URL documentation
 - [API Reference](api-reference.md) - REST API documentation
 - [Signals](signals.md) - Signal handlers and auto-configuration
 

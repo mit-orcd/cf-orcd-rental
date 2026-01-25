@@ -708,7 +708,7 @@ def can_view_activity_log(user) -> bool:
 
 ## Related Documentation
 
-- [Views & URLs](views-urls.md) - How models are used in views
+- [Views & URLs](views-urls/) - How models are used in views
 - [API Reference](api-reference.md) - Model serialization for API
 - [Signals](signals.md) - Signal handlers for model changes
 

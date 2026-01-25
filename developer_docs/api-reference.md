@@ -598,7 +598,7 @@ Reservation list queries are not logged individually (would create too much nois
 ## Related Documentation
 
 - [Data Models](data-models.md) - Model definitions
-- [Views & URLs](views-urls.md) - Web interface views
+- [Views & URLs](views-urls/) - Web interface views
 - [Django REST Framework](https://www.django-rest-framework.org/) - Framework documentation
 - [django-filter](https://django-filter.readthedocs.io/) - Filter documentation
 
