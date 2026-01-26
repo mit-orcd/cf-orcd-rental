@@ -14,7 +14,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from coldfront_orcd_direct_charge.api.serializers import ReservationSerializer
+from coldfront_orcd_direct_charge.api.serializers import (
+    MaintenanceSubscriptionSerializer,
+    QoSSubscriptionSerializer,
+    ReservationSerializer,
+    SKUSerializer,
+)
 from coldfront_orcd_direct_charge.models import (
     ActivityLog,
     CostAllocationSnapshot,
@@ -22,7 +27,10 @@ from coldfront_orcd_direct_charge.models import (
     InvoicePeriod,
     ProjectCostAllocation,
     ProjectMemberRole,
+    RentalSKU,
     Reservation,
+    UserMaintenanceStatus,
+    UserQoSSubscription,
     can_view_activity_log,
     get_sku_for_reservation,
     log_activity,
@@ -567,3 +575,82 @@ class ActivityLogAPIView(APIView):
             "ip_address": log.ip_address,
             "extra_data": log.extra_data,
         } for log in logs])
+
+
+class MaintenanceSubscriptionListView(APIView):
+    """List maintenance fee subscriptions.
+
+    GET /api/maintenance-subscriptions/
+
+    Managers see all, regular users see only their own.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        is_manager = user.has_perm(
+            "coldfront_orcd_direct_charge.can_manage_rentals"
+        ) or user.has_perm("coldfront_orcd_direct_charge.can_manage_billing")
+
+        if is_manager:
+            queryset = UserMaintenanceStatus.objects.select_related(
+                "user", "billing_project"
+            ).all()
+        else:
+            queryset = UserMaintenanceStatus.objects.select_related(
+                "user", "billing_project"
+            ).filter(user=user)
+
+        serializer = MaintenanceSubscriptionSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class QoSSubscriptionListView(APIView):
+    """List QoS subscriptions.
+
+    GET /api/qos-subscriptions/
+
+    Managers see all, regular users see only their own.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        is_manager = user.has_perm(
+            "coldfront_orcd_direct_charge.can_manage_rentals"
+        ) or user.has_perm("coldfront_orcd_direct_charge.can_manage_billing")
+
+        if is_manager:
+            queryset = UserQoSSubscription.objects.select_related(
+                "user", "sku", "billing_project"
+            ).all()
+        else:
+            queryset = UserQoSSubscription.objects.select_related(
+                "user", "sku", "billing_project"
+            ).filter(user=user)
+
+        serializer = QoSSubscriptionSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class SKUListView(APIView):
+    """List available SKUs with current rates.
+
+    GET /api/skus/
+    GET /api/skus/?type=MAINTENANCE
+    GET /api/skus/?type=QOS
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        queryset = RentalSKU.objects.filter(is_active=True)
+
+        sku_type = request.GET.get("type")
+        if sku_type:
+            queryset = queryset.filter(sku_type=sku_type)
+
+        serializer = SKUSerializer(queryset, many=True)
+        return Response(serializer.data)

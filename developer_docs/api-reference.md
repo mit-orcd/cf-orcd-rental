@@ -18,6 +18,8 @@ This document describes all REST API endpoints provided by the ORCD Direct Charg
   - [User Search API](#user-search-api)
   - [Invoice API](#invoice-api)
   - [Activity Log API](#activity-log-api)
+  - [Subscription APIs](#subscription-apis)
+  - [SKU API](#sku-api)
 - [Serializers](#serializers)
 - [Permissions](#permissions)
 - [CLI Tools](#cli-tools)
@@ -36,6 +38,9 @@ The plugin provides a REST API built with [Django REST Framework](https://www.dj
 | `/nodes/api/invoice/` | GET | List months with reservations | `can_manage_billing` |
 | `/nodes/api/invoice/<year>/<month>/` | GET | Full invoice report | `can_manage_billing` |
 | `/nodes/api/activity-log/` | GET | Query activity logs | Billing/Rental Manager |
+| `/nodes/api/maintenance-subscriptions/` | GET | List maintenance subscriptions | Manager: all, User: own |
+| `/nodes/api/qos-subscriptions/` | GET | List QoS subscriptions | Manager: all, User: own |
+| `/nodes/api/skus/` | GET | List available SKUs with rates | Authenticated |
 
 ---
 
@@ -389,6 +394,174 @@ curl -H "Authorization: Token YOUR_TOKEN" \
 
 ---
 
+### Subscription APIs
+
+#### List Maintenance Subscriptions
+
+```
+GET /nodes/api/maintenance-subscriptions/
+```
+
+Returns maintenance fee subscriptions. Managers see all subscriptions; regular users see only their own.
+
+**Permission**: Authenticated (scoped by role)
+
+**Example Request**:
+```bash
+curl -H "Authorization: Token YOUR_TOKEN" \
+     "http://localhost:8000/nodes/api/maintenance-subscriptions/"
+```
+
+**Example Response**:
+```json
+[
+    {
+        "id": 1,
+        "username": "orcd_u1",
+        "status": "basic",
+        "billing_project_id": 6,
+        "billing_project_title": "orcd_u1_group",
+        "created": "2026-01-25T19:15:00-05:00",
+        "modified": "2026-01-25T19:15:00-05:00"
+    }
+]
+```
+
+**Response Fields**:
+- `id` - Subscription ID
+- `username` - User's username
+- `status` - Maintenance status level
+- `billing_project_id` - Associated billing project ID (nullable)
+- `billing_project_title` - Associated billing project title (nullable)
+- `created`, `modified` - Timestamps
+
+---
+
+#### List QoS Subscriptions
+
+```
+GET /nodes/api/qos-subscriptions/
+```
+
+Returns QoS (Quality of Service) tier subscriptions. Managers see all subscriptions; regular users see only their own.
+
+**Permission**: Authenticated (scoped by role)
+
+**Example Request**:
+```bash
+curl -H "Authorization: Token YOUR_TOKEN" \
+     "http://localhost:8000/nodes/api/qos-subscriptions/"
+```
+
+**Example Response**:
+```json
+[
+    {
+        "id": 1,
+        "username": "cnh",
+        "sku_code": "QOS_PREMIUM",
+        "sku_name": "Premium QoS Tier",
+        "is_active": true,
+        "start_date": "2026-01-01",
+        "end_date": null,
+        "billing_project_id": 2,
+        "billing_project_title": "cnh_group",
+        "current_rate": "150.00",
+        "created": "2026-01-01T00:00:00-05:00",
+        "modified": "2026-01-01T00:00:00-05:00"
+    }
+]
+```
+
+**Response Fields**:
+- `id` - Subscription ID
+- `username` - User's username
+- `sku_code` - SKU code for the QoS tier
+- `sku_name` - Human-readable SKU name
+- `is_active` - Whether subscription is currently active
+- `start_date` - Subscription start date
+- `end_date` - Subscription end date (nullable for ongoing subscriptions)
+- `billing_project_id` - Associated billing project ID (nullable)
+- `billing_project_title` - Associated billing project title (nullable)
+- `current_rate` - Current rate for this SKU
+- `created`, `modified` - Timestamps
+
+---
+
+### SKU API
+
+#### List SKUs
+
+```
+GET /nodes/api/skus/
+```
+
+Returns available SKUs with their current rates. Can be filtered by SKU type.
+
+**Permission**: Authenticated
+
+**Query Parameters**:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `type` | string | Filter by SKU type (NODE, MAINTENANCE, QOS) |
+
+**Example Request**:
+```bash
+# List all active SKUs
+curl -H "Authorization: Token YOUR_TOKEN" \
+     "http://localhost:8000/nodes/api/skus/"
+
+# List only maintenance SKUs
+curl -H "Authorization: Token YOUR_TOKEN" \
+     "http://localhost:8000/nodes/api/skus/?type=MAINTENANCE"
+
+# List only QoS SKUs
+curl -H "Authorization: Token YOUR_TOKEN" \
+     "http://localhost:8000/nodes/api/skus/?type=QOS"
+```
+
+**Example Response**:
+```json
+[
+    {
+        "id": 1,
+        "sku_code": "MAINT_BASIC",
+        "name": "Basic Account Maintenance Fee",
+        "description": "Basic maintenance subscription",
+        "sku_type": "MAINTENANCE",
+        "billing_unit": "MONTHLY",
+        "is_active": true,
+        "current_rate": "50.00",
+        "metadata": {}
+    },
+    {
+        "id": 2,
+        "sku_code": "QOS_PREMIUM",
+        "name": "Premium QoS Tier",
+        "description": "Premium quality of service tier",
+        "sku_type": "QOS",
+        "billing_unit": "MONTHLY",
+        "is_active": true,
+        "current_rate": "150.00",
+        "metadata": {}
+    }
+]
+```
+
+**Response Fields**:
+- `id` - SKU ID
+- `sku_code` - Unique SKU identifier code
+- `name` - Human-readable SKU name
+- `description` - SKU description
+- `sku_type` - Type of SKU (NODE, MAINTENANCE, QOS)
+- `billing_unit` - Billing unit (e.g., MONTHLY, HOURLY)
+- `is_active` - Whether SKU is currently available
+- `current_rate` - Current rate for this SKU (nullable if no rate set)
+- `metadata` - Additional metadata as JSON object
+
+---
+
 ## Serializers
 
 ### ReservationSerializer
@@ -426,6 +599,55 @@ class ReservationMetadataEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = ReservationMetadataEntry
         fields = ("id", "content", "created", "modified")
+```
+
+### MaintenanceSubscriptionSerializer
+
+```python
+class MaintenanceSubscriptionSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username")
+    billing_project_id = serializers.IntegerField(source="billing_project.id", allow_null=True)
+    billing_project_title = serializers.CharField(source="billing_project.title", allow_null=True)
+    
+    class Meta:
+        model = UserMaintenanceStatus
+        fields = ("id", "username", "status", "billing_project_id", 
+                  "billing_project_title", "created", "modified")
+```
+
+### QoSSubscriptionSerializer
+
+```python
+class QoSSubscriptionSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username")
+    sku_code = serializers.CharField(source="sku.sku_code")
+    sku_name = serializers.CharField(source="sku.name")
+    billing_project_id = serializers.IntegerField(source="billing_project.id", allow_null=True)
+    billing_project_title = serializers.CharField(source="billing_project.title", allow_null=True)
+    current_rate = serializers.DecimalField(source="sku.current_rate.rate", max_digits=10, 
+                                            decimal_places=2, allow_null=True)
+    
+    class Meta:
+        model = UserQoSSubscription
+        fields = ("id", "username", "sku_code", "sku_name", "is_active",
+                  "start_date", "end_date", "billing_project_id", 
+                  "billing_project_title", "current_rate", "created", "modified")
+```
+
+### SKUSerializer
+
+```python
+class SKUSerializer(serializers.ModelSerializer):
+    current_rate = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = RentalSKU
+        fields = ("id", "sku_code", "name", "description", "sku_type",
+                  "billing_unit", "is_active", "current_rate", "metadata")
+    
+    def get_current_rate(self, obj):
+        rate = obj.current_rate
+        return str(rate.rate) if rate else None
 ```
 
 ---
@@ -467,6 +689,9 @@ class HasActivityLogPermission(permissions.BasePermission):
 | `/api/invoice/` | `can_manage_billing` |
 | `/api/invoice/<year>/<month>/` | `can_manage_billing` |
 | `/api/activity-log/` | `can_manage_billing` OR `can_manage_rentals` OR Superuser |
+| `/api/maintenance-subscriptions/` | Authenticated (Manager: all, User: own) |
+| `/api/qos-subscriptions/` | Authenticated (Manager: all, User: own) |
+| `/api/skus/` | Authenticated |
 
 ---
 

@@ -17,4 +17,10 @@ urlpatterns = router.urls + [
     path("invoice/<int:year>/<int:month>/", views.InvoiceReportView.as_view(), name="invoice-report"),
     # Activity log API endpoint
     path("activity-log/", views.ActivityLogAPIView.as_view(), name="api-activity-log"),
+    # Subscription API endpoints
+    path("maintenance-subscriptions/", views.MaintenanceSubscriptionListView.as_view(),
+         name="maintenance-subscriptions"),
+    path("qos-subscriptions/", views.QoSSubscriptionListView.as_view(),
+         name="qos-subscriptions"),
+    path("skus/", views.SKUListView.as_view(), name="sku-list"),
 ]

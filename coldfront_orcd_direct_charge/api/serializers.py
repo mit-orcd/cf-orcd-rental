@@ -4,7 +4,13 @@
 
 from rest_framework import serializers
 
-from coldfront_orcd_direct_charge.models import Reservation, ReservationMetadataEntry
+from coldfront_orcd_direct_charge.models import (
+    RentalSKU,
+    Reservation,
+    ReservationMetadataEntry,
+    UserMaintenanceStatus,
+    UserQoSSubscription,
+)
 
 
 class ReservationMetadataEntrySerializer(serializers.ModelSerializer):
@@ -69,3 +75,89 @@ class ReservationSerializer(serializers.ModelSerializer):
             "created",
             "modified",
         )
+
+
+class MaintenanceSubscriptionSerializer(serializers.ModelSerializer):
+    """Serializer for UserMaintenanceStatus model (maintenance fee subscriptions)."""
+
+    username = serializers.CharField(source="user.username", read_only=True)
+    billing_project_id = serializers.IntegerField(
+        source="billing_project.id", allow_null=True, read_only=True
+    )
+    billing_project_title = serializers.CharField(
+        source="billing_project.title", allow_null=True, read_only=True
+    )
+
+    class Meta:
+        model = UserMaintenanceStatus
+        fields = (
+            "id",
+            "username",
+            "status",
+            "billing_project_id",
+            "billing_project_title",
+            "created",
+            "modified",
+        )
+
+
+class QoSSubscriptionSerializer(serializers.ModelSerializer):
+    """Serializer for UserQoSSubscription model."""
+
+    username = serializers.CharField(source="user.username", read_only=True)
+    sku_code = serializers.CharField(source="sku.sku_code", read_only=True)
+    sku_name = serializers.CharField(source="sku.name", read_only=True)
+    billing_project_id = serializers.IntegerField(
+        source="billing_project.id", allow_null=True, read_only=True
+    )
+    billing_project_title = serializers.CharField(
+        source="billing_project.title", allow_null=True, read_only=True
+    )
+    current_rate = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserQoSSubscription
+        fields = (
+            "id",
+            "username",
+            "sku_code",
+            "sku_name",
+            "is_active",
+            "start_date",
+            "end_date",
+            "billing_project_id",
+            "billing_project_title",
+            "current_rate",
+            "created",
+            "modified",
+        )
+
+    def get_current_rate(self, obj):
+        """Return the current rate for the subscription's SKU."""
+        rate = obj.sku.current_rate
+        return str(rate.rate) if rate else None
+
+
+class SKUSerializer(serializers.ModelSerializer):
+    """Serializer for RentalSKU model with current rate."""
+
+    current_rate = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RentalSKU
+        fields = (
+            "id",
+            "sku_code",
+            "name",
+            "description",
+            "sku_type",
+            "billing_unit",
+            "is_active",
+            "current_rate",
+            "metadata",
+        )
+
+    def get_current_rate(self, obj):
+        """Return the current rate for the SKU."""
+        rate = obj.current_rate
+        return str(rate.rate) if rate else None
