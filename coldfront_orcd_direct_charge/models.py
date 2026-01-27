@@ -423,6 +423,66 @@ class UserMaintenanceStatus(TimeStampedModel):
         return f"{self.user.username}: {self.get_status_display()}"
 
 
+class UserQoSSubscription(TimeStampedModel):
+    """Tracks QoS subscriptions for users.
+
+    Each user can have multiple QoS subscriptions, each linked to a QoS-type SKU.
+    Subscriptions have a start date and optional end date, and can be active or
+    inactive. The billing project is used to charge the subscription fees.
+
+    Attributes:
+        user (User): The Django user this subscription belongs to
+        sku (RentalSKU): The QoS SKU for this subscription
+        billing_project (Project): Project to charge subscription fees to
+        is_active (bool): Whether this subscription is currently active
+        start_date (date): When the subscription started
+        end_date (date): When the subscription ended (null if ongoing)
+    """
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="qos_subscriptions",
+        help_text="The user this QoS subscription belongs to",
+    )
+    sku = models.ForeignKey(
+        "RentalSKU",
+        on_delete=models.CASCADE,
+        limit_choices_to={"sku_type": "QOS"},
+        related_name="subscriptions",
+        help_text="The QoS SKU for this subscription",
+    )
+    billing_project = models.ForeignKey(
+        "project.Project",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="qos_subscriptions",
+        help_text="Project to which QoS subscription fees are charged",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this subscription is currently active",
+    )
+    start_date = models.DateField(
+        help_text="Date when this subscription started",
+    )
+    end_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date when this subscription ended (null if ongoing)",
+    )
+
+    class Meta:
+        ordering = ["-created"]
+        verbose_name = "User QoS Subscription"
+        verbose_name_plural = "User QoS Subscriptions"
+
+    def __str__(self):
+        status = "active" if self.is_active else "inactive"
+        return f"{self.user.username}: {self.sku.name} ({status})"
+
+
 class ProjectCostAllocation(TimeStampedModel):
     """Stores the overall cost allocation settings for a project.
 
