@@ -417,10 +417,19 @@ curl -H "Authorization: Token YOUR_TOKEN" \
 [
     {
         "id": 1,
+        "subscription_type": "maintenance",
+        "user_id": 5,
         "username": "orcd_u1",
+        "user_email": "orcd_u1@example.com",
         "status": "basic",
+        "is_active": true,
+        "sku_code": "MAINT_STANDARD",
+        "sku_name": "Standard Account Maintenance Fee",
+        "start_date": "2026-01-25",
+        "end_date": null,
         "billing_project_id": 6,
         "billing_project_title": "orcd_u1_group",
+        "current_rate": "50.00",
         "created": "2026-01-25T19:15:00-05:00",
         "modified": "2026-01-25T19:15:00-05:00"
     }
@@ -429,10 +438,19 @@ curl -H "Authorization: Token YOUR_TOKEN" \
 
 **Response Fields**:
 - `id` - Subscription ID
+- `subscription_type` - Type identifier ("maintenance")
+- `user_id` - User's ID
 - `username` - User's username
-- `status` - Maintenance status level
+- `user_email` - User's email address
+- `status` - Maintenance status level (inactive, basic, advanced)
+- `is_active` - Whether subscription is active (derived from status != "inactive")
+- `sku_code` - SKU code for the maintenance tier (MAINT_STANDARD or MAINT_ADVANCED, nullable if inactive)
+- `sku_name` - Human-readable SKU name (nullable if inactive)
+- `start_date` - Subscription start date (derived from created timestamp)
+- `end_date` - Subscription end date (always null for maintenance subscriptions)
 - `billing_project_id` - Associated billing project ID (nullable)
 - `billing_project_title` - Associated billing project title (nullable)
+- `current_rate` - Current rate for this SKU (nullable if inactive or no rate set)
 - `created`, `modified` - Timestamps
 
 ---
@@ -458,7 +476,10 @@ curl -H "Authorization: Token YOUR_TOKEN" \
 [
     {
         "id": 1,
+        "subscription_type": "qos",
+        "user_id": 2,
         "username": "cnh",
+        "user_email": "cnh@example.com",
         "sku_code": "QOS_PREMIUM",
         "sku_name": "Premium QoS Tier",
         "is_active": true,
@@ -475,7 +496,10 @@ curl -H "Authorization: Token YOUR_TOKEN" \
 
 **Response Fields**:
 - `id` - Subscription ID
+- `subscription_type` - Type identifier ("qos")
+- `user_id` - User's ID
 - `username` - User's username
+- `user_email` - User's email address
 - `sku_code` - SKU code for the QoS tier
 - `sku_name` - Human-readable SKU name
 - `is_active` - Whether subscription is currently active
@@ -603,35 +627,53 @@ class ReservationMetadataEntrySerializer(serializers.ModelSerializer):
 
 ### MaintenanceSubscriptionSerializer
 
+Provides a schema compatible with QoSSubscriptionSerializer by deriving SKU-related fields from the maintenance status.
+
 ```python
 class MaintenanceSubscriptionSerializer(serializers.ModelSerializer):
+    subscription_type = serializers.SerializerMethodField()  # Always "maintenance"
+    user_id = serializers.IntegerField(source="user.id")
     username = serializers.CharField(source="user.username")
+    user_email = serializers.EmailField(source="user.email")
+    is_active = serializers.SerializerMethodField()  # status != "inactive"
+    sku_code = serializers.SerializerMethodField()   # MAINT_STANDARD or MAINT_ADVANCED
+    sku_name = serializers.SerializerMethodField()   # From looked-up SKU
+    start_date = serializers.SerializerMethodField() # From created timestamp
+    end_date = serializers.SerializerMethodField()   # Always null
     billing_project_id = serializers.IntegerField(source="billing_project.id", allow_null=True)
     billing_project_title = serializers.CharField(source="billing_project.title", allow_null=True)
+    current_rate = serializers.SerializerMethodField()  # From looked-up SKU
+    
+    # Status to SKU mapping: basic -> MAINT_STANDARD, advanced -> MAINT_ADVANCED
     
     class Meta:
         model = UserMaintenanceStatus
-        fields = ("id", "username", "status", "billing_project_id", 
-                  "billing_project_title", "created", "modified")
+        fields = ("id", "subscription_type", "user_id", "username", "user_email",
+                  "status", "is_active", "sku_code", "sku_name", "start_date", 
+                  "end_date", "billing_project_id", "billing_project_title", 
+                  "current_rate", "created", "modified")
 ```
 
 ### QoSSubscriptionSerializer
 
 ```python
 class QoSSubscriptionSerializer(serializers.ModelSerializer):
+    subscription_type = serializers.SerializerMethodField()  # Always "qos"
+    user_id = serializers.IntegerField(source="user.id")
     username = serializers.CharField(source="user.username")
+    user_email = serializers.EmailField(source="user.email")
     sku_code = serializers.CharField(source="sku.sku_code")
     sku_name = serializers.CharField(source="sku.name")
     billing_project_id = serializers.IntegerField(source="billing_project.id", allow_null=True)
     billing_project_title = serializers.CharField(source="billing_project.title", allow_null=True)
-    current_rate = serializers.DecimalField(source="sku.current_rate.rate", max_digits=10, 
-                                            decimal_places=2, allow_null=True)
+    current_rate = serializers.SerializerMethodField()
     
     class Meta:
         model = UserQoSSubscription
-        fields = ("id", "username", "sku_code", "sku_name", "is_active",
-                  "start_date", "end_date", "billing_project_id", 
-                  "billing_project_title", "current_rate", "created", "modified")
+        fields = ("id", "subscription_type", "user_id", "username", "user_email",
+                  "sku_code", "sku_name", "is_active", "start_date", "end_date", 
+                  "billing_project_id", "billing_project_title", "current_rate", 
+                  "created", "modified")
 ```
 
 ### SKUSerializer

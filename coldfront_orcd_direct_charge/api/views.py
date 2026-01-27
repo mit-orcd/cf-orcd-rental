@@ -602,7 +602,17 @@ class MaintenanceSubscriptionListView(APIView):
                 "user", "billing_project"
             ).filter(user=user)
 
-        serializer = MaintenanceSubscriptionSerializer(queryset, many=True)
+        # Prefetch maintenance SKUs to avoid N+1 queries in serializer
+        maintenance_skus = {
+            sku.sku_code: sku
+            for sku in RentalSKU.objects.filter(
+                sku_code__in=["MAINT_STANDARD", "MAINT_ADVANCED"]
+            )
+        }
+
+        serializer = MaintenanceSubscriptionSerializer(
+            queryset, many=True, context={"maintenance_skus": maintenance_skus}
+        )
         return Response(serializer.data)
 
 
