@@ -5,11 +5,18 @@
 """Export portal data to JSON files.
 
 This management command exports portal data to a directory structure with
-separate directories for ColdFront core and plugin data, each with its own manifest.
+separate directories for ColdFront core, plugin data, and configuration,
+each with its own manifest.
 
 Export Structure:
     export_YYYYMMDD_HHMMSS/
     ├── manifest.json           # Root manifest
+    ├── config/                 # Configuration settings
+    │   ├── manifest.json       # Config manifest
+    │   ├── plugin_config.json  # Plugin settings
+    │   ├── coldfront_config.json # ColdFront settings
+    │   ├── django_config.json  # Django settings
+    │   └── environment.json    # Environment metadata
     ├── coldfront_core/
     │   ├── manifest.json       # Core manifest
     │   └── *.json              # Core data files
@@ -21,10 +28,11 @@ Usage:
     coldfront export_portal_data --output /path/to/export/
     coldfront export_portal_data --output /path/ --component coldfront_core
     coldfront export_portal_data --output /path/ --component orcd_plugin
+    coldfront export_portal_data --output /path/ --no-config
     coldfront export_portal_data --output /path/ --dry-run
 
 Example:
-    # Export all data (core + plugin) to a timestamped directory
+    # Export all data (core + plugin + config) to a timestamped directory
     coldfront export_portal_data -o /backups/portal/
     
     # Export only ColdFront core data
@@ -32,6 +40,9 @@ Example:
     
     # Export only plugin data
     coldfront export_portal_data -o /backups/portal/ --component orcd_plugin
+    
+    # Export without configuration
+    coldfront export_portal_data -o /backups/portal/ --no-config
     
     # Preview what would be exported
     coldfront export_portal_data -o /backups/portal/ --dry-run
@@ -51,8 +62,10 @@ from coldfront_orcd_direct_charge.backup import (
 from coldfront_orcd_direct_charge.backup.manifest import (
     generate_component_manifest,
     generate_root_manifest,
+    COMPONENT_CONFIG,
 )
 from coldfront_orcd_direct_charge.backup.utils import create_export_directory
+from coldfront_orcd_direct_charge.backup.config_exporter import export_configuration
 # Import exporters to register them
 from coldfront_orcd_direct_charge.backup import exporters  # noqa: F401
 
@@ -113,6 +126,11 @@ class Command(BaseCommand):
             "--source-name",
             default="ORCD Rental Portal",
             help="Name of this portal instance (for manifest metadata).",
+        )
+        parser.add_argument(
+            "--no-config",
+            action="store_true",
+            help="Skip exporting configuration settings.",
         )
     
     def handle(self, *args, **options):
@@ -178,11 +196,21 @@ class Command(BaseCommand):
             if plugin_data:
                 component_data[COMPONENT_ORCD_PLUGIN] = plugin_data
         
+        # Export configuration (unless --no-config specified)
+        config_data = {}
+        if not options.get("no_config"):
+            config_data = self._export_config(export_dir, dry_run)
+        
         # Generate root manifest
-        if not dry_run and component_data:
+        if not dry_run and (component_data or config_data):
+            # Include config in component_data for manifest
+            all_component_data = component_data.copy()
+            if config_data:
+                all_component_data[COMPONENT_CONFIG] = config_data
+            
             root_manifest = generate_root_manifest(
                 export_dir,
-                component_data,
+                all_component_data,
                 source_url=options["source_url"],
                 source_name=options["source_name"],
             )
@@ -194,14 +222,21 @@ class Command(BaseCommand):
             sum(counts.values()) 
             for counts in component_data.values()
         )
+        total_settings = sum(config_data.values()) if config_data else 0
         
         self.stdout.write("\n" + "=" * 60)
         if dry_run:
             self.stdout.write(f"Would export {total_records} total records")
+            if total_settings:
+                self.stdout.write(f"Would export {total_settings} configuration settings")
         else:
             self.stdout.write(
                 self.style.SUCCESS(f"Exported {total_records} total records to {export_dir}")
             )
+            if total_settings:
+                self.stdout.write(
+                    self.style.SUCCESS(f"Exported {total_settings} configuration settings")
+                )
     
     def _export_component(
         self,
@@ -303,6 +338,38 @@ class Command(BaseCommand):
             self.stdout.write(f"Component manifest saved: {manifest_path}")
         
         return data_counts
+    
+    def _export_config(self, export_dir: str, dry_run: bool) -> dict:
+        """Export configuration settings.
+        
+        Args:
+            export_dir: Root export directory
+            dry_run: If True, don't write files
+            
+        Returns:
+            Dict mapping category name to setting count
+        """
+        self.stdout.write(f"\n{'='*60}")
+        self.stdout.write(f"Exporting component: {COMPONENT_CONFIG}")
+        self.stdout.write("=" * 60)
+        
+        result = export_configuration(export_dir, dry_run=dry_run)
+        
+        if result.success:
+            for category, count in result.categories.items():
+                self.stdout.write(
+                    self.style.SUCCESS(f"  {category}: {count} settings")
+                )
+            if not dry_run:
+                self.stdout.write(f"Config manifest saved: {result.config_dir}/manifest.json")
+        else:
+            for error in result.errors:
+                self.stdout.write(self.style.ERROR(f"  Error: {error}"))
+        
+        for warning in result.warnings:
+            self.stdout.write(self.style.WARNING(f"  Warning: {warning}"))
+        
+        return result.categories
     
     def _list_models(self):
         """List available models for each component."""

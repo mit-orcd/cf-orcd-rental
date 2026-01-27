@@ -11,12 +11,14 @@ allowing data migration between portal instances.
 Components:
     - coldfront_core: ColdFront core models (User, Project, Allocation, etc.)
     - orcd_plugin: ORCD plugin models (NodeType, Reservation, etc.)
+    - config: Configuration settings (plugin, ColdFront, Django)
 
 Key classes:
     - BaseExporter, BaseImporter: Abstract base classes for model serialization
     - CoreExporterRegistry, PluginExporterRegistry: Component-specific registries
     - RootManifest, Manifest: Export metadata with version and checksum info
     - Version compatibility checking for safe imports
+    - Configuration export/import with diff detection
 
 Usage:
     # Export
@@ -24,6 +26,7 @@ Usage:
         CoreExporterRegistry,
         PluginExporterRegistry,
         generate_root_manifest,
+        export_configuration,
     )
     
     # Import  
@@ -31,12 +34,15 @@ Usage:
         CoreImporterRegistry,
         PluginImporterRegistry,
         check_compatibility,
+        check_config_compatibility,
     )
 
 Example management commands:
     coldfront export_portal_data --output /path/to/backup/
     coldfront export_portal_data --output /path/ --component coldfront_core
+    coldfront export_portal_data --output /path/ --no-config
     coldfront import_portal_data /path/to/backup/ --dry-run
+    coldfront import_portal_data /path/to/backup/ --ignore-config-diff
     coldfront check_import_compatibility /path/to/backup/
 """
 
@@ -73,11 +79,37 @@ from .manifest import (
     EXPORT_FORMAT,
     EXPORT_VERSION,
     MANIFEST_FILENAME,
+    COMPONENT_CONFIG,
 )
 from .version import (
     CompatibilityStatus,
     CompatibilityReport,
     check_compatibility,
+)
+from .config_exporter import (
+    export_configuration,
+    ConfigExportResult,
+    ConfigSetting,
+    collect_plugin_config,
+    collect_coldfront_config,
+    collect_django_config,
+    collect_environment_metadata,
+)
+from .config_importer import (
+    check_config_compatibility,
+    compare_configurations,
+    format_diff_report,
+    load_exported_config,
+    collect_current_config,
+    ConfigurationComparisonReport,
+    ConfigDifference,
+    ComparisonStatus,
+    DifferenceSeverity,
+)
+from .config_manifest import (
+    ConfigManifest,
+    generate_config_manifest,
+    verify_config_checksum,
 )
 
 __all__ = [
@@ -97,6 +129,7 @@ __all__ = [
     # Component constants
     "COMPONENT_COLDFRONT_CORE",
     "COMPONENT_ORCD_PLUGIN",
+    "COMPONENT_CONFIG",
     # Manifest classes
     "RootManifest",
     "Manifest",
@@ -113,4 +146,26 @@ __all__ = [
     "CompatibilityStatus",
     "CompatibilityReport",
     "check_compatibility",
+    # Configuration export
+    "export_configuration",
+    "ConfigExportResult",
+    "ConfigSetting",
+    "collect_plugin_config",
+    "collect_coldfront_config",
+    "collect_django_config",
+    "collect_environment_metadata",
+    # Configuration import/comparison
+    "check_config_compatibility",
+    "compare_configurations",
+    "format_diff_report",
+    "load_exported_config",
+    "collect_current_config",
+    "ConfigurationComparisonReport",
+    "ConfigDifference",
+    "ComparisonStatus",
+    "DifferenceSeverity",
+    # Configuration manifest
+    "ConfigManifest",
+    "generate_config_manifest",
+    "verify_config_checksum",
 ]

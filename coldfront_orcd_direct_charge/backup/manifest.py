@@ -57,6 +57,7 @@ EXPORT_VERSION = "2.0.0"
 # Component names
 COMPONENT_COLDFRONT_CORE = "coldfront_core"
 COMPONENT_ORCD_PLUGIN = "orcd_plugin"
+COMPONENT_CONFIG = "config"
 
 # Manifest filename
 MANIFEST_FILENAME = "manifest.json"
