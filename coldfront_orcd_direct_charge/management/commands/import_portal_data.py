@@ -7,9 +7,16 @@
 This management command imports portal data from a previously exported directory.
 It supports both the v2.0 two-directory structure and legacy v1.0 flat exports.
 
-Export Structure (v2.0):
+Before importing data, the command compares exported configuration settings
+against the current instance and displays any differences. Critical differences
+block import unless --force is used.
+
+Export Structure (v2.0+):
     export_YYYYMMDD_HHMMSS/
     ├── manifest.json           # Root manifest
+    ├── config/                 # Configuration settings
+    │   ├── manifest.json       # Config manifest
+    │   └── *.json              # Config files
     ├── coldfront_core/
     │   ├── manifest.json       # Core manifest
     │   └── *.json              # Core data files
@@ -22,6 +29,7 @@ Usage:
     coldfront import_portal_data /path/to/export/ --component coldfront_core
     coldfront import_portal_data /path/to/export/ --component orcd_plugin
     coldfront import_portal_data /path/to/export/ --mode create-only
+    coldfront import_portal_data /path/to/export/ --ignore-config-diff
 
 Example:
     # Preview what would be imported (all components)
@@ -35,6 +43,12 @@ Example:
     
     # Import only new records
     coldfront import_portal_data /backups/portal/export_20260117/ --mode create-only
+    
+    # Skip configuration comparison
+    coldfront import_portal_data /backups/portal/export_20260117/ --ignore-config-diff
+    
+    # Save config diff report to file
+    coldfront import_portal_data /backups/portal/export_20260117/ --config-diff-report /tmp/diff.json
 """
 
 import json
@@ -56,8 +70,15 @@ from coldfront_orcd_direct_charge.backup import (
 from coldfront_orcd_direct_charge.backup.manifest import (
     verify_checksum,
     MANIFEST_FILENAME,
+    COMPONENT_CONFIG,
 )
 from coldfront_orcd_direct_charge.backup.utils import validate_import_directory
+from coldfront_orcd_direct_charge.backup.config_importer import (
+    check_config_compatibility,
+    format_diff_report,
+    ComparisonStatus,
+    DifferenceSeverity,
+)
 # Import importers to register them
 from coldfront_orcd_direct_charge.backup import importers  # noqa: F401
 
@@ -119,6 +140,16 @@ class Command(BaseCommand):
             "--no-verify-checksum",
             action="store_true",
             help="Skip checksum verification.",
+        )
+        parser.add_argument(
+            "--ignore-config-diff",
+            action="store_true",
+            help="Skip configuration comparison check.",
+        )
+        parser.add_argument(
+            "--config-diff-report",
+            metavar="PATH",
+            help="Write configuration diff report to JSON file.",
         )
     
     def handle(self, *args, **options):
@@ -240,6 +271,17 @@ class Command(BaseCommand):
         if has_compat_warnings and not force:
             if not dry_run and not validate_only:
                 raise CommandError("Import aborted due to warnings. Use --force to proceed.")
+        
+        # Check configuration differences
+        has_config_issues = False
+        if not options.get("ignore_config_diff"):
+            has_config_issues = self._check_config_differences(
+                export_path,
+                force,
+                dry_run,
+                validate_only,
+                options,
+            )
         
         # Verify checksum
         if not options["no_verify_checksum"]:
@@ -509,6 +551,98 @@ class Command(BaseCommand):
             data = json.load(f)
         
         return data.get("records", data)  # Handle both formats
+    
+    def _check_config_differences(
+        self,
+        export_path: Path,
+        force: bool,
+        dry_run: bool,
+        validate_only: bool,
+        options: dict,
+    ) -> bool:
+        """Check for configuration differences between export and current instance.
+        
+        Args:
+            export_path: Path to export directory
+            force: Whether to proceed despite issues
+            dry_run: Whether this is a dry run
+            validate_only: Whether to only validate
+            options: Command options
+            
+        Returns:
+            True if there are blocking config issues, False otherwise
+        """
+        config_dir = export_path / COMPONENT_CONFIG
+        
+        if not config_dir.exists():
+            self.stdout.write("\nNo configuration data in export, skipping config check.")
+            return False
+        
+        self.stdout.write(f"\n{'='*60}")
+        self.stdout.write("Configuration Comparison")
+        self.stdout.write("=" * 60)
+        
+        try:
+            report = check_config_compatibility(config_dir)
+        except Exception as e:
+            self.stdout.write(
+                self.style.WARNING(f"Could not compare configuration: {e}")
+            )
+            return False
+        
+        # Save report if requested
+        if options.get("config_diff_report"):
+            report_path = report.save(options["config_diff_report"])
+            self.stdout.write(f"Config diff report saved: {report_path}")
+        
+        # Display report
+        if report.status == ComparisonStatus.IDENTICAL:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Configuration: IDENTICAL ({report.total_settings_compared} settings match)"
+                )
+            )
+            return False
+        
+        # Display differences
+        self.stdout.write("")
+        self.stdout.write(format_diff_report(report))
+        
+        # Check for blocking issues
+        if report.has_critical_differences():
+            self.stdout.write("")
+            self.stdout.write(
+                self.style.ERROR(
+                    "CRITICAL configuration differences detected!"
+                )
+            )
+            if not force:
+                if not dry_run and not validate_only:
+                    raise CommandError(
+                        "Import aborted due to critical configuration differences. "
+                        "Use --force to proceed or --ignore-config-diff to skip this check."
+                    )
+            else:
+                self.stdout.write(
+                    self.style.WARNING("Proceeding with --force despite critical differences")
+                )
+        elif report.has_any_differences():
+            # Non-critical differences - warn but don't block
+            warning_count = len(report.get_differences_by_severity(DifferenceSeverity.WARNING))
+            info_count = len(report.get_differences_by_severity(DifferenceSeverity.INFO))
+            
+            self.stdout.write("")
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Configuration differs: {warning_count} warnings, {info_count} info"
+                )
+            )
+            self.stdout.write(
+                "These differences may affect behavior after import. "
+                "Review the differences above."
+            )
+        
+        return report.has_critical_differences() and not force
     
     def _print_summary(self, all_results, dry_run: bool):
         """Print import summary."""
