@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 
 from coldfront_orcd_direct_charge.api.serializers import (
     MaintenanceSubscriptionSerializer,
+    ProjectCostAllocationSerializer,
     QoSSubscriptionSerializer,
     ReservationSerializer,
     SKUSerializer,
@@ -73,6 +74,28 @@ class ReservationFilter(filters.FilterSet):
         ]
 
 
+class CostAllocationFilter(filters.FilterSet):
+    """Filters for CostAllocationViewSet."""
+
+    status = filters.ChoiceFilter(choices=ProjectCostAllocation.StatusChoices.choices)
+    project = filters.CharFilter(field_name="project__title", lookup_expr="icontains")
+    project_pi = filters.CharFilter(field_name="project__pi__username")
+    created = filters.DateTimeFromToRangeFilter()
+    modified = filters.DateTimeFromToRangeFilter()
+    reviewed_by = filters.CharFilter(field_name="reviewed_by__username")
+
+    class Meta:
+        model = ProjectCostAllocation
+        fields = [
+            "status",
+            "project",
+            "project_pi",
+            "created",
+            "modified",
+            "reviewed_by",
+        ]
+
+
 class ReservationViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint for viewing reservations.
@@ -100,6 +123,34 @@ class ReservationViewSet(viewsets.ReadOnlyModelViewSet):
             "project",
             "requesting_user",
         ).order_by("-created")
+
+
+class CostAllocationViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint for viewing cost allocations.
+
+    Requires authentication and can_manage_billing permission.
+
+    Filters:
+    - status: Filter by status (PENDING, APPROVED, REJECTED)
+    - project: Filter by project title (case-insensitive contains)
+    - project_pi: Filter by project PI username (exact match)
+    - created_after / created_before: Filter by created date range
+    - modified_after / modified_before: Filter by modified date range
+    - reviewed_by: Filter by reviewer username (exact match)
+    """
+
+    serializer_class = ProjectCostAllocationSerializer
+    permission_classes = [IsAuthenticated, HasManageBillingPermission]
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_class = CostAllocationFilter
+
+    def get_queryset(self):
+        return ProjectCostAllocation.objects.select_related(
+            "project",
+            "project__pi",
+            "reviewed_by",
+        ).prefetch_related("cost_objects").order_by("-modified")
 
 
 class UserSearchView(APIView):

@@ -15,6 +15,7 @@ This document describes all REST API endpoints provided by the ORCD Direct Charg
 - [Authentication](#authentication)
 - [API Endpoints](#api-endpoints)
   - [Reservations API](#reservations-api)
+  - [Cost Allocations API](#cost-allocations-api)
   - [User Search API](#user-search-api)
   - [Invoice API](#invoice-api)
   - [Activity Log API](#activity-log-api)
@@ -34,6 +35,8 @@ The plugin provides a REST API built with [Django REST Framework](https://www.dj
 |----------|--------|-------------|------------|
 | `/nodes/api/rentals/` | GET | List all reservations | `can_manage_rentals` |
 | `/nodes/api/rentals/<pk>/` | GET | Single reservation detail | `can_manage_rentals` |
+| `/nodes/api/cost-allocations/` | GET | List all cost allocations | `can_manage_billing` |
+| `/nodes/api/cost-allocations/<pk>/` | GET | Single cost allocation detail | `can_manage_billing` |
 | `/nodes/api/user-search/` | GET | Search users for autocomplete | Authenticated |
 | `/nodes/api/invoice/` | GET | List months with reservations | `can_manage_billing` |
 | `/nodes/api/invoice/<year>/<month>/` | GET | Full invoice report | `can_manage_billing` |
@@ -156,6 +159,93 @@ GET /nodes/api/rentals/<pk>/
 Returns details for a single reservation.
 
 **Permission**: `can_manage_rentals`
+
+---
+
+### Cost Allocations API
+
+#### List Cost Allocations
+
+```
+GET /nodes/api/cost-allocations/
+```
+
+Returns all project cost allocations with optional filtering.
+
+**Permission**: `can_manage_billing`
+
+**Query Parameters**:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `status` | string | Filter by status (PENDING, APPROVED, REJECTED) |
+| `project` | string | Filter by project title (case-insensitive contains) |
+| `project_pi` | string | Filter by project PI username (exact match) |
+| `created_after` | datetime | Created date >= this value |
+| `created_before` | datetime | Created date <= this value |
+| `modified_after` | datetime | Modified date >= this value |
+| `modified_before` | datetime | Modified date <= this value |
+| `reviewed_by` | string | Filter by reviewer username (exact match) |
+
+**Example Request**:
+```bash
+curl -H "Authorization: Token YOUR_TOKEN" \
+     "http://localhost:8000/nodes/api/cost-allocations/?status=PENDING"
+```
+
+**Example Response**:
+```json
+[
+    {
+        "id": 1,
+        "project_id": 5,
+        "project_title": "Research Project Alpha",
+        "notes": "Main research allocation",
+        "status": "APPROVED",
+        "reviewed_by": "billing_manager",
+        "reviewed_at": "2025-12-20T10:00:00",
+        "review_notes": "Verified cost objects",
+        "cost_objects": [
+            {
+                "id": 1,
+                "cost_object": "CO-12345",
+                "percentage": "60.00"
+            },
+            {
+                "id": 2,
+                "cost_object": "CO-67890",
+                "percentage": "40.00"
+            }
+        ],
+        "total_percentage": "100.00",
+        "created": "2025-12-15T14:30:00",
+        "modified": "2025-12-20T10:00:00"
+    }
+]
+```
+
+**Response Fields**:
+- `id` - Cost allocation ID
+- `project_id` - Associated project ID
+- `project_title` - Project title
+- `notes` - Notes about the allocation
+- `status` - Approval status (PENDING, APPROVED, REJECTED)
+- `reviewed_by` - Username of reviewer (nullable)
+- `reviewed_at` - Review timestamp (nullable)
+- `review_notes` - Notes from the reviewer
+- `cost_objects[]` - Array of cost objects with percentages
+- `total_percentage` - Sum of all cost object percentages
+- `created`, `modified` - Timestamps
+
+#### Get Single Cost Allocation
+
+```
+GET /nodes/api/cost-allocations/<pk>/
+```
+
+Returns details for a single cost allocation.
+
+**Permission**: `can_manage_billing`
 
 ---
 
@@ -625,6 +715,34 @@ class ReservationMetadataEntrySerializer(serializers.ModelSerializer):
         fields = ("id", "content", "created", "modified")
 ```
 
+### ProjectCostAllocationSerializer
+
+```python
+class ProjectCostAllocationSerializer(serializers.ModelSerializer):
+    project_id = serializers.IntegerField(source="project.id")
+    project_title = serializers.CharField(source="project.title")
+    reviewed_by = serializers.SlugRelatedField(slug_field="username")
+    cost_objects = ProjectCostObjectSerializer(many=True)
+    total_percentage = serializers.DecimalField(max_digits=5, decimal_places=2)
+    
+    class Meta:
+        model = ProjectCostAllocation
+        fields = (
+            "id", "project_id", "project_title", "notes", "status",
+            "reviewed_by", "reviewed_at", "review_notes",
+            "cost_objects", "total_percentage", "created", "modified",
+        )
+```
+
+### ProjectCostObjectSerializer
+
+```python
+class ProjectCostObjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectCostObject
+        fields = ("id", "cost_object", "percentage")
+```
+
 ### MaintenanceSubscriptionSerializer
 
 Provides a schema compatible with QoSSubscriptionSerializer by deriving SKU-related fields from the maintenance status.
@@ -727,6 +845,7 @@ class HasActivityLogPermission(permissions.BasePermission):
 | Endpoint | Required Permission |
 |----------|---------------------|
 | `/api/rentals/` | `can_manage_rentals` |
+| `/api/cost-allocations/` | `can_manage_billing` |
 | `/nodes/api/user-search/` | Authenticated |
 | `/api/invoice/` | `can_manage_billing` |
 | `/api/invoice/<year>/<month>/` | `can_manage_billing` |
@@ -807,6 +926,30 @@ class ReservationFilter(filters.FilterSet):
 - `?node=node2433` - Exact node address match
 - `?project=research` - Case-insensitive contains
 - `?start_date_after=2025-12-01&start_date_before=2025-12-31` - Date range
+
+### CostAllocationFilter
+
+```python
+class CostAllocationFilter(filters.FilterSet):
+    status = filters.ChoiceFilter(choices=ProjectCostAllocation.StatusChoices.choices)
+    project = filters.CharFilter(field_name="project__title", lookup_expr="icontains")
+    project_pi = filters.CharFilter(field_name="project__pi__username")
+    created = filters.DateTimeFromToRangeFilter()
+    modified = filters.DateTimeFromToRangeFilter()
+    reviewed_by = filters.CharFilter(field_name="reviewed_by__username")
+
+    class Meta:
+        model = ProjectCostAllocation
+        fields = ["status", "project", "project_pi", "created", "modified", "reviewed_by"]
+```
+
+**Filter Usage**:
+- `?status=PENDING` - Exact status match (PENDING, APPROVED, REJECTED)
+- `?project=research` - Case-insensitive contains on project title
+- `?project_pi=jsmith` - Exact match on project PI username
+- `?created_after=2025-01-01&created_before=2025-12-31` - Created date range
+- `?modified_after=2025-06-01` - Modified after date
+- `?reviewed_by=billing_admin` - Exact match on reviewer username
 
 ---
 

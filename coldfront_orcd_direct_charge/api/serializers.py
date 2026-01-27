@@ -5,6 +5,8 @@
 from rest_framework import serializers
 
 from coldfront_orcd_direct_charge.models import (
+    ProjectCostAllocation,
+    ProjectCostObject,
     RentalSKU,
     Reservation,
     ReservationMetadataEntry,
@@ -250,3 +252,49 @@ class SKUSerializer(serializers.ModelSerializer):
         """Return the current rate for the SKU."""
         rate = obj.current_rate
         return str(rate.rate) if rate else None
+
+
+class ProjectCostObjectSerializer(serializers.ModelSerializer):
+    """Serializer for individual cost objects within a cost allocation."""
+
+    class Meta:
+        model = ProjectCostObject
+        fields = (
+            "id",
+            "cost_object",
+            "percentage",
+        )
+
+
+class ProjectCostAllocationSerializer(serializers.ModelSerializer):
+    """Serializer for ProjectCostAllocation model with nested cost objects."""
+
+    project_id = serializers.IntegerField(source="project.id", read_only=True)
+    project_title = serializers.CharField(source="project.title", read_only=True)
+    reviewed_by = serializers.SlugRelatedField(
+        slug_field="username",
+        read_only=True,
+    )
+    cost_objects = ProjectCostObjectSerializer(many=True, read_only=True)
+    total_percentage = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        read_only=True,
+    )
+
+    class Meta:
+        model = ProjectCostAllocation
+        fields = (
+            "id",
+            "project_id",
+            "project_title",
+            "notes",
+            "status",
+            "reviewed_by",
+            "reviewed_at",
+            "review_notes",
+            "cost_objects",
+            "total_percentage",
+            "created",
+            "modified",
+        )
