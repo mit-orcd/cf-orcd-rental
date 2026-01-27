@@ -9,6 +9,7 @@ from coldfront_orcd_direct_charge.api import views
 
 router = routers.DefaultRouter()
 router.register(r"rentals", views.ReservationViewSet, basename="rentals")
+router.register(r"cost-allocations", views.CostAllocationViewSet, basename="cost-allocations")
 
 urlpatterns = router.urls + [
     path("user-search/", views.UserSearchView.as_view(), name="user-search"),
