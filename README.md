@@ -458,6 +458,22 @@ coldfront sync_node_skus --all     # Include inactive NodeTypes
 coldfront sync_node_skus --dry-run # Preview what would be done
 ```
 
+### create_user
+
+Create user accounts with optional API token generation:
+
+```bash
+coldfront create_user <username>                         # Basic user creation
+coldfront create_user <username> --with-token            # Create and generate API token
+coldfront create_user <username> --email user@example.edu  # Specify email
+coldfront create_user <username> --add-to-group rental   # Add to manager group
+coldfront create_user <username> --dry-run               # Preview without changes
+```
+
+Environment variables:
+- `ORCD_EMAIL_DOMAIN` - Default email domain (e.g., `example.edu`)
+- `ORCD_USER_PASSWORD` - Default password for new users
+
 ---
 
 ## Helper Programs

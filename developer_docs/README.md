@@ -107,8 +107,10 @@ coldfront-orcd-direct-charge/
     │   ├── views.py                # API viewsets
     │   └── urls.py                 # API routing
     ├── management/commands/        # Django management commands
+    │   ├── create_user.py            # Create user accounts with token generation
     │   ├── setup_rental_manager.py
-    │   └── setup_billing_manager.py
+    │   ├── setup_billing_manager.py
+    │   └── setup_rate_manager.py
     ├── templatetags/               # Custom template tags/filters
     │   ├── calendar_filters.py
     │   └── project_roles.py
@@ -256,6 +258,19 @@ export PLUGIN_API=True
 uv run coldfront makemigrations coldfront_orcd_direct_charge
 ```
 
+### Creating Users
+
+```bash
+# Create a user with API token
+uv run coldfront create_user <username> --with-token
+
+# Create a user and add to a manager group
+uv run coldfront create_user <username> --with-token --add-to-group rental
+
+# Preview what would be done (dry-run)
+uv run coldfront create_user <username> --dry-run
+```
+
 ### Setting Up Manager Roles
 
 ```bash
@@ -266,6 +281,10 @@ uv run coldfront setup_rental_manager --add-user <username>
 # Billing Manager - can approve cost allocations, manage invoices
 uv run coldfront setup_billing_manager --create-group
 uv run coldfront setup_billing_manager --add-user <username>
+
+# Rate Manager - can manage rental rates and SKUs
+uv run coldfront setup_rate_manager --create-group
+uv run coldfront setup_rate_manager --add-user <username>
 ```
 
 ---
