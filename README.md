@@ -467,12 +467,15 @@ coldfront create_user <username>                         # Basic user creation
 coldfront create_user <username> --with-token            # Create and generate API token
 coldfront create_user <username> --email user@example.edu  # Specify email
 coldfront create_user <username> --add-to-group rental   # Add to manager group
+coldfront create_user <username> --no-password           # OIDC/SSO-only (no password login)
 coldfront create_user <username> --dry-run               # Preview without changes
 ```
 
 Environment variables:
 - `ORCD_EMAIL_DOMAIN` - Default email domain (e.g., `example.edu`)
 - `ORCD_USER_PASSWORD` - Default password for new users
+
+The `--no-password` option creates an account that can only authenticate via OIDC/SSO, with password login disabled. This is useful for accounts that will use two-factor OIDC authentication.
 
 ---
 

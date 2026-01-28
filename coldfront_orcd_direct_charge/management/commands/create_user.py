@@ -16,6 +16,7 @@ Examples:
     coldfront create_user jsmith
     coldfront create_user jsmith --email jsmith@university.edu --with-token
     coldfront create_user jsmith --with-token --add-to-group rental
+    coldfront create_user jsmith --no-password --with-token  # OIDC-only account
     coldfront create_user jsmith --dry-run
 """
 
@@ -58,10 +59,18 @@ class Command(BaseCommand):
             type=str,
             help="Email address (defaults to {username}@{ORCD_EMAIL_DOMAIN})",
         )
-        parser.add_argument(
+
+        # Password options (mutually exclusive)
+        password_group = parser.add_mutually_exclusive_group()
+        password_group.add_argument(
             "--password",
             type=str,
             help="Password (defaults to $ORCD_USER_PASSWORD env var, or generates random)",
+        )
+        password_group.add_argument(
+            "--no-password",
+            action="store_true",
+            help="Create account with no password (OIDC/SSO-only authentication)",
         )
         parser.add_argument(
             "--with-token",
@@ -119,16 +128,25 @@ class Command(BaseCommand):
             else:
                 email = ""
 
-        # Determine password
-        password = options.get("password")
-        password_source = "provided via --password"
-        if not password:
-            password = os.environ.get("ORCD_USER_PASSWORD", "")
-            if password:
-                password_source = "from ORCD_USER_PASSWORD"
-            else:
-                password = generate_random_password()
-                password_source = "generated random"
+        # Determine password mode
+        no_password = options.get("no_password", False)
+        password = None
+        password_source = None
+
+        if no_password:
+            # OIDC/SSO-only account - no password authentication
+            password_source = "no password (OIDC/SSO-only)"
+        else:
+            # Determine password
+            password = options.get("password")
+            password_source = "provided via --password"
+            if not password:
+                password = os.environ.get("ORCD_USER_PASSWORD", "")
+                if password:
+                    password_source = "from ORCD_USER_PASSWORD"
+                else:
+                    password = generate_random_password()
+                    password_source = "generated random"
 
         is_active = options["is_active"]
         with_token = options["with_token"]
@@ -152,6 +170,7 @@ class Command(BaseCommand):
                 user_exists=user_exists,
                 with_token=with_token,
                 groups_to_add=groups_to_add,
+                no_password=no_password,
             )
             return
 
@@ -160,23 +179,44 @@ class Command(BaseCommand):
             user = User.objects.get(username=username)
             user.email = email
             user.is_active = is_active
-            user.set_password(password)
+            if no_password:
+                user.set_unusable_password()
+            else:
+                user.set_password(password)
             user.save()
             if not quiet:
                 self.stdout.write(self.style.SUCCESS(
                     f"Updated existing user '{username}'"
                 ))
+                if no_password:
+                    self.stdout.write(self.style.SUCCESS(
+                        "Password disabled (OIDC/SSO-only authentication)"
+                    ))
         else:
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-                password=password,
-                is_active=is_active,
-            )
+            if no_password:
+                # Create user without password (OIDC/SSO-only)
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                )
+                user.is_active = is_active
+                user.set_unusable_password()
+                user.save()
+            else:
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password,
+                    is_active=is_active,
+                )
             if not quiet:
                 self.stdout.write(self.style.SUCCESS(
                     f"Created user '{username}' (email: {email or 'none'})"
                 ))
+                if no_password:
+                    self.stdout.write(self.style.SUCCESS(
+                        "Password disabled (OIDC/SSO-only authentication)"
+                    ))
 
         # Generate API token if requested
         if with_token:
@@ -192,11 +232,11 @@ class Command(BaseCommand):
         if not quiet:
             self.stdout.write("")
             self.stdout.write(self.style.SUCCESS("User creation complete."))
-            if password_source == "generated random":
+            if not no_password and password_source == "generated random":
                 self.stdout.write(f"Password ({password_source}): {password}")
 
     def _print_dry_run(self, username, email, password_source, is_active,
-                       user_exists, with_token, groups_to_add):
+                       user_exists, with_token, groups_to_add, no_password=False):
         """Print the Django ORM commands that would be executed."""
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("[DRY-RUN] Would execute the following commands:"))
@@ -207,16 +247,29 @@ class Command(BaseCommand):
             self.stdout.write(f"user = User.objects.get(username='{username}')")
             self.stdout.write(f"user.email = '{email}'")
             self.stdout.write(f"user.is_active = {is_active}")
-            self.stdout.write(f"user.set_password('<{password_source}>')")
+            if no_password:
+                self.stdout.write("user.set_unusable_password()  # OIDC/SSO-only")
+            else:
+                self.stdout.write(f"user.set_password('<{password_source}>')")
             self.stdout.write("user.save()")
         else:
-            self.stdout.write("# Create user")
-            self.stdout.write("User.objects.create_user(")
-            self.stdout.write(f"    username='{username}',")
-            self.stdout.write(f"    email='{email}',")
-            self.stdout.write(f"    password='<{password_source}>',")
-            self.stdout.write(f"    is_active={is_active}")
-            self.stdout.write(")")
+            if no_password:
+                self.stdout.write("# Create user (OIDC/SSO-only - no password authentication)")
+                self.stdout.write("user = User.objects.create_user(")
+                self.stdout.write(f"    username='{username}',")
+                self.stdout.write(f"    email='{email}'")
+                self.stdout.write(")")
+                self.stdout.write(f"user.is_active = {is_active}")
+                self.stdout.write("user.set_unusable_password()  # Disable password login")
+                self.stdout.write("user.save()")
+            else:
+                self.stdout.write("# Create user")
+                self.stdout.write("User.objects.create_user(")
+                self.stdout.write(f"    username='{username}',")
+                self.stdout.write(f"    email='{email}',")
+                self.stdout.write(f"    password='<{password_source}>',")
+                self.stdout.write(f"    is_active={is_active}")
+                self.stdout.write(")")
 
         if with_token:
             self.stdout.write("")

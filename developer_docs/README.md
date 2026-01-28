@@ -267,6 +267,9 @@ uv run coldfront create_user <username> --with-token
 # Create a user and add to a manager group
 uv run coldfront create_user <username> --with-token --add-to-group rental
 
+# Create OIDC/SSO-only account (no password login)
+uv run coldfront create_user <username> --no-password --with-token
+
 # Preview what would be done (dry-run)
 uv run coldfront create_user <username> --dry-run
 ```
