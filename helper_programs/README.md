@@ -36,18 +36,60 @@ cd mk_gpucpunode_csv
 
 See `mk_gpucpunode_csv/README.md` for detailed documentation.
 
+### orcd_dc_cli
+
+Command-line interface tools for interacting with the ColdFront API.
+
+**Location:** `orcd_dc_cli/`
+
+**Purpose:** Provides CLI tools for querying the ColdFront REST API, including rental reservation data.
+
+**Available Tools:**
+- `rentals.py` - Query and filter rental reservations
+
+**Usage:**
+```bash
+cd orcd_dc_cli
+export COLDFRONT_API_TOKEN="your_token"
+export COLDFRONT_URL="https://coldfront.example.com"
+
+python rentals.py                    # List all rentals
+python rentals.py --status PENDING   # Filter by status
+python rentals.py --format table     # Table output
+```
+
+See `orcd_dc_cli/README.md` for detailed documentation.
+
 ## Workflow
 
-The tools are designed to work together in a pipeline:
+### Fixture Generation Pipeline
+
+The fixture generation tools work together in a pipeline:
 
 ```
-Slurm JSON --> mk_gpucpunode_csv --> CSV --> csv_to_fixtures --> Django Fixtures
+Slurm JSON --> mk_gpucpunode_csv --> CSV --> csv_to_fixtures --> Django Fixtures --> ColdFront
 ```
 
 1. Export node data from Slurm: `scontrol show nodes --json > nodes.json`
 2. Convert to CSV: `./mk_gpucpunode_csv/json_to_node_csv.sh nodes.json "partitions" nodes.csv`
 3. Generate fixtures: `python3 csv_to_fixtures/csv_to_node_fixtures.py nodes.csv -o ../coldfront_orcd_direct_charge/fixtures/`
 4. Load into ColdFront: `coldfront loaddata gpu_node_instances cpu_node_instances`
+
+### API CLI Tools
+
+The `orcd_dc_cli` tools interact with ColdFront via the REST API:
+
+```
+                                    ┌─────────────────────┐
+                                    │    orcd_dc_cli      │
+                                    │  (API CLI tools)    │
+                                    └──────────┬──────────┘
+                                               │ REST API
+                                               ▼
+                                         ┌───────────┐
+                                         │ ColdFront │
+                                         └───────────┘
+```
 
 
 
