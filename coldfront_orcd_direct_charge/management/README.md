@@ -7,6 +7,7 @@ This directory contains Django management commands for the ORCD Direct Charge pl
 | Command | Description |
 |---------|-------------|
 | `check_import_compatibility` | Validate an export before importing |
+| `create_orcd_project` | Create ORCD projects with member roles |
 | `create_user` | Create user accounts with optional API tokens and group membership |
 | `export_portal_data` | Export portal data to JSON files for backup or migration |
 | `import_portal_data` | Import portal data from a JSON export |
@@ -167,6 +168,67 @@ coldfront import_portal_data /backups/portal/export_20260117/ --config-diff-repo
 
 # Force import despite warnings
 coldfront import_portal_data /backups/portal/export_20260117/ --force
+```
+
+---
+
+## Project Management Commands
+
+### create_orcd_project
+
+Creates ORCD projects with support for ORCD-specific member roles. By default, creates a project following the `USERNAME_group` naming convention.
+
+**ORCD Member Roles:**
+
+| Role | Description |
+|------|-------------|
+| Owner | Full control (implicit via project PI) |
+| `financial_admin` | Can manage cost allocation |
+| `technical_admin` | Can manage technical aspects |
+| `member` | Basic project member |
+
+**Usage:**
+
+```bash
+coldfront create_orcd_project <username> [options]
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `username` | Username of the project owner (PI) |
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--title` | Project title (default: `USERNAME_group`) |
+| `--description` | Project description (default: `"Group project for USERNAME"`) |
+| `--status` | Project status: `New`, `Active`, `Archived` (default: `Active`) |
+| `--add-member` | Add member with ORCD role: `user:role` (repeatable) |
+| `--force` | Update existing project instead of reporting error |
+| `--dry-run` | Show Django ORM commands that would be executed |
+| `--quiet` | Suppress non-essential output |
+
+**Examples:**
+
+```bash
+# Create default group project for user
+coldfront create_orcd_project jsmith
+
+# Create project with custom title
+coldfront create_orcd_project jsmith --title "Research Lab"
+
+# Create project with members
+coldfront create_orcd_project jsmith --add-member auser:financial_admin
+coldfront create_orcd_project jsmith --add-member buser:technical_admin --add-member cuser:member
+
+# Preview what would be done
+coldfront create_orcd_project jsmith --dry-run
+
+# Update existing project
+coldfront create_orcd_project jsmith --description "Updated description" --force
 ```
 
 ---
@@ -395,6 +457,7 @@ Most commands support `--dry-run` to preview changes without modifying the datab
 coldfront export_portal_data -o /backups/ --dry-run
 coldfront import_portal_data /backups/export_20260117/ --dry-run
 coldfront create_user jsmith --dry-run
+coldfront create_orcd_project jsmith --dry-run
 coldfront sync_node_skus --dry-run
 ```
 
@@ -413,6 +476,9 @@ coldfront sync_node_skus
 
 # 3. Create admin users
 coldfront create_user admin --with-token --add-to-group rental --add-to-group billing --add-to-group rate
+
+# 4. Create projects with team members
+coldfront create_orcd_project admin --title "Admin Project" --add-member billing_user:financial_admin
 ```
 
 ### Backup and Restore
