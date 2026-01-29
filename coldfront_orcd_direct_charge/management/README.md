@@ -2,6 +2,31 @@
 
 This directory contains Django management commands for the ORCD Direct Charge plugin. These commands are invoked via the `coldfront` management command wrapper.
 
+## Shell Environment Setup
+
+**IMPORTANT:** Environment variables MUST be set BEFORE running any Django commands. These variables are read when ColdFront's settings are loaded, which determines which apps are installed and which migrations run. Setting them after import has no effect.
+
+Run the following commands to configure your shell before executing any management commands:
+
+```bash
+cd /srv/coldfront
+source venv/bin/activate
+
+# Load secrets from environment file (required for SECRET_KEY, OIDC credentials)
+# The coldfront.env file also contains PLUGIN_API, AUTO_PI_ENABLE, and
+# AUTO_DEFAULT_PROJECT_ENABLE which enable the ORCD plugin features.
+set -a
+source /srv/coldfront/coldfront.env
+set +a
+
+export PYTHONPATH=/srv/coldfront
+export DJANGO_SETTINGS_MODULE=local_settings
+```
+
+After this setup, you can run any of the commands documented below.
+
+---
+
 ## Quick Reference
 
 | Command | Description |
