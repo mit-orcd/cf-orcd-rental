@@ -203,7 +203,7 @@ coldfront create_orcd_project <username> [options]
 
 | Option | Description |
 |--------|-------------|
-| `--title` | Project title (default: `USERNAME_group`) |
+| `--project-name` | Project name/title (default: `USERNAME_group`) |
 | `--description` | Project description (default: `"Group project for USERNAME"`) |
 | `--status` | Project status: `New`, `Active`, `Archived` (default: `Active`) |
 | `--add-member` | Add member with ORCD role: `user:role` (repeatable) |
@@ -217,8 +217,8 @@ coldfront create_orcd_project <username> [options]
 # Create default group project for user
 coldfront create_orcd_project jsmith
 
-# Create project with custom title
-coldfront create_orcd_project jsmith --title "Research Lab"
+# Create project with custom name
+coldfront create_orcd_project jsmith --project-name "Research Lab"
 
 # Create project with members
 coldfront create_orcd_project jsmith --add-member auser:financial_admin
@@ -478,7 +478,7 @@ coldfront sync_node_skus
 coldfront create_user admin --with-token --add-to-group rental --add-to-group billing --add-to-group rate
 
 # 4. Create projects with team members
-coldfront create_orcd_project admin --title "Admin Project" --add-member billing_user:financial_admin
+coldfront create_orcd_project admin --project-name "Admin Project" --add-member billing_user:financial_admin
 ```
 
 ### Backup and Restore

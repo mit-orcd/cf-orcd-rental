@@ -10,7 +10,7 @@ Follows the USERNAME_group naming convention by default.
 
 Examples:
     coldfront create_orcd_project jsmith
-    coldfront create_orcd_project jsmith --title "Research Lab"
+    coldfront create_orcd_project jsmith --project-name "Research Lab"
     coldfront create_orcd_project jsmith --add-member auser:financial_admin
     coldfront create_orcd_project jsmith --add-member buser:technical_admin --add-member cuser:member
     coldfront create_orcd_project jsmith --dry-run
@@ -78,9 +78,10 @@ class Command(BaseCommand):
 
         # Optional arguments
         parser.add_argument(
-            "--title",
+            "--project-name",
             type=str,
-            help="Project title (defaults to USERNAME_group)",
+            dest="project_name",
+            help="Project name/title (defaults to USERNAME_group)",
         )
         parser.add_argument(
             "--description",
@@ -133,8 +134,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f"User not found: {username}"))
             return
 
-        # Determine project title and description
-        title = options.get("title") or f"{username}_group"
+        # Determine project name and description
+        title = options.get("project_name") or f"{username}_group"
         description = options.get("description") or f"Group project for {username}"
         status_name = options["status"]
 
