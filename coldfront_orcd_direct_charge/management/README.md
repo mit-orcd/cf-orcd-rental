@@ -40,16 +40,16 @@ where `BRANCH_OR_TAG` is a branch or tag for the repo.
 
 | Command | Description |
 |---------|-------------|
-| `check_import_compatibility` | Validate an export before importing |
-| `create_orcd_project` | Create ORCD projects with member roles |
-| `create_user` | Create user accounts with optional API tokens and group membership |
-| `export_portal_data` | Export portal data to JSON files for backup or migration |
-| `import_portal_data` | Import portal data from a JSON export |
-| `set_project_cost_allocation` | Set cost allocation for a project with cost objects and percentages |
-| `setup_billing_manager` | Manage the Billing Manager group and its members |
-| `setup_rate_manager` | Manage the Rate Manager group and its members |
-| `setup_rental_manager` | Manage the Rental Manager group and its members |
-| `sync_node_skus` | Synchronize RentalSKU records with NodeTypes |
+| [`check_import_compatibility`](#check_import_compatibility) | Validate an export before importing |
+| [`create_orcd_project`](#create_orcd_project) | Create ORCD projects with member roles |
+| [`create_user`](#create_user) | Create user accounts with optional API tokens and group membership |
+| [`export_portal_data`](#export_portal_data) | Export portal data to JSON files for backup or migration |
+| [`import_portal_data`](#import_portal_data) | Import portal data from a JSON export |
+| [`set_project_cost_allocation`](#set_project_cost_allocation) | Set cost allocation for a project with cost objects and percentages |
+| [`setup_billing_manager`](#setup_billing_manager) | Manage the Billing Manager group and its members |
+| [`setup_rate_manager`](#setup_rate_manager) | Manage the Rate Manager group and its members |
+| [`setup_rental_manager`](#setup_rental_manager) | Manage the Rental Manager group and its members |
+| [`sync_node_skus`](#sync_node_skus) | Synchronize RentalSKU records with NodeTypes |
 
 ---
 
