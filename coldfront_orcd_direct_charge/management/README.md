@@ -23,9 +23,9 @@ export PYTHONPATH=/srv/coldfront
 export DJANGO_SETTINGS_MODULE=local_settings
 ```
 
-After this setup, you can run any of the commands documented below.
+After this setup, you can run any of the commands documented in the sections below.
 
-To upgrade available commands during development use
+**Note:** To upgrade available commands during development use
 
 ```
 pip install --no-cache-dir --force-reinstall 'git+https://github.com/mit-orcd/cf-orcd-rental.git@BRANCH_OR_TAG
