@@ -23,7 +23,8 @@ export PYTHONPATH=/srv/coldfront
 export DJANGO_SETTINGS_MODULE=local_settings
 ```
 
-After this setup, you can run any of the commands documented in the sections below.
+
+After this setup, you can run any of the commands documented below.
 
 **Note:** To upgrade available commands during development use
 
@@ -44,6 +45,7 @@ where `BRANCH_OR_TAG` is a branch or tag for the repo.
 | `create_user` | Create user accounts with optional API tokens and group membership |
 | `export_portal_data` | Export portal data to JSON files for backup or migration |
 | `import_portal_data` | Import portal data from a JSON export |
+| `set_project_cost_allocation` | Set cost allocation for a project with cost objects and percentages |
 | `setup_billing_manager` | Manage the Billing Manager group and its members |
 | `setup_rate_manager` | Manage the Rate Manager group and its members |
 | `setup_rental_manager` | Manage the Rental Manager group and its members |
@@ -263,6 +265,80 @@ coldfront create_orcd_project jsmith --dry-run
 # Update existing project
 coldfront create_orcd_project jsmith --description "Updated description" --force
 ```
+
+---
+
+### set_project_cost_allocation
+
+Sets cost allocation for a project by specifying cost objects and their percentage allocations. Cost allocations are required before a project can be used for reservations.
+
+**Cost Object Format:**
+
+Each allocation is specified as `CO:NNN` where:
+- `CO` is the cost object identifier (alphanumeric characters and hyphens only)
+- `NNN` is the percentage allocation (must be a positive number)
+
+All percentages must sum to exactly 100.
+
+**Usage:**
+
+```bash
+coldfront set_project_cost_allocation <project> <CO:PERCENT> [CO:PERCENT ...] [options]
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `project` | Project name (e.g., `jsmith_group`) or project ID |
+| `CO:PERCENT` | One or more cost object allocations (e.g., `ABC-123:50`) |
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--notes` | Notes about the cost allocation |
+| `--status` | Initial status: `PENDING`, `APPROVED`, `REJECTED` (default: `PENDING`) |
+| `--reviewed-by` | Username or user ID of the Billing Manager who approved the allocation. The user must be a member of the Billing Manager group. Sets `reviewed_at` automatically. |
+| `--review-notes` | Optional notes from the reviewer about the approval decision |
+| `--force` | Replace existing cost allocation instead of reporting error |
+| `--dry-run` | Show Django ORM commands that would be executed |
+| `--quiet` | Suppress non-essential output |
+
+**Examples:**
+
+```bash
+# Set a single cost object (100%)
+coldfront set_project_cost_allocation jsmith_group ABC-123:100
+
+# Split between multiple cost objects
+coldfront set_project_cost_allocation jsmith_group ABC-123:50 DEF-456:30 GHI-789:20
+
+# Set allocation with notes
+coldfront set_project_cost_allocation jsmith_group ABC-123:100 --notes "FY26 Q1 allocation"
+
+# Replace existing allocation
+coldfront set_project_cost_allocation jsmith_group NEW-001:100 --force
+
+# Set as pre-approved with reviewer information (recommended)
+coldfront set_project_cost_allocation jsmith_group ABC-123:100 \
+    --status APPROVED --reviewed-by billing_admin --review-notes "Approved for FY26"
+
+# Set as approved using reviewer's user ID
+coldfront set_project_cost_allocation jsmith_group ABC-123:100 \
+    --status APPROVED --reviewed-by 42
+
+# Preview what would be done
+coldfront set_project_cost_allocation jsmith_group ABC-123:50 DEF-456:50 --dry-run
+```
+
+**Notes:**
+
+- When using `--force` to replace an existing allocation, the previous cost objects are deleted and new ones are created.
+- When `--reviewed-by` is specified, `reviewed_at` is automatically set to the current timestamp.
+- The `--reviewed-by` user must be a Billing Manager (member of the "Billing Manager" group, have `can_manage_billing` permission, or be a superuser).
+- By default, new allocations have status `PENDING` and require Billing Manager approval before the project can be used for reservations.
+- When using `--status APPROVED`, it's recommended to also specify `--reviewed-by` to properly record who approved the allocation.
 
 ---
 
@@ -491,6 +567,7 @@ coldfront export_portal_data -o /backups/ --dry-run
 coldfront import_portal_data /backups/export_20260117/ --dry-run
 coldfront create_user jsmith --dry-run
 coldfront create_orcd_project jsmith --dry-run
+coldfront set_project_cost_allocation jsmith_group ABC-123:100 --dry-run
 coldfront sync_node_skus --dry-run
 ```
 
@@ -512,6 +589,9 @@ coldfront create_user admin --with-token --add-to-group rental --add-to-group bi
 
 # 4. Create projects with team members
 coldfront create_orcd_project admin --project-name "Admin Project" --add-member billing_user:financial_admin
+
+# 5. Set cost allocation for projects (required for reservations)
+coldfront set_project_cost_allocation admin_group ABC-COST-001:100 --status APPROVED
 ```
 
 ### Backup and Restore
