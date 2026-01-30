@@ -299,6 +299,8 @@ coldfront set_project_cost_allocation <project> <CO:PERCENT> [CO:PERCENT ...] [o
 |--------|-------------|
 | `--notes` | Notes about the cost allocation |
 | `--status` | Initial status: `PENDING`, `APPROVED`, `REJECTED` (default: `PENDING`) |
+| `--reviewed-by` | Username or user ID of the Billing Manager who approved the allocation. The user must be a member of the Billing Manager group. Sets `reviewed_at` automatically. |
+| `--review-notes` | Optional notes from the reviewer about the approval decision |
 | `--force` | Replace existing cost allocation instead of reporting error |
 | `--dry-run` | Show Django ORM commands that would be executed |
 | `--quiet` | Suppress non-essential output |
@@ -318,8 +320,13 @@ coldfront set_project_cost_allocation jsmith_group ABC-123:100 --notes "FY26 Q1 
 # Replace existing allocation
 coldfront set_project_cost_allocation jsmith_group NEW-001:100 --force
 
-# Set as pre-approved (useful for admin setup)
-coldfront set_project_cost_allocation jsmith_group ABC-123:100 --status APPROVED
+# Set as pre-approved with reviewer information (recommended)
+coldfront set_project_cost_allocation jsmith_group ABC-123:100 \
+    --status APPROVED --reviewed-by billing_admin --review-notes "Approved for FY26"
+
+# Set as approved using reviewer's user ID
+coldfront set_project_cost_allocation jsmith_group ABC-123:100 \
+    --status APPROVED --reviewed-by 42
 
 # Preview what would be done
 coldfront set_project_cost_allocation jsmith_group ABC-123:50 DEF-456:50 --dry-run
@@ -328,9 +335,10 @@ coldfront set_project_cost_allocation jsmith_group ABC-123:50 DEF-456:50 --dry-r
 **Notes:**
 
 - When using `--force` to replace an existing allocation, the previous cost objects are deleted and new ones are created.
-- The review status (reviewed_by, reviewed_at, review_notes) is reset when an allocation is modified.
+- When `--reviewed-by` is specified, `reviewed_at` is automatically set to the current timestamp.
+- The `--reviewed-by` user must be a Billing Manager (member of the "Billing Manager" group, have `can_manage_billing` permission, or be a superuser).
 - By default, new allocations have status `PENDING` and require Billing Manager approval before the project can be used for reservations.
-- Use `--status APPROVED` when setting up allocations as an administrator to skip the approval workflow.
+- When using `--status APPROVED`, it's recommended to also specify `--reviewed-by` to properly record who approved the allocation.
 
 ---
 

@@ -25,6 +25,10 @@ Examples:
     # Set with notes
     coldfront set_project_cost_allocation jsmith_group ABC-123:100 --notes "Q1 2026 allocation"
 
+    # Set as approved with reviewer information
+    coldfront set_project_cost_allocation jsmith_group ABC-123:100 --status APPROVED \
+        --reviewed-by billing_admin --review-notes "Approved for FY26"
+
     # Preview changes
     coldfront set_project_cost_allocation jsmith_group ABC-123:50 DEF-456:50 --dry-run
 """
@@ -32,7 +36,9 @@ Examples:
 import re
 from decimal import Decimal, InvalidOperation
 
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from coldfront.core.project.models import Project
 
@@ -40,6 +46,10 @@ from coldfront_orcd_direct_charge.models import (
     ProjectCostAllocation,
     ProjectCostObject,
 )
+
+
+# Name of the Billing Manager group
+BILLING_MANAGER_GROUP = "Billing Manager"
 
 
 # Regex pattern for cost object identifiers (alphanumeric and hyphens)
@@ -133,6 +143,23 @@ class Command(BaseCommand):
             help="Initial status of the cost allocation (default: PENDING)",
         )
         parser.add_argument(
+            "--reviewed-by",
+            type=str,
+            dest="reviewed_by",
+            help=(
+                "Username or user ID of the Billing Manager who reviewed/approved "
+                "the allocation. Required when status is APPROVED. The user must "
+                "be a member of the Billing Manager group."
+            ),
+        )
+        parser.add_argument(
+            "--review-notes",
+            type=str,
+            dest="review_notes",
+            default="",
+            help="Optional notes from the reviewer about the approval decision",
+        )
+        parser.add_argument(
             "--force",
             action="store_true",
             help="Replace existing cost allocation instead of reporting error",
@@ -153,6 +180,8 @@ class Command(BaseCommand):
         allocation_args = options["allocations"]
         notes = options["notes"]
         status = options["status"]
+        reviewed_by_identifier = options.get("reviewed_by")
+        review_notes = options.get("review_notes", "")
         force = options["force"]
         dry_run = options["dry_run"]
         quiet = options["quiet"]
@@ -161,6 +190,20 @@ class Command(BaseCommand):
         project = self._find_project(project_identifier)
         if not project:
             return
+
+        # Look up the reviewer if specified
+        reviewer = None
+        if reviewed_by_identifier:
+            reviewer = self._find_billing_manager(reviewed_by_identifier)
+            if not reviewer:
+                return
+
+        # If status is APPROVED, reviewer should be specified (warn if not)
+        if status == "APPROVED" and not reviewer:
+            self.stdout.write(self.style.WARNING(
+                "Warning: Setting status to APPROVED without --reviewed-by. "
+                "The reviewed_by, reviewed_at fields will be empty."
+            ))
 
         # Parse allocation arguments
         parsed_allocations = []
@@ -208,6 +251,8 @@ class Command(BaseCommand):
                 parsed_allocations=parsed_allocations,
                 notes=notes,
                 status=status,
+                reviewer=reviewer,
+                review_notes=review_notes,
                 allocation_exists=allocation_exists,
             )
             return
@@ -218,6 +263,8 @@ class Command(BaseCommand):
             parsed_allocations=parsed_allocations,
             notes=notes,
             status=status,
+            reviewer=reviewer,
+            review_notes=review_notes,
             allocation_exists=allocation_exists,
             quiet=quiet,
         )
@@ -228,11 +275,15 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS("Cost allocation set successfully."))
             self.stdout.write(f"  Project: {project.title}")
             self.stdout.write(f"  Status: {status}")
+            if reviewer:
+                self.stdout.write(f"  Reviewed by: {reviewer.username}")
             self.stdout.write(f"  Cost objects: {len(parsed_allocations)}")
             for co, pct in parsed_allocations:
                 self.stdout.write(f"    - {co}: {pct}%")
             if notes:
                 self.stdout.write(f"  Notes: {notes}")
+            if review_notes:
+                self.stdout.write(f"  Review notes: {review_notes}")
 
     def _find_project(self, identifier):
         """Find a project by name or ID.
@@ -268,11 +319,69 @@ class Command(BaseCommand):
             ))
             return None
 
-    def _print_dry_run(self, project, parsed_allocations, notes, status, allocation_exists):
+    def _find_billing_manager(self, identifier):
+        """Find a user by username or ID and verify they are a Billing Manager.
+
+        Args:
+            identifier: Username or numeric user ID
+
+        Returns:
+            User instance or None if not found or not a Billing Manager
+        """
+        from django.contrib.auth.models import Group
+
+        # Try as numeric ID first
+        if identifier.isdigit():
+            try:
+                user = User.objects.get(pk=int(identifier))
+            except User.DoesNotExist:
+                self.stdout.write(self.style.ERROR(
+                    f"User with ID {identifier} not found"
+                ))
+                return None
+        else:
+            # Try as username
+            try:
+                user = User.objects.get(username=identifier)
+            except User.DoesNotExist:
+                self.stdout.write(self.style.ERROR(
+                    f"User '{identifier}' not found"
+                ))
+                return None
+
+        # Verify user is a Billing Manager
+        try:
+            billing_manager_group = Group.objects.get(name=BILLING_MANAGER_GROUP)
+        except Group.DoesNotExist:
+            self.stdout.write(self.style.ERROR(
+                f"'{BILLING_MANAGER_GROUP}' group not found. "
+                "Run 'coldfront setup_billing_manager --create-group' first."
+            ))
+            return None
+
+        if not user.groups.filter(pk=billing_manager_group.pk).exists():
+            # Also check if user has the permission directly or is superuser
+            if not (user.is_superuser or
+                    user.has_perm("coldfront_orcd_direct_charge.can_manage_billing")):
+                self.stdout.write(self.style.ERROR(
+                    f"User '{user.username}' is not a Billing Manager. "
+                    f"They must be a member of the '{BILLING_MANAGER_GROUP}' group "
+                    "or have the 'can_manage_billing' permission."
+                ))
+                return None
+
+        return user
+
+    def _print_dry_run(self, project, parsed_allocations, notes, status,
+                       reviewer, review_notes, allocation_exists):
         """Print the Django ORM commands that would be executed."""
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("[DRY-RUN] Would execute the following commands:"))
         self.stdout.write("")
+
+        reviewer_repr = f"<User: {reviewer.username}>" if reviewer else "None"
+        reviewed_at_repr = "timezone.now()" if reviewer else "None"
+        review_notes_repr = f"'{review_notes}'" if review_notes else "''"
 
         if allocation_exists:
             self.stdout.write("# Delete existing cost objects")
@@ -282,9 +391,9 @@ class Command(BaseCommand):
             self.stdout.write("# Update allocation")
             self.stdout.write(f"allocation.notes = '{notes}'")
             self.stdout.write(f"allocation.status = '{status}'")
-            self.stdout.write("allocation.reviewed_by = None")
-            self.stdout.write("allocation.reviewed_at = None")
-            self.stdout.write("allocation.review_notes = ''")
+            self.stdout.write(f"allocation.reviewed_by = {reviewer_repr}")
+            self.stdout.write(f"allocation.reviewed_at = {reviewed_at_repr}")
+            self.stdout.write(f"allocation.review_notes = {review_notes_repr}")
             self.stdout.write("allocation.save()")
         else:
             self.stdout.write("# Create cost allocation")
@@ -292,6 +401,9 @@ class Command(BaseCommand):
             self.stdout.write(f"    project=<Project: {project.title}>,")
             self.stdout.write(f"    notes='{notes}',")
             self.stdout.write(f"    status='{status}',")
+            self.stdout.write(f"    reviewed_by={reviewer_repr},")
+            self.stdout.write(f"    reviewed_at={reviewed_at_repr},")
+            self.stdout.write(f"    review_notes={review_notes_repr},")
             self.stdout.write(")")
 
         self.stdout.write("")
@@ -306,7 +418,8 @@ class Command(BaseCommand):
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("[DRY-RUN] No changes made."))
 
-    def _set_cost_allocation(self, project, parsed_allocations, notes, status, allocation_exists, quiet):
+    def _set_cost_allocation(self, project, parsed_allocations, notes, status,
+                             reviewer, review_notes, allocation_exists, quiet):
         """Set the cost allocation for a project.
 
         Args:
@@ -314,9 +427,14 @@ class Command(BaseCommand):
             parsed_allocations: List of (cost_object, percentage) tuples
             notes: Notes about the allocation
             status: Status string (PENDING, APPROVED, REJECTED)
+            reviewer: User instance of the reviewer (or None)
+            review_notes: Notes from the reviewer
             allocation_exists: Whether an allocation already exists
             quiet: Suppress output if True
         """
+        # Set reviewed_at to now if reviewer is provided
+        reviewed_at = timezone.now() if reviewer else None
+
         if allocation_exists:
             # Update existing allocation
             allocation = ProjectCostAllocation.objects.get(project=project)
@@ -328,10 +446,9 @@ class Command(BaseCommand):
             # Update allocation fields
             allocation.notes = notes
             allocation.status = status
-            # Reset review status when allocation is modified
-            allocation.reviewed_by = None
-            allocation.reviewed_at = None
-            allocation.review_notes = ""
+            allocation.reviewed_by = reviewer
+            allocation.reviewed_at = reviewed_at
+            allocation.review_notes = review_notes
             allocation.save()
 
             if not quiet:
@@ -344,6 +461,9 @@ class Command(BaseCommand):
                 project=project,
                 notes=notes,
                 status=status,
+                reviewed_by=reviewer,
+                reviewed_at=reviewed_at,
+                review_notes=review_notes,
             )
             if not quiet:
                 self.stdout.write(self.style.SUCCESS(
