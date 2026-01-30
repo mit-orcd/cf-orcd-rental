@@ -25,6 +25,14 @@ export DJANGO_SETTINGS_MODULE=local_settings
 
 After this setup, you can run any of the commands documented below.
 
+To upgrade available commands during development use
+
+```
+pip install --no-cache-dir --force-reinstall 'git+https://github.com/mit-orcd/cf-orcd-rental.git@BRANCH_OR_TAG
+```
+
+where `BRANCH_OR_TAG` is a branch or tag for the repo. 
+
 ---
 
 ## Quick Reference
