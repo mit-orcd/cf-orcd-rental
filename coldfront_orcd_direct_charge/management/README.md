@@ -488,6 +488,15 @@ coldfront set_user_amf jsmith advanced --project jsmith_group --dry-run
 
 Creates a node rental reservation for a GPU node instance. This command creates a `Reservation` record associating a specific GPU node with a project and requesting user for a specified time period.
 
+**Duration Specification:**
+
+Duration can be specified in two ways:
+
+| Method | Description |
+|--------|-------------|
+| `--num-blocks` | Number of 12-hour blocks (default: 1, max: 14) |
+| `--end-date` | Calculate duration from start to end date/time (no block limit, supports fractional blocks) |
+
 **Reservation Timing Rules:**
 
 | Rule | Description |
@@ -495,7 +504,7 @@ Creates a node rental reservation for a GPU node instance. This command creates 
 | Start Time | Reservations always start at 4:00 PM on the start date |
 | Duration | Measured in 12-hour blocks (1 block = 12 hours) |
 | End Time | Calculated as start + (blocks * 12 hours), capped at 9:00 AM |
-| Maximum Duration | 14 blocks (7 days) |
+| Maximum Duration | 14 blocks when using `--num-blocks`; unlimited when using `--end-date` |
 
 **Reservation Statuses:**
 
@@ -525,7 +534,8 @@ coldfront create_node_rental <node_address> <project> <username> --start-date <Y
 | Option | Description |
 |--------|-------------|
 | `--start-date` | **Required.** Start date in YYYY-MM-DD format (reservation starts at 4:00 PM) |
-| `--num-blocks` | Number of 12-hour blocks (default: 1, min: 1, max: 14) |
+| `--num-blocks` | Number of 12-hour blocks (default: 1, min: 1, max: 14). Cannot be used with `--end-date`. |
+| `--end-date` | End date/time for the reservation. Formats: `YYYY-MM-DD` (uses 9:00 AM) or `YYYY-MM-DD HH:MM`. Calculates duration automatically, allows fractional blocks and durations beyond 14 blocks. Cannot be used with `--num-blocks`. |
 | `--status` | Reservation status: `PENDING`, `APPROVED`, `DECLINED`, `CANCELLED` (default: `PENDING`) |
 | `--rental-notes` | Notes from the requester about this reservation |
 | `--manager-notes` | Notes from the rental manager (for approved/declined reservations) |
@@ -543,6 +553,15 @@ coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 202
 
 # Create a 3-block (36-hour) reservation
 coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --num-blocks 3
+
+# Create a reservation using end date (ends at 9:00 AM on specified date)
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --end-date 2026-02-20
+
+# Create a reservation with specific end time (allows fractional blocks)
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --end-date "2026-02-17 09:00"
+
+# Create a long reservation (more than 14 blocks) using end date
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-01 --end-date 2026-02-28
 
 # Create a pre-approved reservation with manager notes
 coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 \
@@ -573,6 +592,12 @@ coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 202
 - Use `--force` to create a reservation even when overlapping reservations exist
 - When creating pre-approved reservations, use `--status APPROVED` with `--processed-by` to record who approved it
 - Overlapping reservations are detected for `PENDING` and `APPROVED` reservations only; `DECLINED` and `CANCELLED` reservations are ignored
+- `--num-blocks` and `--end-date` are mutually exclusive; use one or the other
+- When using `--end-date`:
+  - If only a date is provided (YYYY-MM-DD), the end time defaults to 9:00 AM
+  - Fractional blocks are calculated (e.g., 18 hours = 1.5 blocks) and rounded up for storage
+  - The 14-block limit is removed, allowing longer reservations
+  - The command displays both the exact calculated duration and the stored block count
 
 **Dependencies:**
 

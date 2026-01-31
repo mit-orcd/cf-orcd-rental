@@ -7,16 +7,23 @@ Django management command to create node rental reservations.
 
 Creates a reservation for a GPU node instance, associating it with a project
 and requesting user. Supports all reservation parameters including start date,
-duration (in 12-hour blocks), status, and notes.
+duration (in 12-hour blocks or via end date), status, and notes.
+
+Duration can be specified in two ways:
+- --num-blocks: Number of 12-hour blocks (default: 1, max: 14)
+- --end-date: Calculate duration from start to end (no block limit, supports fractional blocks)
 
 Examples:
     coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15
     coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --num-blocks 3
+    coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --end-date 2026-02-20
+    coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --end-date "2026-02-17 09:00"
     coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --status APPROVED
     coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --dry-run
 """
 
-from datetime import datetime
+import math
+from datetime import datetime, time, timedelta
 
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
@@ -51,6 +58,73 @@ def parse_date(date_str):
         )
 
 
+def parse_end_datetime(date_str, start_datetime):
+    """Parse an end date/datetime string.
+
+    Supports multiple formats:
+    - YYYY-MM-DD: Uses 9:00 AM on that date (standard reservation end time)
+    - YYYY-MM-DD HH:MM: Uses the specified time
+
+    Args:
+        date_str: Date or datetime string
+        start_datetime: The reservation start datetime (for validation)
+
+    Returns:
+        datetime object
+
+    Raises:
+        ValueError: If the format is invalid or end is before start
+    """
+    # Try datetime format first (YYYY-MM-DD HH:MM)
+    for fmt in ["%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M"]:
+        try:
+            end_dt = datetime.strptime(date_str, fmt)
+            if end_dt <= start_datetime:
+                raise ValueError(
+                    f"End datetime ({end_dt}) must be after start datetime ({start_datetime})"
+                )
+            return end_dt
+        except ValueError:
+            continue
+
+    # Try date-only format (YYYY-MM-DD) - defaults to 9:00 AM
+    try:
+        end_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        # Default to 9:00 AM (standard reservation end time)
+        end_dt = datetime.combine(end_date, time(9, 0))
+        if end_dt <= start_datetime:
+            raise ValueError(
+                f"End datetime ({end_dt}) must be after start datetime ({start_datetime})"
+            )
+        return end_dt
+    except ValueError:
+        pass
+
+    raise ValueError(
+        f"Invalid end date format: '{date_str}'. "
+        "Expected YYYY-MM-DD (e.g., 2026-02-17) or 'YYYY-MM-DD HH:MM' (e.g., '2026-02-17 09:00')"
+    )
+
+
+def calculate_blocks_from_duration(start_datetime, end_datetime):
+    """Calculate the number of 12-hour blocks for a duration.
+
+    Returns both the exact fractional blocks and the rounded-up integer value.
+
+    Args:
+        start_datetime: Reservation start datetime
+        end_datetime: Reservation end datetime
+
+    Returns:
+        tuple: (exact_blocks as float, rounded_blocks as int)
+    """
+    duration = end_datetime - start_datetime
+    total_hours = duration.total_seconds() / 3600
+    exact_blocks = total_hours / 12
+    rounded_blocks = math.ceil(exact_blocks)
+    return exact_blocks, max(1, rounded_blocks)
+
+
 class Command(BaseCommand):
     help = "Create a node rental reservation for a GPU node instance"
 
@@ -81,13 +155,24 @@ class Command(BaseCommand):
             help="Start date in YYYY-MM-DD format (reservation starts at 4:00 PM)",
         )
 
-        # Optional arguments
+        # Duration arguments (mutually exclusive approaches)
         parser.add_argument(
             "--num-blocks",
             type=int,
-            default=1,
+            default=None,
             dest="num_blocks",
-            help="Number of 12-hour blocks (default: 1, min: 1, max: 14)",
+            help="Number of 12-hour blocks (default: 1, min: 1, max: 14). Cannot be used with --end-date.",
+        )
+        parser.add_argument(
+            "--end-date",
+            type=str,
+            dest="end_date",
+            help=(
+                "End date/time for the reservation. Calculates duration automatically. "
+                "Formats: YYYY-MM-DD (uses 9:00 AM) or 'YYYY-MM-DD HH:MM'. "
+                "Allows fractional blocks and durations beyond 14 blocks. "
+                "Cannot be used with --num-blocks."
+            ),
         )
         parser.add_argument(
             "--status",
@@ -143,7 +228,8 @@ class Command(BaseCommand):
         project_identifier = options["project"]
         username = options["username"]
         start_date_str = options["start_date"]
-        num_blocks = options["num_blocks"]
+        num_blocks_arg = options["num_blocks"]
+        end_date_str = options.get("end_date")
         status = options["status"]
         rental_notes = options["rental_notes"]
         manager_notes = options["manager_notes"]
@@ -153,6 +239,13 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         quiet = options["quiet"]
 
+        # Check mutual exclusivity of --num-blocks and --end-date
+        if num_blocks_arg is not None and end_date_str is not None:
+            self.stdout.write(self.style.ERROR(
+                "Cannot specify both --num-blocks and --end-date. Use one or the other."
+            ))
+            return
+
         # Parse start date
         try:
             start_date = parse_date(start_date_str)
@@ -160,10 +253,50 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(str(e)))
             return
 
-        # Validate num_blocks
-        if num_blocks < 1 or num_blocks > 14:
+        # Calculate start datetime (4:00 PM on start date)
+        start_datetime = datetime.combine(start_date, time(16, 0))
+
+        # Determine num_blocks and track if using end-date mode
+        using_end_date = False
+        exact_blocks = None
+        specified_end_datetime = None
+
+        if end_date_str is not None:
+            # Parse end date and calculate blocks
+            try:
+                specified_end_datetime = parse_end_datetime(end_date_str, start_datetime)
+            except ValueError as e:
+                self.stdout.write(self.style.ERROR(str(e)))
+                return
+
+            exact_blocks, num_blocks = calculate_blocks_from_duration(
+                start_datetime, specified_end_datetime
+            )
+            using_end_date = True
+
+            if not quiet:
+                total_hours = (specified_end_datetime - start_datetime).total_seconds() / 3600
+                self.stdout.write(
+                    f"Calculated duration: {total_hours:.1f} hours = {exact_blocks:.2f} blocks "
+                    f"(stored as {num_blocks} blocks)"
+                )
+        elif num_blocks_arg is not None:
+            num_blocks = num_blocks_arg
+        else:
+            # Default to 1 block
+            num_blocks = 1
+
+        # Validate num_blocks (only enforce 14-block limit when not using --end-date)
+        if num_blocks < 1:
             self.stdout.write(self.style.ERROR(
-                f"Invalid num_blocks: {num_blocks}. Must be between 1 and 14."
+                f"Invalid num_blocks: {num_blocks}. Must be at least 1."
+            ))
+            return
+
+        if not using_end_date and num_blocks > 14:
+            self.stdout.write(self.style.ERROR(
+                f"Invalid num_blocks: {num_blocks}. Must be between 1 and 14. "
+                "Use --end-date to specify longer durations."
             ))
             return
 
@@ -257,6 +390,9 @@ class Command(BaseCommand):
                 manager_notes=manager_notes,
                 processed_by=processed_by,
                 overlapping=overlapping,
+                using_end_date=using_end_date,
+                exact_blocks=exact_blocks,
+                specified_end_datetime=specified_end_datetime,
             )
             return
 
@@ -287,7 +423,18 @@ class Command(BaseCommand):
             self.stdout.write(f"  Project: {project.title}")
             self.stdout.write(f"  Requesting User: {username}")
             self.stdout.write(f"  Start: {start_date} at 4:00 PM")
-            self.stdout.write(f"  Duration: {num_blocks} block(s) ({num_blocks * 12} hours)")
+            if using_end_date and exact_blocks is not None:
+                total_hours = exact_blocks * 12
+                self.stdout.write(
+                    f"  Duration: {exact_blocks:.2f} blocks ({total_hours:.1f} hours) "
+                    f"[stored as {num_blocks} blocks]"
+                )
+                if specified_end_datetime:
+                    self.stdout.write(
+                        f"  Specified End: {specified_end_datetime.strftime('%Y-%m-%d %I:%M %p')}"
+                    )
+            else:
+                self.stdout.write(f"  Duration: {num_blocks} block(s) ({num_blocks * 12} hours)")
             self.stdout.write(f"  End: {reservation.end_datetime.strftime('%Y-%m-%d %I:%M %p')}")
             self.stdout.write(f"  Status: {reservation.get_status_display()}")
             if processed_by:
@@ -369,7 +516,8 @@ class Command(BaseCommand):
 
     def _print_dry_run(self, node_instance, project, requesting_user, start_date,
                        num_blocks, status, rental_notes, manager_notes,
-                       processed_by, overlapping):
+                       processed_by, overlapping, using_end_date=False,
+                       exact_blocks=None, specified_end_datetime=None):
         """Print the Django ORM commands that would be executed."""
         self.stdout.write("")
         self.stdout.write(self.style.WARNING(
@@ -402,8 +550,19 @@ class Command(BaseCommand):
         self.stdout.write("")
         self.stdout.write("# Reservation timing:")
         self.stdout.write(f"#   Start: {start_date} at 4:00 PM")
-        self.stdout.write(f"#   Duration: {num_blocks} block(s) = {num_blocks * 12} hours")
-        self.stdout.write(f"#   End: {end_dt.strftime('%Y-%m-%d %I:%M %p')}")
+        if using_end_date and exact_blocks is not None:
+            total_hours = exact_blocks * 12
+            self.stdout.write(
+                f"#   Duration: {exact_blocks:.2f} blocks ({total_hours:.1f} hours) "
+                f"[stored as {num_blocks} blocks]"
+            )
+            if specified_end_datetime:
+                self.stdout.write(
+                    f"#   Specified End: {specified_end_datetime.strftime('%Y-%m-%d %I:%M %p')}"
+                )
+        else:
+            self.stdout.write(f"#   Duration: {num_blocks} block(s) = {num_blocks * 12} hours")
+        self.stdout.write(f"#   Calculated End: {end_dt.strftime('%Y-%m-%d %I:%M %p')}")
 
         if overlapping:
             self.stdout.write("")
