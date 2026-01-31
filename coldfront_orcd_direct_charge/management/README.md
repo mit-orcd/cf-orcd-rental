@@ -42,6 +42,7 @@ where `BRANCH_OR_TAG` is a branch or tag for the repo.
 |---------|-------------|
 | [`add_user_to_project`](#add_user_to_project) | Add a user to an ORCD project with a specified role |
 | [`check_import_compatibility`](#check_import_compatibility) | Validate an export before importing |
+| [`create_node_rental`](#create_node_rental) | Create a node rental reservation for a GPU node instance |
 | [`create_orcd_project`](#create_orcd_project) | Create ORCD projects with member roles |
 | [`create_user`](#create_user) | Create user accounts with optional API tokens and group membership |
 | [`export_portal_data`](#export_portal_data) | Export portal data to JSON files for backup or migration |
@@ -478,6 +479,110 @@ coldfront set_user_amf jsmith advanced --project jsmith_group --dry-run
 - Changing status from `inactive` to `basic` or `advanced` requires specifying a billing project.
 - If a user is removed from a project that is their maintenance billing project, their status is automatically reset to `inactive`.
 - The project's cost allocation must be approved by a Billing Manager before maintenance fees can actually be invoiced.
+
+---
+
+## Reservation Management Commands
+
+### create_node_rental
+
+Creates a node rental reservation for a GPU node instance. This command creates a `Reservation` record associating a specific GPU node with a project and requesting user for a specified time period.
+
+**Reservation Timing Rules:**
+
+| Rule | Description |
+|------|-------------|
+| Start Time | Reservations always start at 4:00 PM on the start date |
+| Duration | Measured in 12-hour blocks (1 block = 12 hours) |
+| End Time | Calculated as start + (blocks * 12 hours), capped at 9:00 AM |
+| Maximum Duration | 14 blocks (7 days) |
+
+**Reservation Statuses:**
+
+| Status | Description |
+|--------|-------------|
+| `PENDING` | Awaiting approval from a Rental Manager (default) |
+| `APPROVED` | Confirmed and scheduled |
+| `DECLINED` | Rejected by a Rental Manager |
+| `CANCELLED` | Cancelled by user or manager |
+
+**Usage:**
+
+```bash
+coldfront create_node_rental <node_address> <project> <username> --start-date <YYYY-MM-DD> [options]
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `node_address` | Associated resource address of the GPU node instance (e.g., `gpu-h200x8-001`) |
+| `project` | Project name (e.g., `jsmith_group`) or project ID |
+| `username` | Username of the requesting user |
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--start-date` | **Required.** Start date in YYYY-MM-DD format (reservation starts at 4:00 PM) |
+| `--num-blocks` | Number of 12-hour blocks (default: 1, min: 1, max: 14) |
+| `--status` | Reservation status: `PENDING`, `APPROVED`, `DECLINED`, `CANCELLED` (default: `PENDING`) |
+| `--rental-notes` | Notes from the requester about this reservation |
+| `--manager-notes` | Notes from the rental manager (for approved/declined reservations) |
+| `--processed-by` | Username of the rental manager who processed this reservation |
+| `--skip-validation` | Skip validation checks (cost allocation, user eligibility, node rentability) |
+| `--force` | Create reservation even if there are overlapping reservations |
+| `--dry-run` | Show Django ORM commands that would be executed |
+| `--quiet` | Suppress non-essential output |
+
+**Examples:**
+
+```bash
+# Create a basic reservation (pending approval)
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15
+
+# Create a 3-block (36-hour) reservation
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --num-blocks 3
+
+# Create a pre-approved reservation with manager notes
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 \
+    --status APPROVED --processed-by rental_admin --manager-notes "Approved for urgent research"
+
+# Create a reservation with requester notes
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 \
+    --rental-notes "Need GPU for model training deadline"
+
+# Preview what would be created
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --dry-run
+
+# Force creation despite overlapping reservations
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --force
+
+# Skip validation checks (for testing/migration)
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --skip-validation
+```
+
+**Notes:**
+
+- By default, the command validates that:
+  - The project has an approved cost allocation
+  - The requesting user is eligible to make reservations (owner, technical admin, or member)
+  - The GPU node is marked as rentable
+  - No overlapping reservations exist for the same node and time period
+- Use `--skip-validation` to bypass cost allocation, user eligibility, and rentability checks
+- Use `--force` to create a reservation even when overlapping reservations exist
+- When creating pre-approved reservations, use `--status APPROVED` with `--processed-by` to record who approved it
+- Overlapping reservations are detected for `PENDING` and `APPROVED` reservations only; `DECLINED` and `CANCELLED` reservations are ignored
+
+**Dependencies:**
+
+- Requires an existing GPU node instance (loaded via fixtures or created in admin)
+- Requires an existing project (create with `create_orcd_project` if needed)
+- Requires an existing user (create with `create_user` if needed)
+- For validation to pass, requires:
+  - Approved project cost allocation (create with `set_project_cost_allocation`)
+  - User must have an eligible role in the project (add with `add_user_to_project`)
+  - Node must have `is_rentable=True`
 
 ---
 
