@@ -46,6 +46,7 @@ where `BRANCH_OR_TAG` is a branch or tag for the repo.
 | [`export_portal_data`](#export_portal_data) | Export portal data to JSON files for backup or migration |
 | [`import_portal_data`](#import_portal_data) | Import portal data from a JSON export |
 | [`set_project_cost_allocation`](#set_project_cost_allocation) | Set cost allocation for a project with cost objects and percentages |
+| [`set_user_amf`](#set_user_amf) | Set account maintenance fee status and billing project for a user |
 | [`setup_billing_manager`](#setup_billing_manager) | Manage the Billing Manager group and its members |
 | [`setup_rate_manager`](#setup_rate_manager) | Manage the Rate Manager group and its members |
 | [`setup_rental_manager`](#setup_rental_manager) | Manage the Rental Manager group and its members |
@@ -342,6 +343,74 @@ coldfront set_project_cost_allocation jsmith_group ABC-123:50 DEF-456:50 --dry-r
 
 ---
 
+### set_user_amf
+
+Sets the account maintenance fee (AMF) status and billing project for a user. Account maintenance fees are recurring charges based on the user's maintenance tier (basic or advanced) and are billed to a specified project.
+
+**Maintenance Status Levels:**
+
+| Status | Description |
+|--------|-------------|
+| `inactive` | No maintenance fees (default for new accounts) |
+| `basic` | Basic account maintenance (requires billing project) |
+| `advanced` | Advanced account maintenance (requires billing project) |
+
+**Billing Project Requirements:**
+
+- The user must have an eligible role in the project: `owner`, `technical_admin`, or `member`
+- Users with only `financial_admin` role cannot use a project for maintenance fees
+- The project should have an approved cost allocation for billing to function
+
+**Usage:**
+
+```bash
+coldfront set_user_amf <username> <status> [options]
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `username` | Username of the user to configure |
+| `status` | Maintenance status: `inactive`, `basic`, or `advanced` |
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--project` | Project name or ID to charge maintenance fees to (required for basic/advanced) |
+| `--force` | Update existing configuration instead of reporting error |
+| `--dry-run` | Show Django ORM commands that would be executed |
+| `--quiet` | Suppress non-essential output |
+
+**Examples:**
+
+```bash
+# Set a user to inactive (no maintenance fees)
+coldfront set_user_amf jsmith inactive
+
+# Set a user to basic maintenance level
+coldfront set_user_amf jsmith basic --project jsmith_group
+
+# Set a user to advanced maintenance level
+coldfront set_user_amf jsmith advanced --project research_lab
+
+# Update existing configuration (requires --force)
+coldfront set_user_amf jsmith basic --project new_project --force
+
+# Preview what would be done
+coldfront set_user_amf jsmith advanced --project jsmith_group --dry-run
+```
+
+**Notes:**
+
+- New users automatically start with `inactive` status and no billing project.
+- Changing status from `inactive` to `basic` or `advanced` requires specifying a billing project.
+- If a user is removed from a project that is their maintenance billing project, their status is automatically reset to `inactive`.
+- The project's cost allocation must be approved by a Billing Manager before maintenance fees can actually be invoiced.
+
+---
+
 ## User Management Commands
 
 ### create_user
@@ -592,6 +661,9 @@ coldfront create_orcd_project admin --project-name "Admin Project" --add-member 
 
 # 5. Set cost allocation for projects (required for reservations)
 coldfront set_project_cost_allocation admin_group ABC-COST-001:100 --status APPROVED
+
+# 6. Set up account maintenance fees for users
+coldfront set_user_amf admin basic --project admin_group
 ```
 
 ### Backup and Restore
