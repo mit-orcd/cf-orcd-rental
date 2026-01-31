@@ -42,6 +42,9 @@ where `BRANCH_OR_TAG` is a branch or tag for the repo.
 |---------|-------------|
 | [`add_user_to_project`](#add_user_to_project) | Add a user to an ORCD project with a specified role |
 | [`check_import_compatibility`](#check_import_compatibility) | Validate an export before importing |
+| [`create_node_rental`](#create_node_rental) | Create a node rental reservation for a GPU node instance |
+| [`update_node_rental`](#update_node_rental) | Update an existing node rental reservation |
+| [`delete_node_rental`](#delete_node_rental) | Delete one or more node rental reservations |
 | [`create_orcd_project`](#create_orcd_project) | Create ORCD projects with member roles |
 | [`create_user`](#create_user) | Create user accounts with optional API tokens and group membership |
 | [`export_portal_data`](#export_portal_data) | Export portal data to JSON files for backup or migration |
@@ -478,6 +481,284 @@ coldfront set_user_amf jsmith advanced --project jsmith_group --dry-run
 - Changing status from `inactive` to `basic` or `advanced` requires specifying a billing project.
 - If a user is removed from a project that is their maintenance billing project, their status is automatically reset to `inactive`.
 - The project's cost allocation must be approved by a Billing Manager before maintenance fees can actually be invoiced.
+
+---
+
+## Reservation Management Commands
+
+### create_node_rental
+
+Creates a node rental reservation for a GPU node instance. This command creates a `Reservation` record associating a specific GPU node with a project and requesting user for a specified time period.
+
+**Duration Specification:**
+
+Duration can be specified in two ways:
+
+| Method | Description |
+|--------|-------------|
+| `--num-blocks` | Number of 12-hour blocks (default: 1, max: 14) |
+| `--end-date` | Calculate duration from start to end date/time (no block limit, supports fractional blocks) |
+
+**Reservation Timing Rules:**
+
+| Rule | Description |
+|------|-------------|
+| Start Time | Reservations always start at 4:00 PM on the start date |
+| Duration | Measured in 12-hour blocks (1 block = 12 hours) |
+| End Time | Calculated as start + (blocks * 12 hours), capped at 9:00 AM |
+| Maximum Duration | 14 blocks when using `--num-blocks`; unlimited when using `--end-date` |
+
+**Reservation Statuses:**
+
+| Status | Description |
+|--------|-------------|
+| `PENDING` | Awaiting approval from a Rental Manager (default) |
+| `APPROVED` | Confirmed and scheduled |
+| `DECLINED` | Rejected by a Rental Manager |
+| `CANCELLED` | Cancelled by user or manager |
+
+**Usage:**
+
+```bash
+coldfront create_node_rental <node_address> <project> <username> --start-date <YYYY-MM-DD> [options]
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `node_address` | Associated resource address of the GPU node instance (e.g., `gpu-h200x8-001`) |
+| `project` | Project name (e.g., `jsmith_group`) or project ID |
+| `username` | Username of the requesting user |
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--start-date` | **Required.** Start date in YYYY-MM-DD format (reservation starts at 4:00 PM) |
+| `--num-blocks` | Number of 12-hour blocks (default: 1, min: 1, max: 14). Cannot be used with `--end-date`. |
+| `--end-date` | End date/time for the reservation. Formats: `YYYY-MM-DD` (uses 9:00 AM) or `YYYY-MM-DD HH:MM`. Calculates duration automatically, allows fractional blocks and durations beyond 14 blocks. Cannot be used with `--num-blocks`. |
+| `--status` | Reservation status: `PENDING`, `APPROVED`, `DECLINED`, `CANCELLED` (default: `PENDING`) |
+| `--rental-notes` | Notes from the requester about this reservation |
+| `--manager-notes` | Notes from the rental manager (for approved/declined reservations) |
+| `--processed-by` | Username of the rental manager who processed this reservation |
+| `--skip-validation` | Skip validation checks (cost allocation, user eligibility, node rentability) |
+| `--force` | Create reservation even if there are overlapping reservations |
+| `--dry-run` | Show Django ORM commands that would be executed |
+| `--quiet` | Suppress non-essential output |
+
+**Examples:**
+
+```bash
+# Create a basic reservation (pending approval)
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15
+
+# Create a 3-block (36-hour) reservation
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --num-blocks 3
+
+# Create a reservation using end date (ends at 9:00 AM on specified date)
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --end-date 2026-02-20
+
+# Create a reservation with specific end time (allows fractional blocks)
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --end-date "2026-02-17 09:00"
+
+# Create a long reservation (more than 14 blocks) using end date
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-01 --end-date 2026-02-28
+
+# Create a pre-approved reservation with manager notes
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 \
+    --status APPROVED --processed-by rental_admin --manager-notes "Approved for urgent research"
+
+# Create a reservation with requester notes
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 \
+    --rental-notes "Need GPU for model training deadline"
+
+# Preview what would be created
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --dry-run
+
+# Force creation despite overlapping reservations
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --force
+
+# Skip validation checks (for testing/migration)
+coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 2026-02-15 --skip-validation
+```
+
+**Notes:**
+
+- By default, the command validates that:
+  - The project has an approved cost allocation
+  - The requesting user is eligible to make reservations (owner, technical admin, or member)
+  - The GPU node is marked as rentable
+  - No overlapping reservations exist for the same node and time period
+- Use `--skip-validation` to bypass cost allocation, user eligibility, and rentability checks
+- Use `--force` to create a reservation even when overlapping reservations exist
+- When creating pre-approved reservations, use `--status APPROVED` with `--processed-by` to record who approved it
+- Overlapping reservations are detected for `PENDING` and `APPROVED` reservations only; `DECLINED` and `CANCELLED` reservations are ignored
+- `--num-blocks` and `--end-date` are mutually exclusive; use one or the other
+- When using `--end-date`:
+  - If only a date is provided (YYYY-MM-DD), the end time defaults to 9:00 AM
+  - Fractional blocks are calculated (e.g., 18 hours = 1.5 blocks) and rounded up for storage
+  - The 14-block limit is removed, allowing longer reservations
+  - The command displays both the exact calculated duration and the stored block count
+
+**Dependencies:**
+
+- Requires an existing GPU node instance (loaded via fixtures or created in admin)
+- Requires an existing project (create with `create_orcd_project` if needed)
+- Requires an existing user (create with `create_user` if needed)
+- For validation to pass, requires:
+  - Approved project cost allocation (create with `set_project_cost_allocation`)
+  - User must have an eligible role in the project (add with `add_user_to_project`)
+  - Node must have `is_rentable=True`
+
+---
+
+### update_node_rental
+
+Updates an existing node rental reservation by its ID. All fields are optional - only specified fields will be updated. The command shows both the old and new values for all changed fields.
+
+**Usage:**
+
+```bash
+coldfront update_node_rental <reservation_id> [options]
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `reservation_id` | ID of the reservation to update |
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--node-address` | New GPU node instance resource address |
+| `--project` | New project name or project ID |
+| `--username` | New requesting user's username |
+| `--start-date` | New start date in YYYY-MM-DD format |
+| `--num-blocks` | New number of 12-hour blocks (min: 1, max: 14). Cannot be used with `--end-date`. |
+| `--end-date` | New end date/time. Formats: `YYYY-MM-DD` (uses 9:00 AM) or `YYYY-MM-DD HH:MM`. Allows fractional blocks and durations beyond 14 blocks. Cannot be used with `--num-blocks`. |
+| `--status` | New status: `PENDING`, `APPROVED`, `DECLINED`, `CANCELLED` |
+| `--rental-notes` | New notes from the requester (use empty string to clear) |
+| `--manager-notes` | New notes from the rental manager (use empty string to clear) |
+| `--processed-by` | Username of the rental manager (use empty string to clear) |
+| `--skip-validation` | Skip validation checks (cost allocation, user eligibility, node rentability) |
+| `--force` | Update reservation even if there are overlapping reservations |
+| `--dry-run` | Show what would be updated without making changes |
+| `--quiet` | Suppress non-essential output |
+
+**Examples:**
+
+```bash
+# Approve a reservation
+coldfront update_node_rental 42 --status APPROVED --processed-by rental_admin
+
+# Approve with manager notes
+coldfront update_node_rental 42 --status APPROVED --processed-by rental_admin \
+    --manager-notes "Approved for urgent research deadline"
+
+# Change the start date and duration
+coldfront update_node_rental 42 --start-date 2026-02-20 --num-blocks 5
+
+# Change duration using end date
+coldfront update_node_rental 42 --end-date 2026-02-25
+
+# Move reservation to a different node
+coldfront update_node_rental 42 --node-address gpu-h200x8-002
+
+# Transfer reservation to a different project
+coldfront update_node_rental 42 --project research_lab
+
+# Cancel a reservation
+coldfront update_node_rental 42 --status CANCELLED
+
+# Preview changes without applying
+coldfront update_node_rental 42 --status APPROVED --dry-run
+
+# Clear manager notes
+coldfront update_node_rental 42 --manager-notes ""
+```
+
+**Notes:**
+
+- Only specified fields are updated; unspecified fields remain unchanged
+- The command displays both old and new values for all changed fields
+- If no changes are specified or all specified values match current values, the command reports "No changes" and exits
+- Validation is performed only for changed fields (e.g., cost allocation is only checked if the project is changed)
+- When using `--end-date`:
+  - If only a date is provided (YYYY-MM-DD), the end time defaults to 9:00 AM
+  - Fractional blocks are calculated and rounded up for storage
+  - The 14-block limit is removed for longer reservations
+- Overlapping reservation checks are performed when timing or node changes
+- Use `--force` to update even when overlapping reservations exist
+- Use `--skip-validation` to bypass cost allocation, user eligibility, and node rentability checks
+
+**Dependencies:**
+
+- Requires an existing reservation (created via `create_node_rental` or the web interface)
+- For changing nodes: the new node must exist
+- For changing projects: the new project must exist (and have approved cost allocation unless `--skip-validation`)
+- For changing users: the new user must exist (and be eligible for the project unless `--skip-validation`)
+
+---
+
+### delete_node_rental
+
+Deletes one or more node rental reservations by their IDs. By default, prompts for confirmation before deleting unless `--force` is specified.
+
+**Usage:**
+
+```bash
+coldfront delete_node_rental <reservation_id> [reservation_id ...] [options]
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `reservation_id` | ID(s) of the reservation(s) to delete (one or more) |
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--force` | Delete without confirmation prompt |
+| `--dry-run` | Show what would be deleted without making changes |
+| `--quiet` | Suppress non-essential output |
+
+**Examples:**
+
+```bash
+# Delete a single reservation (with confirmation)
+coldfront delete_node_rental 42
+
+# Delete multiple reservations at once
+coldfront delete_node_rental 42 43 44
+
+# Delete without confirmation prompt
+coldfront delete_node_rental 42 --force
+
+# Preview what would be deleted
+coldfront delete_node_rental 42 43 --dry-run
+
+# Delete quietly (minimal output)
+coldfront delete_node_rental 42 --force --quiet
+```
+
+**Notes:**
+
+- By default, the command prompts for confirmation before deleting
+- Use `--force` to skip the confirmation prompt (useful for scripting)
+- The command displays full reservation details before deletion
+- Multiple reservations can be deleted in a single command
+- If some reservation IDs are not found, the command reports them but continues with valid IDs
+- Deletion is permanent and cannot be undone
+- Consider using `update_node_rental --status CANCELLED` instead if you want to preserve the record
+
+**Dependencies:**
+
+- Requires existing reservation(s) to delete
 
 ---
 
