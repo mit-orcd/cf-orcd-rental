@@ -40,6 +40,7 @@ where `BRANCH_OR_TAG` is a branch or tag for the repo.
 
 | Command | Description |
 |---------|-------------|
+| [`add_user_to_project`](#add_user_to_project) | Add a user to an ORCD project with a specified role |
 | [`check_import_compatibility`](#check_import_compatibility) | Validate an export before importing |
 | [`create_orcd_project`](#create_orcd_project) | Create ORCD projects with member roles |
 | [`create_user`](#create_user) | Create user accounts with optional API tokens and group membership |
@@ -266,6 +267,75 @@ coldfront create_orcd_project jsmith --dry-run
 # Update existing project
 coldfront create_orcd_project jsmith --description "Updated description" --force
 ```
+
+---
+
+### add_user_to_project
+
+Adds a user to an existing ORCD project with a specified role. This command creates both a ColdFront `ProjectUser` record (required for ColdFront's project membership) and an ORCD-specific `ProjectMemberRole` record that defines the user's permissions within the ORCD plugin.
+
+**ORCD Member Roles:**
+
+| Role | Description |
+|------|-------------|
+| `financial_admin` | Can manage cost allocations, manage all roles, create reservations. NOT included in reservations or maintenance fee billing. |
+| `technical_admin` | Can manage members and technical admins, create reservations. Included in reservations and maintenance fee billing. |
+| `member` | Can create reservations only. Included in reservations and maintenance fee billing. |
+
+**Usage:**
+
+```bash
+coldfront add_user_to_project <username> <project> --role <role> [options]
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `username` | Username of the user to add to the project |
+| `project` | Project name (e.g., `jsmith_group`) or project ID |
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--role` | **Required.** ORCD role to assign: `financial_admin`, `technical_admin`, or `member` |
+| `--force` | Update existing role assignment instead of reporting error |
+| `--dry-run` | Show Django ORM commands that would be executed |
+| `--quiet` | Suppress non-essential output |
+
+**Examples:**
+
+```bash
+# Add a user as a member
+coldfront add_user_to_project auser research_lab --role member
+
+# Add a user as financial admin
+coldfront add_user_to_project buser research_lab --role financial_admin
+
+# Add a user as technical admin using project ID
+coldfront add_user_to_project cuser 42 --role technical_admin
+
+# Preview what would be done
+coldfront add_user_to_project auser research_lab --role member --dry-run
+
+# Add a role (user can have multiple roles)
+coldfront add_user_to_project auser research_lab --role technical_admin
+```
+
+**Notes:**
+
+- Users can have multiple roles in the same project. Each role grants different permissions.
+- The project owner (PI) cannot be added as a member because the owner role is implicit.
+- A ColdFront `ProjectUser` record is automatically created if it doesn't exist.
+- Use `create_orcd_project --add-member` to add members when creating a new project.
+
+**Dependencies:**
+
+- Requires an existing user (create with `create_user` if needed)
+- Requires an existing project (create with `create_orcd_project` if needed)
+- Uses `ProjectMemberRole` model from the ORCD plugin
+- Uses `ProjectUser`, `ProjectUserRoleChoice`, and `ProjectUserStatusChoice` from ColdFront core
 
 ---
 
@@ -658,6 +728,10 @@ coldfront create_user admin --with-token --add-to-group rental --add-to-group bi
 
 # 4. Create projects with team members
 coldfront create_orcd_project admin --project-name "Admin Project" --add-member billing_user:financial_admin
+
+# 4b. Add additional users to existing projects
+coldfront add_user_to_project researcher1 admin_group --role member
+coldfront add_user_to_project researcher2 admin_group --role technical_admin
 
 # 5. Set cost allocation for projects (required for reservations)
 coldfront set_project_cost_allocation admin_group ABC-COST-001:100 --status APPROVED
