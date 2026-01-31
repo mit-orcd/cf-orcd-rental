@@ -44,6 +44,7 @@ where `BRANCH_OR_TAG` is a branch or tag for the repo.
 | [`check_import_compatibility`](#check_import_compatibility) | Validate an export before importing |
 | [`create_node_rental`](#create_node_rental) | Create a node rental reservation for a GPU node instance |
 | [`update_node_rental`](#update_node_rental) | Update an existing node rental reservation |
+| [`delete_node_rental`](#delete_node_rental) | Delete one or more node rental reservations |
 | [`create_orcd_project`](#create_orcd_project) | Create ORCD projects with member roles |
 | [`create_user`](#create_user) | Create user accounts with optional API tokens and group membership |
 | [`export_portal_data`](#export_portal_data) | Export portal data to JSON files for backup or migration |
@@ -699,6 +700,65 @@ coldfront update_node_rental 42 --manager-notes ""
 - For changing nodes: the new node must exist
 - For changing projects: the new project must exist (and have approved cost allocation unless `--skip-validation`)
 - For changing users: the new user must exist (and be eligible for the project unless `--skip-validation`)
+
+---
+
+### delete_node_rental
+
+Deletes one or more node rental reservations by their IDs. By default, prompts for confirmation before deleting unless `--force` is specified.
+
+**Usage:**
+
+```bash
+coldfront delete_node_rental <reservation_id> [reservation_id ...] [options]
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `reservation_id` | ID(s) of the reservation(s) to delete (one or more) |
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--force` | Delete without confirmation prompt |
+| `--dry-run` | Show what would be deleted without making changes |
+| `--quiet` | Suppress non-essential output |
+
+**Examples:**
+
+```bash
+# Delete a single reservation (with confirmation)
+coldfront delete_node_rental 42
+
+# Delete multiple reservations at once
+coldfront delete_node_rental 42 43 44
+
+# Delete without confirmation prompt
+coldfront delete_node_rental 42 --force
+
+# Preview what would be deleted
+coldfront delete_node_rental 42 43 --dry-run
+
+# Delete quietly (minimal output)
+coldfront delete_node_rental 42 --force --quiet
+```
+
+**Notes:**
+
+- By default, the command prompts for confirmation before deleting
+- Use `--force` to skip the confirmation prompt (useful for scripting)
+- The command displays full reservation details before deletion
+- Multiple reservations can be deleted in a single command
+- If some reservation IDs are not found, the command reports them but continues with valid IDs
+- Deletion is permanent and cannot be undone
+- Consider using `update_node_rental --status CANCELLED` instead if you want to preserve the record
+
+**Dependencies:**
+
+- Requires existing reservation(s) to delete
 
 ---
 
