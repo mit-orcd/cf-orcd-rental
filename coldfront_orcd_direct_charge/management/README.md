@@ -43,6 +43,7 @@ where `BRANCH_OR_TAG` is a branch or tag for the repo.
 | [`add_user_to_project`](#add_user_to_project) | Add a user to an ORCD project with a specified role |
 | [`check_import_compatibility`](#check_import_compatibility) | Validate an export before importing |
 | [`create_node_rental`](#create_node_rental) | Create a node rental reservation for a GPU node instance |
+| [`update_node_rental`](#update_node_rental) | Update an existing node rental reservation |
 | [`create_orcd_project`](#create_orcd_project) | Create ORCD projects with member roles |
 | [`create_user`](#create_user) | Create user accounts with optional API tokens and group membership |
 | [`export_portal_data`](#export_portal_data) | Export portal data to JSON files for backup or migration |
@@ -608,6 +609,96 @@ coldfront create_node_rental gpu-h200x8-001 jsmith_group jsmith --start-date 202
   - Approved project cost allocation (create with `set_project_cost_allocation`)
   - User must have an eligible role in the project (add with `add_user_to_project`)
   - Node must have `is_rentable=True`
+
+---
+
+### update_node_rental
+
+Updates an existing node rental reservation by its ID. All fields are optional - only specified fields will be updated. The command shows both the old and new values for all changed fields.
+
+**Usage:**
+
+```bash
+coldfront update_node_rental <reservation_id> [options]
+```
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `reservation_id` | ID of the reservation to update |
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--node-address` | New GPU node instance resource address |
+| `--project` | New project name or project ID |
+| `--username` | New requesting user's username |
+| `--start-date` | New start date in YYYY-MM-DD format |
+| `--num-blocks` | New number of 12-hour blocks (min: 1, max: 14). Cannot be used with `--end-date`. |
+| `--end-date` | New end date/time. Formats: `YYYY-MM-DD` (uses 9:00 AM) or `YYYY-MM-DD HH:MM`. Allows fractional blocks and durations beyond 14 blocks. Cannot be used with `--num-blocks`. |
+| `--status` | New status: `PENDING`, `APPROVED`, `DECLINED`, `CANCELLED` |
+| `--rental-notes` | New notes from the requester (use empty string to clear) |
+| `--manager-notes` | New notes from the rental manager (use empty string to clear) |
+| `--processed-by` | Username of the rental manager (use empty string to clear) |
+| `--skip-validation` | Skip validation checks (cost allocation, user eligibility, node rentability) |
+| `--force` | Update reservation even if there are overlapping reservations |
+| `--dry-run` | Show what would be updated without making changes |
+| `--quiet` | Suppress non-essential output |
+
+**Examples:**
+
+```bash
+# Approve a reservation
+coldfront update_node_rental 42 --status APPROVED --processed-by rental_admin
+
+# Approve with manager notes
+coldfront update_node_rental 42 --status APPROVED --processed-by rental_admin \
+    --manager-notes "Approved for urgent research deadline"
+
+# Change the start date and duration
+coldfront update_node_rental 42 --start-date 2026-02-20 --num-blocks 5
+
+# Change duration using end date
+coldfront update_node_rental 42 --end-date 2026-02-25
+
+# Move reservation to a different node
+coldfront update_node_rental 42 --node-address gpu-h200x8-002
+
+# Transfer reservation to a different project
+coldfront update_node_rental 42 --project research_lab
+
+# Cancel a reservation
+coldfront update_node_rental 42 --status CANCELLED
+
+# Preview changes without applying
+coldfront update_node_rental 42 --status APPROVED --dry-run
+
+# Clear manager notes
+coldfront update_node_rental 42 --manager-notes ""
+```
+
+**Notes:**
+
+- Only specified fields are updated; unspecified fields remain unchanged
+- The command displays both old and new values for all changed fields
+- If no changes are specified or all specified values match current values, the command reports "No changes" and exits
+- Validation is performed only for changed fields (e.g., cost allocation is only checked if the project is changed)
+- When using `--end-date`:
+  - If only a date is provided (YYYY-MM-DD), the end time defaults to 9:00 AM
+  - Fractional blocks are calculated and rounded up for storage
+  - The 14-block limit is removed for longer reservations
+- Overlapping reservation checks are performed when timing or node changes
+- Use `--force` to update even when overlapping reservations exist
+- Use `--skip-validation` to bypass cost allocation, user eligibility, and node rentability checks
+
+**Dependencies:**
+
+- Requires an existing reservation (created via `create_node_rental` or the web interface)
+- For changing nodes: the new node must exist
+- For changing projects: the new project must exist (and have approved cost allocation unless `--skip-validation`)
+- For changing users: the new user must exist (and be eligible for the project unless `--skip-validation`)
 
 ---
 
