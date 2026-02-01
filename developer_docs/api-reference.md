@@ -16,6 +16,7 @@ This document describes all REST API endpoints provided by the ORCD Direct Charg
 - [API Endpoints](#api-endpoints)
   - [Reservations API](#reservations-api)
   - [Cost Allocations API](#cost-allocations-api)
+  - [Maintenance Windows API](#maintenance-windows-api)
   - [User Search API](#user-search-api)
   - [Invoice API](#invoice-api)
   - [Activity Log API](#activity-log-api)
@@ -37,6 +38,8 @@ The plugin provides a REST API built with [Django REST Framework](https://www.dj
 | `/nodes/api/rentals/<pk>/` | GET | Single reservation detail | `can_manage_rentals` |
 | `/nodes/api/cost-allocations/` | GET | List all cost allocations | `can_manage_billing` |
 | `/nodes/api/cost-allocations/<pk>/` | GET | Single cost allocation detail | `can_manage_billing` |
+| `/nodes/api/maintenance-windows/` | GET, POST | List/create maintenance windows | `can_manage_rentals` |
+| `/nodes/api/maintenance-windows/<pk>/` | GET, PUT, PATCH, DELETE | Maintenance window detail/update/delete | `can_manage_rentals` |
 | `/nodes/api/user-search/` | GET | Search users for autocomplete | Authenticated |
 | `/nodes/api/invoice/` | GET | List months with reservations | `can_manage_billing` |
 | `/nodes/api/invoice/<year>/<month>/` | GET | Full invoice report | `can_manage_billing` |
@@ -246,6 +249,121 @@ GET /nodes/api/cost-allocations/<pk>/
 Returns details for a single cost allocation.
 
 **Permission**: `can_manage_billing`
+
+---
+
+### Maintenance Windows API
+
+Full CRUD API for managing maintenance windows. Maintenance windows define scheduled maintenance periods during which node rentals are not billed.
+
+#### List Maintenance Windows
+
+```
+GET /nodes/api/maintenance-windows/
+```
+
+Returns all maintenance windows with optional filtering.
+
+**Permission**: `can_manage_rentals`
+
+**Query Parameters**:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `status` | string | Filter by status: `upcoming`, `in_progress`, or `completed` |
+
+**Example Request**:
+```bash
+curl -H "Authorization: Token YOUR_TOKEN" \
+     "http://localhost:8000/nodes/api/maintenance-windows/?status=upcoming"
+```
+
+**Example Response**:
+```json
+[
+    {
+        "id": 1,
+        "title": "Scheduled Maintenance",
+        "description": "Monthly system updates",
+        "start_datetime": "2026-02-15T00:00:00Z",
+        "end_datetime": "2026-02-16T12:00:00Z",
+        "duration_hours": 36.0,
+        "is_upcoming": true,
+        "is_in_progress": false,
+        "is_completed": false,
+        "created_by_username": "rental_manager",
+        "created": "2026-01-30T10:00:00Z",
+        "modified": "2026-01-30T10:00:00Z"
+    }
+]
+```
+
+#### Create Maintenance Window
+
+```
+POST /nodes/api/maintenance-windows/
+```
+
+Create a new maintenance window.
+
+**Permission**: `can_manage_rentals`
+
+**Request Body**:
+```json
+{
+    "title": "Emergency Maintenance",
+    "description": "Critical security patch",
+    "start_datetime": "2026-02-20T00:00:00Z",
+    "end_datetime": "2026-02-20T06:00:00Z"
+}
+```
+
+**Example Request**:
+```bash
+curl -X POST \
+     -H "Authorization: Token YOUR_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"title": "Emergency Maintenance", "start_datetime": "2026-02-20T00:00:00Z", "end_datetime": "2026-02-20T06:00:00Z"}' \
+     "http://localhost:8000/nodes/api/maintenance-windows/"
+```
+
+#### Get Single Maintenance Window
+
+```
+GET /nodes/api/maintenance-windows/<pk>/
+```
+
+Returns details for a single maintenance window.
+
+**Permission**: `can_manage_rentals`
+
+#### Update Maintenance Window
+
+```
+PUT /nodes/api/maintenance-windows/<pk>/
+```
+
+Update all fields of a maintenance window.
+
+**Permission**: `can_manage_rentals`
+
+```
+PATCH /nodes/api/maintenance-windows/<pk>/
+```
+
+Partially update a maintenance window.
+
+**Permission**: `can_manage_rentals`
+
+#### Delete Maintenance Window
+
+```
+DELETE /nodes/api/maintenance-windows/<pk>/
+```
+
+Delete a maintenance window.
+
+**Permission**: `can_manage_rentals`
 
 ---
 
@@ -741,6 +859,30 @@ class ProjectCostObjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectCostObject
         fields = ("id", "cost_object", "percentage")
+```
+
+### MaintenanceWindowSerializer
+
+```python
+class MaintenanceWindowSerializer(serializers.ModelSerializer):
+    created_by_username = serializers.CharField(
+        source="created_by.username",
+        read_only=True,
+        allow_null=True,
+    )
+    duration_hours = serializers.FloatField(read_only=True)
+    is_upcoming = serializers.BooleanField(read_only=True)
+    is_in_progress = serializers.BooleanField(read_only=True)
+    is_completed = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = MaintenanceWindow
+        fields = (
+            "id", "title", "description", "start_datetime", "end_datetime",
+            "duration_hours", "is_upcoming", "is_in_progress", "is_completed",
+            "created_by_username", "created", "modified",
+        )
+        read_only_fields = ("created", "modified")
 ```
 
 ### MaintenanceSubscriptionSerializer

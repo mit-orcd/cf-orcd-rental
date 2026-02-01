@@ -1,0 +1,48 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}Delete Maintenance Window{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-exclamation-triangle text-danger"></i> Delete Maintenance Window</h2>
+<hr>
+
+<div class="card border-danger">
+  <div class="card-header bg-danger text-white">
+    <h5 class="mb-0">Confirm Deletion</h5>
+  </div>
+  <div class="card-body">
+    <p>Are you sure you want to delete the maintenance window <strong>"{{ object.title }}"</strong>?</p>
+    
+    <div class="alert alert-secondary">
+      <strong>Details:</strong>
+      <ul class="mb-0 mt-2">
+        <li><strong>Start:</strong> {{ object.start_datetime|date:"M d, Y H:i" }}</li>
+        <li><strong>End:</strong> {{ object.end_datetime|date:"M d, Y H:i" }}</li>
+        <li><strong>Duration:</strong> {{ object.duration_hours|floatformat:1 }} hours</li>
+        {% if object.description %}
+        <li><strong>Description:</strong> {{ object.description }}</li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <div class="alert alert-warning">
+      <i class="fas fa-exclamation-triangle"></i> <strong>Warning:</strong> 
+      This action cannot be undone. If this maintenance window was intended to exclude billing for a specific period, 
+      deleting it will cause that time to become billable again.
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-danger">
+          <i class="fas fa-trash"></i> Delete Maintenance Window
+        </button>
+        <a href="{% url 'coldfront_orcd_direct_charge:maintenance-window-list' %}" class="btn btn-secondary ml-2">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

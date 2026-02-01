@@ -30,6 +30,8 @@ This document describes all Django models defined in the ORCD Direct Charge plug
   - [InvoiceLineOverride](#invoicelineoverride)
 - [Activity Logging](#activity-logging)
   - [ActivityLog](#activitylog)
+- [Maintenance Window Models](#maintenance-window-models)
+  - [MaintenanceWindow](#maintenancewindow)
 - [Helper Functions](#helper-functions)
 
 ---
@@ -614,6 +616,74 @@ Audit trail for all significant user actions.
 
 **Related Names**:
 - `user.activity_logs`
+
+---
+
+## Maintenance Window Models
+
+### MaintenanceWindow
+
+Scheduled maintenance periods during which rentals are not billed.
+
+**Table**: `coldfront_orcd_direct_charge_maintenancewindow`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | AutoField | Primary key |
+| `title` | CharField(200) | Short title describing the maintenance |
+| `description` | TextField | Optional detailed description |
+| `start_datetime` | DateTimeField | When the maintenance period begins |
+| `end_datetime` | DateTimeField | When the maintenance period ends |
+| `created_by` | ForeignKey(User) | Rental manager who created this window |
+| `created` | DateTimeField | Auto-set on creation |
+| `modified` | DateTimeField | Auto-updated on save |
+
+**Computed Properties**:
+
+```python
+window.duration_hours   # float: Duration in hours
+window.is_upcoming      # bool: True if hasn't started yet
+window.is_in_progress   # bool: True if currently active
+window.is_completed     # bool: True if ended
+```
+
+**Ordering**: By `start_datetime` descending
+
+**Related Names**:
+- `created_by.created_maintenance_windows`
+
+**Validation**:
+- `end_datetime` must be after `start_datetime`
+
+**Usage**:
+```python
+from coldfront_orcd_direct_charge.models import MaintenanceWindow
+
+# Create a maintenance window
+window = MaintenanceWindow.objects.create(
+    title="Scheduled Maintenance",
+    start_datetime=datetime(2026, 2, 15, 0, 0),
+    end_datetime=datetime(2026, 2, 16, 12, 0),
+    created_by=request.user,
+)
+
+# Query upcoming windows
+upcoming = MaintenanceWindow.objects.filter(
+    start_datetime__gt=timezone.now()
+)
+
+# Get windows overlapping a time period
+overlapping = MaintenanceWindow.objects.filter(
+    start_datetime__lt=end_dt,
+    end_datetime__gt=start_dt
+)
+```
+
+**Billing Integration**:
+
+Maintenance windows are automatically applied during billing calculations. Any rental time that overlaps with a maintenance window is deducted from billable hours.
+
+See [Maintenance Windows Documentation](maintenance-windows.md) for full details on billing calculations and examples.
 
 ---
 

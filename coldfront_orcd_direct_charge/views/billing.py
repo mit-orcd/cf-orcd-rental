@@ -431,6 +431,7 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVie
                     "excluded": True,
                     "override": override,
                     "hours_in_month": 0,
+                    "maintenance_deduction": 0,
                     "cost_breakdown": [],
                     "sku": sku,
                 })
@@ -453,11 +454,17 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVie
                     res, year, month, hours_in_month
                 )
 
+            # Calculate maintenance deduction for this reservation in this month
+            maintenance_deduction = self._get_maintenance_deduction_for_reservation(
+                res, year, month
+            )
+
             invoice_lines.append({
                 "reservation": res,
                 "excluded": False,
                 "override": override,
                 "hours_in_month": hours_in_month,
+                "maintenance_deduction": round(maintenance_deduction, 2),
                 "cost_breakdown": cost_breakdown,
                 "daily_breakdown": hours_data.get("daily_breakdown", []),
                 "sku": sku,
@@ -572,8 +579,77 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVie
 
         return breakdown
 
+    def _get_maintenance_hours_for_period(self, start_dt, end_dt):
+        """Calculate total maintenance hours overlapping a time period.
+        
+        Args:
+            start_dt: Period start datetime (naive)
+            end_dt: Period end datetime (naive)
+            
+        Returns:
+            float: Total hours of maintenance window overlap
+        """
+        from coldfront_orcd_direct_charge.models import MaintenanceWindow
+        
+        # Find all maintenance windows that overlap with this period
+        # Note: MaintenanceWindow uses timezone-aware datetimes, but we compare with naive
+        # datetimes from Reservation. We need to handle this carefully.
+        windows = MaintenanceWindow.objects.filter(
+            start_datetime__lt=end_dt,
+            end_datetime__gt=start_dt
+        )
+        
+        total_hours = 0
+        for window in windows:
+            # Convert maintenance window times to naive for comparison
+            # (assuming they're stored in the same timezone as reservations)
+            window_start = window.start_datetime
+            window_end = window.end_datetime
+            
+            # Make naive if timezone-aware
+            if hasattr(window_start, 'tzinfo') and window_start.tzinfo is not None:
+                window_start = window_start.replace(tzinfo=None)
+            if hasattr(window_end, 'tzinfo') and window_end.tzinfo is not None:
+                window_end = window_end.replace(tzinfo=None)
+            
+            # Calculate the overlap
+            overlap_start = max(window_start, start_dt)
+            overlap_end = min(window_end, end_dt)
+            if overlap_end > overlap_start:
+                delta = overlap_end - overlap_start
+                total_hours += delta.total_seconds() / 3600
+        
+        return total_hours
+
+    def _get_maintenance_deduction_for_reservation(self, reservation, year, month):
+        """Calculate total maintenance hours for a reservation in a given month.
+        
+        Args:
+            reservation: The Reservation object
+            year: Invoice year
+            month: Invoice month
+            
+        Returns:
+            float: Total hours of maintenance window overlap for this reservation in this month
+        """
+        # Get month boundaries
+        month_start = datetime.combine(date(year, month, 1), time(0, 0))
+        if month == 12:
+            month_end = datetime.combine(date(year + 1, 1, 1), time(0, 0))
+        else:
+            month_end = datetime.combine(date(year, month + 1, 1), time(0, 0))
+        
+        # Clip reservation to month
+        effective_start = max(reservation.start_datetime, month_start)
+        effective_end = min(reservation.end_datetime, month_end)
+        
+        if effective_end <= effective_start:
+            return 0
+        
+        return self._get_maintenance_hours_for_period(effective_start, effective_end)
+
     def _get_hours_for_day(self, reservation, target_date, year, month):
-        """Calculate hours for a specific day of a reservation."""
+        """Calculate hours for a specific day of a reservation, excluding maintenance windows."""
         # Define the day boundaries (naive datetimes to match Reservation)
         day_start = datetime.combine(target_date, time(0, 0))
         day_end = datetime.combine(target_date + timedelta(days=1), time(0, 0))
@@ -586,7 +662,14 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVie
             return 0
 
         delta = effective_end - effective_start
-        return delta.total_seconds() / 3600
+        raw_hours = delta.total_seconds() / 3600
+        
+        # Subtract any maintenance window overlap
+        maintenance_hours = self._get_maintenance_hours_for_period(
+            effective_start, effective_end
+        )
+        
+        return max(0, raw_hours - maintenance_hours)
 
     def post(self, request, *args, **kwargs):
         """Handle finalize/unfinalize actions."""
@@ -709,6 +792,13 @@ class InvoiceEditView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView)
                 InvoiceDetailView(), reservation, year, month
             )
             context["original_hours"] = hours_data["hours"]
+            
+            # Calculate maintenance deduction
+            context["maintenance_deduction"] = round(
+                InvoiceDetailView._get_maintenance_deduction_for_reservation(
+                    InvoiceDetailView(), reservation, year, month
+                ), 2
+            )
 
             # Get current cost objects for the project
             try:
@@ -874,6 +964,7 @@ class InvoiceExportView(LoginRequiredMixin, PermissionRequiredMixin, View):
                     "end_datetime": res.end_datetime.isoformat(),
                     "billable_hours": res.billable_hours,
                     "hours_in_month": line["hours_in_month"],
+                    "maintenance_deduction": line.get("maintenance_deduction", 0),
                     "excluded": line["excluded"],
                     "cost_breakdown": line["cost_breakdown"],
                 }

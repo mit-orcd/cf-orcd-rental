@@ -17,6 +17,7 @@ Plugin Modules (ORCD):
     billing: ProjectCostAllocation, CostObjectSnapshot, InvoicePeriod, etc.
     users: UserMaintenanceStatus, ProjectMemberRole
     rates: RentalSKU, RentalRate
+    maintenance: MaintenanceWindow
 
 Core Modules (ColdFront):
     coldfront_core.auth: User, Group, Permission
@@ -32,6 +33,7 @@ from . import reservations
 from . import billing
 from . import users
 from . import rates
+from . import maintenance
 
 # Import core importers to trigger registration with CoreImporterRegistry
 from . import coldfront_core
@@ -43,6 +45,7 @@ __all__ = [
     "billing",
     "users",
     "rates",
+    "maintenance",
     # Core modules
     "coldfront_core",
 ]
