@@ -1,0 +1,117 @@
+# GitHub Actions Workflow for User Management System Tests
+#
+# This workflow runs the Module 01: User Management system tests.
+# It uses the shared setup infrastructure from tests/setup/ to ensure
+# consistent, portable environment configuration across all CI systems.
+#
+# To run:
+# 1. Go to Actions tab in GitHub
+# 2. Select "User Management System Tests" workflow
+# 3. Click "Run workflow"
+# 4. Choose options and click "Run workflow"
+#
+
+name: User Management System Tests
+
+on:
+  # Allows manual triggering from the Actions tab
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'Runner to use'
+        required: false
+        default: 'ubuntu-latest'
+        type: choice
+        options:
+          - ubuntu-latest
+          - ubuntu-22.04
+          - macos-latest
+          - macos-14
+          - self-hosted
+      dry_run:
+        description: 'Run in dry-run mode (no changes made)'
+        required: false
+        default: false
+        type: boolean
+      generate_commands_only:
+        description: 'Generate command script without running tests'
+        required: false
+        default: false
+        type: boolean
+
+  # Optional: trigger on push to specific paths
+  push:
+    paths:
+      - 'tests/system_tests/**'
+      - 'tests/setup/**'
+      - 'coldfront_orcd_direct_charge/management/commands/**'
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+
+  # Optional: trigger on pull requests
+  pull_request:
+    paths:
+      - 'tests/system_tests/**'
+      - 'tests/setup/**'
+      - 'coldfront_orcd_direct_charge/management/commands/**'
+
+env:
+  COLDFRONT_VERSION: "1.1.7"
+  SERVER_PORT: "8000"
+  # pytest-django options: reuse seeded DB, verbose output, stop after 3 failures
+  PYTEST_ADDOPTS: "--reuse-db -vv --maxfail=3"
+
+jobs:
+  user-management-tests:
+    name: User Management Tests
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+
+    steps:
+      - name: Checkout Plugin
+        uses: actions/checkout@v4
+        with:
+          path: coldfront-orcd-direct-charge
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      # Use the shared setup infrastructure from tests/setup/
+      # This ensures consistent environment setup across all CI systems
+      - name: Setup Environment
+        run: |
+          cd coldfront-orcd-direct-charge
+          ./tests/setup/setup_environment.sh
+        env:
+          RUNNER_TYPE: github
+          WORKSPACE: ${{ github.workspace }}
+          USE_UV: "true"
+          SKIP_SERVER: "true"  # Tests don't need the dev server running
+
+      # Run minimal user smoke test
+      - name: Run User Smoke Test
+        run: |
+          cd ${{ github.workspace }}/coldfront-orcd-direct-charge
+          bash tests/setup/user_smoke_test.sh
+        env:
+          RUNNER_TYPE: github
+          WORKSPACE: ${{ github.workspace }}
+          USE_UV: "true"
+          SERVER_PORT: "8000"
+
+      # Upload smoke test outputs for review
+      - name: Upload Smoke Test Outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-smoke-output
+          path: coldfront-orcd-direct-charge/tests/setup/output/
+          retention-days: 7
