@@ -18,17 +18,10 @@
 #
 set -euo pipefail
 
-# =============================================================================
-# Paths and configuration
-# =============================================================================
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-WORKSPACE="${WORKSPACE:-$(dirname "$PLUGIN_DIR")}"
-COLDFRONT_DIR="${COLDFRONT_DIR:-$WORKSPACE/coldfront}"
-SERVER_PORT="${SERVER_PORT:-8000}"
-RUNNER_TYPE="${RUNNER_TYPE:-local}"
-USE_UV="${USE_UV:-true}"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/common.sh"
+common_init
 
 SMOKE_USERNAME="${SMOKE_USERNAME:-smokeuser}"
 SMOKE_EMAIL="${SMOKE_EMAIL:-${SMOKE_USERNAME}@example.com}"
@@ -81,32 +74,13 @@ wait_for_server() {
 
 log_step "Ensuring ColdFront environment is ready"
 
-SKIP_INIT="false"
-if db_exists; then
-    SKIP_INIT="true"
-fi
-
-RUNNER_TYPE="$RUNNER_TYPE" \
-WORKSPACE="$WORKSPACE" \
-USE_UV="$USE_UV" \
-SKIP_SERVER="true" \
-SKIP_INIT="$SKIP_INIT" \
-"$SCRIPT_DIR/setup_environment.sh"
+ensure_env
 
 # =============================================================================
 # Activate environment and enable API plugin
 # =============================================================================
 
-if [ ! -f "$COLDFRONT_DIR/activate_env.sh" ]; then
-    echo "ERROR: activate_env.sh not found at $COLDFRONT_DIR/activate_env.sh"
-    exit 1
-fi
-
-source "$COLDFRONT_DIR/activate_env.sh"
-export PLUGIN_API="true"
-
-# Ensure API migrations are applied (authtoken, etc.)
-coldfront migrate --no-input
+activate_env
 
 # =============================================================================
 # Create user and capture API token
@@ -128,7 +102,7 @@ create_output="$(
 printf "%s\n" "$create_output" > "$CREATE_USER_LOG"
 
 api_token="$(
-    printf "%s\n" "$create_output" | sed -n 's/.*API Token: *//p' | tail -n 1 | tr -d '\r'
+    printf "%s\n" "$create_output" | extract_api_token
 )"
 
 if [ -z "$api_token" ]; then
@@ -143,33 +117,13 @@ fi
 
 log_step "Starting server (if needed)"
 
-if ! server_ready; then
-    nohup coldfront runserver "0.0.0.0:${SERVER_PORT}" > "$SERVER_LOG" 2>&1 &
-    echo "$!" > "$PID_FILE"
-    if ! wait_for_server; then
-        echo "ERROR: Server did not become ready"
-        echo "Server log: $SERVER_LOG"
-        exit 1
-    fi
-else
-    # Capture existing server log if available
-    if [ -f /tmp/coldfront_server.log ]; then
-        cp /tmp/coldfront_server.log "$SERVER_LOG"
-    fi
-fi
+start_server_if_needed "$SERVER_LOG" "$PID_FILE"
 
 log_step "Querying API and saving output"
 
 api_url="http://localhost:${SERVER_PORT}/nodes/api/user-search/?q=${SMOKE_USERNAME}"
 
-http_code="$(
-    curl -sS \
-        -H "Authorization: Token ${api_token}" \
-        -H "Accept: application/json" \
-        -o "$RAW_JSON" \
-        -w "%{http_code}" \
-        "$api_url" || true
-)"
+http_code="$(api_get "$api_url" "$api_token" "$RAW_JSON" || true)"
 
 if [ "$http_code" != "200" ]; then
     echo "ERROR: API request failed with status ${http_code}"
@@ -179,7 +133,7 @@ if [ "$http_code" != "200" ]; then
 fi
 
 # Pretty-print JSON for human review
-python -m json.tool "$RAW_JSON" > "$PRETTY_JSON"
+pretty_json "$RAW_JSON" "$PRETTY_JSON"
 
 # Verify the user appears in the response
 python - "$RAW_JSON" "$SMOKE_USERNAME" << 'PY'

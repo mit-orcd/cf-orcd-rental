@@ -1,6 +1,3 @@
-# tests/system_tests/config/projects.yaml.example
-# Example projects configuration for system tests
-# Copy this file to projects.yaml and customize for your environment
 version: "1.0"
 
 projects:
