@@ -118,6 +118,7 @@ jobs:
       - name: Run System Tests - Dry Run
         if: ${{ inputs.dry_run == true && inputs.generate_commands_only != true }}
         run: |
+          set -o pipefail
           source ${{ github.workspace }}/coldfront/activate_env.sh
           cd ${{ github.workspace }}/coldfront-orcd-direct-charge
           python tests/system_tests/run_tests.py --dry-run --verbose 2>&1 | tee pytest_output.log
@@ -128,6 +129,7 @@ jobs:
       - name: Run System Tests
         if: ${{ inputs.dry_run != true && inputs.generate_commands_only != true }}
         run: |
+          set -o pipefail
           source ${{ github.workspace }}/coldfront/activate_env.sh
           cd ${{ github.workspace }}/coldfront-orcd-direct-charge
           # Run with verbose output and capture to log file for debugging
