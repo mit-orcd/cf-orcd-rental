@@ -8,6 +8,7 @@ from coldfront_orcd_direct_charge.models import (
     NodeType,
     GpuNodeInstance,
     CpuNodeInstance,
+    MaintenanceWindow,
     ProjectMemberRole,
     Reservation,
     ReservationMetadataEntry,
@@ -330,3 +331,50 @@ class ActivityLogAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         """Only superusers can delete logs."""
         return request.user.is_superuser
+
+
+@admin.register(MaintenanceWindow)
+class MaintenanceWindowAdmin(admin.ModelAdmin):
+    """Admin interface for MaintenanceWindow model."""
+
+    list_display = (
+        "title",
+        "start_datetime",
+        "end_datetime",
+        "duration_hours_display",
+        "status_display",
+        "created_by",
+        "created",
+    )
+    list_filter = ("start_datetime", "created")
+    search_fields = ("title", "description")
+    readonly_fields = ("created", "modified", "duration_hours_display", "status_display")
+    ordering = ("-start_datetime",)
+
+    fieldsets = (
+        (None, {
+            "fields": ("title", "description")
+        }),
+        ("Schedule", {
+            "fields": ("start_datetime", "end_datetime", "duration_hours_display")
+        }),
+        ("Metadata", {
+            "fields": ("created_by", "created", "modified", "status_display"),
+            "classes": ("collapse",)
+        }),
+    )
+
+    @admin.display(description="Duration")
+    def duration_hours_display(self, obj):
+        """Display duration in hours."""
+        return f"{obj.duration_hours:.1f} hours"
+
+    @admin.display(description="Status")
+    def status_display(self, obj):
+        """Display current status."""
+        if obj.is_upcoming:
+            return "Upcoming"
+        elif obj.is_in_progress:
+            return "In Progress"
+        else:
+            return "Completed"

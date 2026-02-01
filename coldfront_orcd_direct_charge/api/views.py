@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 
 from coldfront_orcd_direct_charge.api.serializers import (
     MaintenanceSubscriptionSerializer,
+    MaintenanceWindowSerializer,
     ProjectCostAllocationSerializer,
     QoSSubscriptionSerializer,
     ReservationSerializer,
@@ -26,6 +27,7 @@ from coldfront_orcd_direct_charge.models import (
     CostAllocationSnapshot,
     InvoiceLineOverride,
     InvoicePeriod,
+    MaintenanceWindow,
     ProjectCostAllocation,
     ProjectMemberRole,
     RentalSKU,
@@ -151,6 +153,41 @@ class CostAllocationViewSet(viewsets.ReadOnlyModelViewSet):
             "project__pi",
             "reviewed_by",
         ).prefetch_related("cost_objects").order_by("-modified")
+
+
+class MaintenanceWindowViewSet(viewsets.ModelViewSet):
+    """ViewSet for MaintenanceWindow CRUD operations.
+
+    Provides list, create, retrieve, update, and delete actions.
+    Requires can_manage_rentals permission.
+
+    Query Parameters:
+    - status: Filter by window status (upcoming, in_progress, completed)
+    """
+
+    queryset = MaintenanceWindow.objects.all()
+    serializer_class = MaintenanceWindowSerializer
+    permission_classes = [IsAuthenticated, HasManageRentalsPermission]
+
+    def perform_create(self, serializer):
+        """Set created_by to the current user."""
+        serializer.save(created_by=self.request.user)
+
+    def get_queryset(self):
+        """Optionally filter by upcoming/in_progress/completed windows."""
+        queryset = MaintenanceWindow.objects.select_related("created_by").all()
+
+        # Filter by status
+        status_filter = self.request.query_params.get("status")
+        if status_filter == "upcoming":
+            queryset = queryset.filter(start_datetime__gt=timezone.now())
+        elif status_filter == "in_progress":
+            now = timezone.now()
+            queryset = queryset.filter(start_datetime__lte=now, end_datetime__gt=now)
+        elif status_filter == "completed":
+            queryset = queryset.filter(end_datetime__lte=timezone.now())
+
+        return queryset
 
 
 class UserSearchView(APIView):

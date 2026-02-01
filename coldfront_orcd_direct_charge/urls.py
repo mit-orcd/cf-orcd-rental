@@ -61,6 +61,11 @@ urlpatterns = [
     path("rates/current/<int:pk>/", views.SKUPublicDetailView.as_view(), name="sku-public-detail"),
     # API
     path("api/", include("coldfront_orcd_direct_charge.api.urls")),
+    # Maintenance Windows
+    path("maintenance-windows/", views.MaintenanceWindowListView.as_view(), name="maintenance-window-list"),
+    path("maintenance-windows/create/", views.MaintenanceWindowCreateView.as_view(), name="maintenance-window-create"),
+    path("maintenance-windows/<int:pk>/edit/", views.MaintenanceWindowUpdateView.as_view(), name="maintenance-window-update"),
+    path("maintenance-windows/<int:pk>/delete/", views.MaintenanceWindowDeleteView.as_view(), name="maintenance-window-delete"),
 ]
 
 

@@ -5,6 +5,7 @@
 from rest_framework import serializers
 
 from coldfront_orcd_direct_charge.models import (
+    MaintenanceWindow,
     ProjectCostAllocation,
     ProjectCostObject,
     RentalSKU,
@@ -298,3 +299,35 @@ class ProjectCostAllocationSerializer(serializers.ModelSerializer):
             "created",
             "modified",
         )
+
+
+class MaintenanceWindowSerializer(serializers.ModelSerializer):
+    """Serializer for MaintenanceWindow model."""
+
+    created_by_username = serializers.CharField(
+        source="created_by.username",
+        read_only=True,
+        allow_null=True,
+    )
+    duration_hours = serializers.FloatField(read_only=True)
+    is_upcoming = serializers.BooleanField(read_only=True)
+    is_in_progress = serializers.BooleanField(read_only=True)
+    is_completed = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = MaintenanceWindow
+        fields = (
+            "id",
+            "title",
+            "description",
+            "start_datetime",
+            "end_datetime",
+            "duration_hours",
+            "is_upcoming",
+            "is_in_progress",
+            "is_completed",
+            "created_by_username",
+            "created",
+            "modified",
+        )
+        read_only_fields = ("created", "modified")

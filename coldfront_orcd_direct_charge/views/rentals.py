@@ -16,11 +16,20 @@ from datetime import date, datetime, time, timedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.decorators.http import require_POST
-from django.views.generic import TemplateView, CreateView, DetailView, View
+from django.utils import timezone
+from django.views.generic import (
+    TemplateView,
+    CreateView,
+    DetailView,
+    View,
+    ListView,
+    UpdateView,
+    DeleteView,
+)
 
 from coldfront_orcd_direct_charge.forms import (
     ReservationRequestForm,
@@ -28,6 +37,7 @@ from coldfront_orcd_direct_charge.forms import (
 )
 from coldfront_orcd_direct_charge.models import (
     GpuNodeInstance,
+    MaintenanceWindow,
     Reservation,
     ReservationMetadataEntry,
     UserMaintenanceStatus,
@@ -680,4 +690,197 @@ class MyReservationsView(LoginRequiredMixin, TemplateView):
         )
 
         return context
+
+
+# =============================================================================
+# Maintenance Window Views
+# =============================================================================
+
+
+class MaintenanceWindowListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    """List all maintenance windows with management controls."""
+
+    model = MaintenanceWindow
+    template_name = "coldfront_orcd_direct_charge/maintenance_window/list.html"
+    context_object_name = "windows"
+    permission_required = "coldfront_orcd_direct_charge.can_manage_rentals"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["now"] = timezone.now()
+        return context
+
+
+class MaintenanceWindowCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    """Create a new maintenance window."""
+
+    model = MaintenanceWindow
+    template_name = "coldfront_orcd_direct_charge/maintenance_window/form.html"
+    fields = ["title", "start_datetime", "end_datetime", "description"]
+    permission_required = "coldfront_orcd_direct_charge.can_manage_rentals"
+    success_url = reverse_lazy("coldfront_orcd_direct_charge:maintenance-window-list")
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        response = super().form_valid(form)
+
+        log_activity(
+            action="maintenance_window.created",
+            category=ActivityLog.ActionCategory.MAINTENANCE,
+            description=f"Created maintenance window: {self.object.title}",
+            request=self.request,
+            target=self.object,
+            extra_data={
+                "window_id": self.object.pk,
+                "start_datetime": self.object.start_datetime.isoformat(),
+                "end_datetime": self.object.end_datetime.isoformat(),
+                "duration_hours": self.object.duration_hours,
+            },
+        )
+
+        messages.success(
+            self.request, f"Maintenance window '{self.object.title}' created successfully."
+        )
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["action"] = "Create"
+        return context
+
+
+class MaintenanceWindowUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    """Edit an existing maintenance window (future windows only)."""
+
+    model = MaintenanceWindow
+    template_name = "coldfront_orcd_direct_charge/maintenance_window/form.html"
+    fields = ["title", "start_datetime", "end_datetime", "description"]
+    permission_required = "coldfront_orcd_direct_charge.can_manage_rentals"
+    success_url = reverse_lazy("coldfront_orcd_direct_charge:maintenance-window-list")
+
+    def get_queryset(self):
+        """Only allow editing windows that haven't started yet."""
+        return MaintenanceWindow.objects.filter(start_datetime__gt=timezone.now())
+
+    def get(self, request, *args, **kwargs):
+        """Handle case where window is not editable."""
+        try:
+            self.object = self.get_object()
+        except Http404:
+            messages.error(
+                request,
+                "This maintenance window has already started or passed and cannot be "
+                "modified through the web interface.",
+            )
+            return redirect("coldfront_orcd_direct_charge:maintenance-window-list")
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        """Handle case where window is not editable."""
+        try:
+            self.object = self.get_object()
+        except Http404:
+            messages.error(
+                request,
+                "This maintenance window has already started or passed and cannot be "
+                "modified through the web interface.",
+            )
+            return redirect("coldfront_orcd_direct_charge:maintenance-window-list")
+        return super().post(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["action"] = "Edit"
+        return context
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+
+        log_activity(
+            action="maintenance_window.updated",
+            category=ActivityLog.ActionCategory.MAINTENANCE,
+            description=f"Updated maintenance window: {self.object.title}",
+            request=self.request,
+            target=self.object,
+            extra_data={
+                "window_id": self.object.pk,
+                "start_datetime": self.object.start_datetime.isoformat(),
+                "end_datetime": self.object.end_datetime.isoformat(),
+                "duration_hours": self.object.duration_hours,
+            },
+        )
+
+        messages.success(
+            self.request, f"Maintenance window '{self.object.title}' updated successfully."
+        )
+        return response
+
+
+class MaintenanceWindowDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    """Delete a maintenance window (future windows only)."""
+
+    model = MaintenanceWindow
+    template_name = "coldfront_orcd_direct_charge/maintenance_window/delete.html"
+    permission_required = "coldfront_orcd_direct_charge.can_manage_rentals"
+    success_url = reverse_lazy("coldfront_orcd_direct_charge:maintenance-window-list")
+
+    def get_queryset(self):
+        """Only allow deleting windows that haven't started yet."""
+        return MaintenanceWindow.objects.filter(start_datetime__gt=timezone.now())
+
+    def get(self, request, *args, **kwargs):
+        """Handle case where window is not deletable."""
+        try:
+            self.object = self.get_object()
+        except Http404:
+            messages.error(
+                request,
+                "This maintenance window has already started or passed and cannot be "
+                "deleted through the web interface.",
+            )
+            return redirect("coldfront_orcd_direct_charge:maintenance-window-list")
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        """Handle case where window is not deletable."""
+        try:
+            self.object = self.get_object()
+        except Http404:
+            messages.error(
+                request,
+                "This maintenance window has already started or passed and cannot be "
+                "deleted through the web interface.",
+            )
+            return redirect("coldfront_orcd_direct_charge:maintenance-window-list")
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        # Capture details before deletion
+        window_id = self.object.pk
+        window_title = self.object.title
+        start_datetime = self.object.start_datetime.isoformat()
+        end_datetime = self.object.end_datetime.isoformat()
+        duration_hours = self.object.duration_hours
+
+        # Log activity before deletion (object will be gone after super())
+        log_activity(
+            action="maintenance_window.deleted",
+            category=ActivityLog.ActionCategory.MAINTENANCE,
+            description=f"Deleted maintenance window: {window_title}",
+            request=self.request,
+            target=None,  # Object is being deleted
+            extra_data={
+                "window_id": window_id,
+                "window_title": window_title,
+                "start_datetime": start_datetime,
+                "end_datetime": end_datetime,
+                "duration_hours": duration_hours,
+            },
+        )
+
+        response = super().form_valid(form)
+        messages.success(
+            self.request, f"Maintenance window '{window_title}' deleted successfully."
+        )
+        return response
 

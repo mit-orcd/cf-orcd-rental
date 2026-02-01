@@ -1,0 +1,112 @@
+{% extends "common/base.html" %}
+{% load static %}
+
+{% block title %}Maintenance Windows{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-wrench"></i> Maintenance Windows</h2>
+<hr>
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">All Maintenance Windows</h5>
+    <div>
+      {% include "coldfront_orcd_direct_charge/maintenance_window/_help_modal.html" %}
+      <a href="{% url 'coldfront_orcd_direct_charge:maintenance-window-create' %}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Maintenance Window
+      </a>
+    </div>
+  </div>
+  <div class="card-body">
+    {% if windows %}
+    <div class="table-responsive">
+      <table class="table table-hover" id="maintenance-windows-table">
+        <thead class="thead-light">
+          <tr>
+            <th>Title</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th>Created By</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for window in windows %}
+          <tr>
+            <td>
+              <strong>{{ window.title }}</strong>
+              {% if window.description %}
+              <br><small class="text-muted">{{ window.description|truncatewords:10 }}</small>
+              {% endif %}
+            </td>
+            <td>{{ window.start_datetime|date:"M d, Y H:i" }}</td>
+            <td>{{ window.end_datetime|date:"M d, Y H:i" }}</td>
+            <td>{{ window.duration_hours|floatformat:1 }} hours</td>
+            <td>
+              {% if window.is_upcoming %}
+                <span class="badge badge-success">Upcoming</span>
+              {% elif window.is_in_progress %}
+                <span class="badge badge-warning">In Progress</span>
+              {% else %}
+                <span class="badge badge-secondary">Completed</span>
+              {% endif %}
+            </td>
+            <td>{{ window.created_by.username|default:"-" }}</td>
+            <td>
+              {% if window.is_upcoming %}
+                <a href="{% url 'coldfront_orcd_direct_charge:maintenance-window-update' window.pk %}" 
+                   class="btn btn-sm btn-outline-primary" title="Edit">
+                  <i class="fas fa-edit"></i> Edit
+                </a>
+                <a href="{% url 'coldfront_orcd_direct_charge:maintenance-window-delete' window.pk %}" 
+                   class="btn btn-sm btn-outline-danger" title="Delete">
+                  <i class="fas fa-trash"></i> Delete
+                </a>
+              {% else %}
+                <span class="text-muted" title="Cannot modify past or in-progress windows">
+                  <i class="fas fa-lock"></i> Locked
+                </span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted mb-0"><i class="fas fa-info-circle"></i> No maintenance windows have been created.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header bg-light">
+    <h6 class="mb-0"><i class="fas fa-info-circle"></i> About Maintenance Windows</h6>
+  </div>
+  <div class="card-body">
+    <p class="mb-2">Maintenance windows define scheduled periods during which <strong>node rentals are not billed</strong>.</p>
+    <ul class="mb-0">
+      <li>Rentals can extend through maintenance windows without interruption</li>
+      <li>Billable hours are automatically reduced to exclude any overlap with maintenance periods</li>
+      <li>Only <strong>upcoming</strong> maintenance windows can be edited or deleted</li>
+      <li>Past and in-progress windows are locked to preserve billing accuracy</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+$(document).ready(function() {
+    $('#maintenance-windows-table').DataTable({
+        paging: true,
+        pageLength: 25,
+        searching: true,
+        order: [[1, 'desc']], // Sort by Start date descending
+        columnDefs: [{ orderable: false, targets: -1 }] // Disable sorting on Actions column
+    });
+});
+</script>
+{% endblock %}
