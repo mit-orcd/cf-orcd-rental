@@ -39,7 +39,16 @@ Edit Invoice Override - {{ month_name }} {{ year }}
       </div>
       <div class="col-md-6">
         <p><strong>Dates:</strong> {{ reservation.start_date|date:"M d" }} - {{ reservation.end_date|date:"M d, Y" }}</p>
-        <p><strong>Original Hours (this month):</strong> {{ original_hours|floatformat:2 }}</p>
+        <p>
+          <strong>Original Hours (this month):</strong> {{ original_hours|floatformat:2 }}
+          {% if maintenance_deduction and maintenance_deduction > 0 %}
+            <br>
+            <small class="text-muted">
+              <i class="fas fa-wrench"></i> 
+              -{{ maintenance_deduction|floatformat:2 }}h maintenance window deduction
+            </small>
+          {% endif %}
+        </p>
       </div>
     </div>
   </div>

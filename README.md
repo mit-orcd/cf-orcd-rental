@@ -31,6 +31,15 @@ A ColdFront plugin providing ORCD-specific customizations for direct charge reso
 - 3-month forward visibility limit
 - 9 AM end time cap (reservations must end by 9 AM on final day)
 
+### Maintenance Windows
+- Define scheduled maintenance periods when nodes are unavailable
+- Automatic billing deductions for rental time overlapping maintenance windows
+- Web UI for creating, editing, and deleting maintenance windows
+- Only future windows can be modified (past/in-progress are locked)
+- REST API with full CRUD operations
+- Management commands for CLI automation
+- Invoice display shows maintenance deductions
+
 ### REST API
 - JSON API for querying reservation data
 - Token-based authentication
@@ -170,12 +179,23 @@ DEBUG=True coldfront runserver
 | `/nodes/renting/manage/<pk>/decline/` | Decline reservation |
 | `/nodes/renting/manage/<pk>/metadata/` | Add booking management metadata |
 
+### Maintenance Windows
+
+| URL | Description |
+|-----|-------------|
+| `/nodes/maintenance-windows/` | List all maintenance windows |
+| `/nodes/maintenance-windows/create/` | Create new maintenance window |
+| `/nodes/maintenance-windows/<pk>/edit/` | Edit maintenance window (future only) |
+| `/nodes/maintenance-windows/<pk>/delete/` | Delete maintenance window (future only) |
+
 ### REST API
 
 | URL | Description |
 |-----|-------------|
 | `/nodes/api/rentals/` | List all reservations (requires `can_manage_rentals` permission) |
 | `/nodes/api/rentals/<pk>/` | Get single reservation detail |
+| `/nodes/api/maintenance-windows/` | Maintenance window CRUD (requires `can_manage_rentals`) |
+| `/nodes/api/maintenance-windows/<pk>/` | Single maintenance window detail/update/delete |
 
 ---
 
@@ -456,6 +476,32 @@ Synchronize RentalSKUs with NodeTypes (creates missing SKUs for the Rates tab):
 coldfront sync_node_skus           # Sync all active NodeTypes
 coldfront sync_node_skus --all     # Include inactive NodeTypes
 coldfront sync_node_skus --dry-run # Preview what would be done
+```
+
+### Maintenance Window Commands
+
+Manage maintenance windows (scheduled periods when rentals are not billed):
+
+```bash
+# Create a maintenance window
+coldfront create_maintenance_window \
+    --start "2026-02-15 00:00" \
+    --end "2026-02-16 12:00" \
+    --title "Scheduled maintenance"
+coldfront create_maintenance_window \
+    --start "2026-02-15 00:00" \
+    --end "2026-02-16 12:00" \
+    --title "Test" \
+    --dry-run  # Preview without creating
+
+# List maintenance windows
+coldfront list_maintenance_windows              # List all
+coldfront list_maintenance_windows --upcoming   # Future only
+coldfront list_maintenance_windows --status in_progress
+
+# Delete a maintenance window
+coldfront delete_maintenance_window 1           # With confirmation
+coldfront delete_maintenance_window 1 --force   # Skip confirmation
 ```
 
 ### create_user

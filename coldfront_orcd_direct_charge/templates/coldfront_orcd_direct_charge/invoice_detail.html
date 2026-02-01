@@ -146,6 +146,13 @@ Invoice Report - {{ month_name }} {{ year }}
               <span class="text-muted">-</span>
             {% else %}
               {{ line.hours_in_month|floatformat:2 }}
+              {% if line.maintenance_deduction and line.maintenance_deduction > 0 %}
+                <br>
+                <small class="text-muted" title="Hours deducted due to scheduled maintenance windows">
+                  <i class="fas fa-wrench"></i> 
+                  -{{ line.maintenance_deduction|floatformat:2 }}h maintenance
+                </small>
+              {% endif %}
             {% endif %}
           </td>
           <td>

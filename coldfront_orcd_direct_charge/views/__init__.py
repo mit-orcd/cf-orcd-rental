@@ -36,6 +36,10 @@ from coldfront_orcd_direct_charge.views.rentals import (
     ReservationDetailView,
     MyReservationsView,
     update_maintenance_status,
+    MaintenanceWindowListView,
+    MaintenanceWindowCreateView,
+    MaintenanceWindowUpdateView,
+    MaintenanceWindowDeleteView,
 )
 
 # Billing/cost allocation views
@@ -100,6 +104,11 @@ __all__ = [
     "ReservationDetailView",
     "MyReservationsView",
     "update_maintenance_status",
+    # Maintenance Windows
+    "MaintenanceWindowListView",
+    "MaintenanceWindowCreateView",
+    "MaintenanceWindowUpdateView",
+    "MaintenanceWindowDeleteView",
     # Billing
     "ProjectCostAllocationView",
     "PendingCostAllocationsView",

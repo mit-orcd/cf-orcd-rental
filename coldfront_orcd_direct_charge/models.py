@@ -375,6 +375,88 @@ class ReservationMetadataEntry(TimeStampedModel):
         return f"Metadata for {self.reservation} ({self.created.strftime('%Y-%m-%d %H:%M')})"
 
 
+class MaintenanceWindow(TimeStampedModel):
+    """Scheduled maintenance period during which rentals are not billed.
+
+    Maintenance windows define time periods when nodes are unavailable for use.
+    Any rental time that overlaps with a maintenance window will not be charged.
+    This allows researchers to extend rentals through maintenance periods without
+    incurring costs for time when nodes cannot be used.
+
+    Attributes:
+        start_datetime (datetime): When the maintenance period begins
+        end_datetime (datetime): When the maintenance period ends
+        title (str): Short title describing the maintenance
+        description (str): Optional detailed description
+        created_by (User): Rental manager who created this window
+    """
+
+    start_datetime = models.DateTimeField(
+        help_text="When the maintenance period begins"
+    )
+    end_datetime = models.DateTimeField(
+        help_text="When the maintenance period ends"
+    )
+    title = models.CharField(
+        max_length=200,
+        help_text="Short title describing the maintenance"
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Optional detailed description of the maintenance"
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_maintenance_windows",
+        help_text="Rental manager who created this window"
+    )
+
+    class Meta:
+        ordering = ["-start_datetime"]
+        verbose_name = "Maintenance Window"
+        verbose_name_plural = "Maintenance Windows"
+
+    def __str__(self):
+        return f"{self.title} ({self.start_datetime.strftime('%Y-%m-%d %H:%M')} - {self.end_datetime.strftime('%Y-%m-%d %H:%M')})"
+
+    @property
+    def duration_hours(self):
+        """Returns the duration of the maintenance window in hours."""
+        delta = self.end_datetime - self.start_datetime
+        return delta.total_seconds() / 3600
+
+    @property
+    def is_upcoming(self):
+        """Returns True if the maintenance window hasn't started yet."""
+        from django.utils import timezone
+        return self.start_datetime > timezone.now()
+
+    @property
+    def is_in_progress(self):
+        """Returns True if the maintenance window is currently active."""
+        from django.utils import timezone
+        now = timezone.now()
+        return self.start_datetime <= now < self.end_datetime
+
+    @property
+    def is_completed(self):
+        """Returns True if the maintenance window has ended."""
+        from django.utils import timezone
+        return self.end_datetime <= timezone.now()
+
+    def clean(self):
+        """Validate that end_datetime is after start_datetime."""
+        from django.core.exceptions import ValidationError
+        if self.end_datetime and self.start_datetime:
+            if self.end_datetime <= self.start_datetime:
+                raise ValidationError({
+                    'end_datetime': 'End datetime must be after start datetime.'
+                })
+
+
 class UserMaintenanceStatus(TimeStampedModel):
     """Tracks the account maintenance status for each user.
 

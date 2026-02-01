@@ -9,6 +9,7 @@ from django.contrib.auth.models import User
 
 from coldfront_orcd_direct_charge.models import (
     GpuNodeInstance,
+    MaintenanceWindow,
     ProjectCostAllocation,
     ProjectCostObject,
     ProjectMemberRole,
@@ -552,3 +553,55 @@ class SKUForm(forms.Form):
             raise ValidationError(f"SKU code '{sku_code}' already exists")
 
         return sku_code
+
+
+# =============================================================================
+# Maintenance Window Forms
+# =============================================================================
+
+
+class MaintenanceWindowForm(forms.ModelForm):
+    """Form for creating and editing maintenance windows.
+    
+    Uses datetime-local input widgets with proper formatting to ensure
+    existing values are displayed correctly when editing.
+    """
+
+    class Meta:
+        model = MaintenanceWindow
+        fields = ["title", "start_datetime", "end_datetime", "description"]
+        widgets = {
+            "title": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "e.g., Scheduled System Maintenance",
+                }
+            ),
+            "start_datetime": forms.DateTimeInput(
+                attrs={
+                    "type": "datetime-local",
+                    "class": "form-control",
+                },
+                format="%Y-%m-%dT%H:%M",
+            ),
+            "end_datetime": forms.DateTimeInput(
+                attrs={
+                    "type": "datetime-local",
+                    "class": "form-control",
+                },
+                format="%Y-%m-%dT%H:%M",
+            ),
+            "description": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Optional detailed description of the maintenance...",
+                }
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ensure datetime fields use the correct input format for datetime-local
+        self.fields["start_datetime"].input_formats = ["%Y-%m-%dT%H:%M"]
+        self.fields["end_datetime"].input_formats = ["%Y-%m-%dT%H:%M"]
