@@ -23,11 +23,9 @@
 
       <div class="form-group">
         <label for="id_title" class="form-label">Title <span class="text-danger">*</span></label>
-        <input type="text" name="title" id="id_title" class="form-control {% if form.title.errors %}is-invalid{% endif %}" 
-               value="{{ form.title.value|default:'' }}" required
-               placeholder="e.g., Scheduled System Maintenance">
+        {{ form.title }}
         {% if form.title.errors %}
-        <div class="invalid-feedback">{{ form.title.errors.0 }}</div>
+        <div class="invalid-feedback d-block">{{ form.title.errors.0 }}</div>
         {% endif %}
         <small class="form-text text-muted">A short, descriptive title for this maintenance window.</small>
       </div>
@@ -36,22 +34,18 @@
         <div class="col-md-6">
           <div class="form-group">
             <label for="id_start_datetime" class="form-label">Start Date/Time <span class="text-danger">*</span></label>
-            <input type="datetime-local" name="start_datetime" id="id_start_datetime" 
-                   class="form-control {% if form.start_datetime.errors %}is-invalid{% endif %}" 
-                   value="{{ form.start_datetime.value|default:'' }}" required>
+            {{ form.start_datetime }}
             {% if form.start_datetime.errors %}
-            <div class="invalid-feedback">{{ form.start_datetime.errors.0 }}</div>
+            <div class="invalid-feedback d-block">{{ form.start_datetime.errors.0 }}</div>
             {% endif %}
           </div>
         </div>
         <div class="col-md-6">
           <div class="form-group">
             <label for="id_end_datetime" class="form-label">End Date/Time <span class="text-danger">*</span></label>
-            <input type="datetime-local" name="end_datetime" id="id_end_datetime" 
-                   class="form-control {% if form.end_datetime.errors %}is-invalid{% endif %}" 
-                   value="{{ form.end_datetime.value|default:'' }}" required>
+            {{ form.end_datetime }}
             {% if form.end_datetime.errors %}
-            <div class="invalid-feedback">{{ form.end_datetime.errors.0 }}</div>
+            <div class="invalid-feedback d-block">{{ form.end_datetime.errors.0 }}</div>
             {% endif %}
           </div>
         </div>
@@ -59,8 +53,7 @@
 
       <div class="form-group">
         <label for="id_description" class="form-label">Description</label>
-        <textarea name="description" id="id_description" class="form-control" rows="3"
-                  placeholder="Optional detailed description of the maintenance...">{{ form.description.value|default:'' }}</textarea>
+        {{ form.description }}
         <small class="form-text text-muted">Provide additional context about the maintenance if needed.</small>
       </div>
 

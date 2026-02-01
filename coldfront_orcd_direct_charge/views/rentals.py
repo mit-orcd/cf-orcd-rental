@@ -32,6 +32,7 @@ from django.views.generic import (
 )
 
 from coldfront_orcd_direct_charge.forms import (
+    MaintenanceWindowForm,
     ReservationRequestForm,
     ReservationDeclineForm,
 )
@@ -716,7 +717,7 @@ class MaintenanceWindowCreateView(LoginRequiredMixin, PermissionRequiredMixin, C
 
     model = MaintenanceWindow
     template_name = "coldfront_orcd_direct_charge/maintenance_window/form.html"
-    fields = ["title", "start_datetime", "end_datetime", "description"]
+    form_class = MaintenanceWindowForm
     permission_required = "coldfront_orcd_direct_charge.can_manage_rentals"
     success_url = reverse_lazy("coldfront_orcd_direct_charge:maintenance-window-list")
 
@@ -754,7 +755,7 @@ class MaintenanceWindowUpdateView(LoginRequiredMixin, PermissionRequiredMixin, U
 
     model = MaintenanceWindow
     template_name = "coldfront_orcd_direct_charge/maintenance_window/form.html"
-    fields = ["title", "start_datetime", "end_datetime", "description"]
+    form_class = MaintenanceWindowForm
     permission_required = "coldfront_orcd_direct_charge.can_manage_rentals"
     success_url = reverse_lazy("coldfront_orcd_direct_charge:maintenance-window-list")
 
