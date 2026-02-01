@@ -17,6 +17,33 @@ This will:
 6. Initialize the database (initial_setup, manager groups, fixtures)
 7. Start the development server
 
+## User Smoke Test (single-user API check)
+
+This script creates one user, queries the API, and saves the output for human review.
+It reuses the seeded database if it already exists.
+
+```bash
+bash tests/setup/user_smoke_test.sh
+```
+
+What it does:
+1. Runs `setup_environment.sh` and reuses `coldfront.db` when present (`SKIP_INIT=true`)
+2. Creates a single user via `coldfront create_user` and generates an API token
+3. Starts the server if needed and queries `/nodes/api/user-search/`
+4. Saves raw and pretty JSON output plus logs under `tests/setup/output/`
+
+Outputs:
+- `tests/setup/output/user_search_raw.json`
+- `tests/setup/output/user_search_pretty.json`
+- `tests/setup/output/create_user.log`
+- `tests/setup/output/coldfront_server.log` (if started by the script)
+
+Common overrides:
+- `SMOKE_USERNAME` (default: `smokeuser`)
+- `SMOKE_EMAIL` (default: `<username>@example.com`)
+- `SERVER_PORT` (default: `8000`)
+- `OUTPUT_DIR` (default: `tests/setup/output`)
+
 ## Files
 
 | File | Description |
@@ -24,6 +51,7 @@ This will:
 | `setup_environment.sh` | Main setup script - clones ColdFront, installs packages, configures settings |
 | `initialize_database.sh` | Database initialization - runs initial_setup, creates manager groups, loads fixtures |
 | `local_settings.py.template` | ColdFront configuration template with plugin settings |
+| `user_smoke_test.sh` | Single-user smoke test that exercises API and saves outputs |
 | `README.md` | This documentation |
 
 ## Generated Files

@@ -96,70 +96,22 @@ jobs:
           USE_UV: "true"
           SKIP_SERVER: "true"  # Tests don't need the dev server running
 
-      # Install system test dependencies
-      # Uses activate_env.sh which sets DJANGO_SETTINGS_MODULE and PYTHONPATH
-      - name: Install System Test Dependencies
+      # Run minimal user smoke test
+      - name: Run User Smoke Test
         run: |
-          source ${{ github.workspace }}/coldfront/activate_env.sh
-          pip install -r ${{ github.workspace }}/coldfront-orcd-direct-charge/tests/system_tests/requirements.txt
-
-      # Generate command script only (when requested)
-      - name: Generate Command Script
-        if: ${{ inputs.generate_commands_only == true }}
-        run: |
-          source ${{ github.workspace }}/coldfront/activate_env.sh
           cd ${{ github.workspace }}/coldfront-orcd-direct-charge
-          python tests/system_tests/run_tests.py --generate-commands-only --output generated_commands.sh --verbose
-          echo ""
-          echo "=== Generated Commands ==="
-          cat generated_commands.sh
-
-      # Run tests in dry-run mode (when requested)
-      - name: Run System Tests - Dry Run
-        if: ${{ inputs.dry_run == true && inputs.generate_commands_only != true }}
-        run: |
-          set -o pipefail
-          source ${{ github.workspace }}/coldfront/activate_env.sh
-          cd ${{ github.workspace }}/coldfront-orcd-direct-charge
-          python tests/system_tests/run_tests.py --dry-run --verbose 2>&1 | tee pytest_output.log
+          bash tests/setup/user_smoke_test.sh
         env:
-          COLDFRONT_DIR: ${{ github.workspace }}/coldfront
+          RUNNER_TYPE: github
+          WORKSPACE: ${{ github.workspace }}
+          USE_UV: "true"
+          SERVER_PORT: "8000"
 
-      # Run full system tests (default)
-      - name: Run System Tests
-        if: ${{ inputs.dry_run != true && inputs.generate_commands_only != true }}
-        run: |
-          set -o pipefail
-          source ${{ github.workspace }}/coldfront/activate_env.sh
-          cd ${{ github.workspace }}/coldfront-orcd-direct-charge
-          # Run with verbose output and capture to log file for debugging
-          python tests/system_tests/run_tests.py --verbose 2>&1 | tee pytest_output.log
-        env:
-          COLDFRONT_DIR: ${{ github.workspace }}/coldfront
-
-      # Upload generated commands as artifact
-      - name: Upload Generated Commands
-        if: ${{ inputs.generate_commands_only == true }}
+      # Upload smoke test outputs for review
+      - name: Upload Smoke Test Outputs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: generated-commands
-          path: coldfront-orcd-direct-charge/generated_commands.sh
-          retention-days: 7
-
-      # Upload server logs on failure
-      - name: Upload Server Logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: server-logs
-          path: /tmp/coldfront_server.log
-          retention-days: 7
-
-      # Upload pytest output on failure for debugging
-      - name: Upload Pytest Output
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-output
-          path: coldfront-orcd-direct-charge/pytest_output.log
+          name: user-smoke-output
+          path: coldfront-orcd-direct-charge/tests/setup/output/
           retention-days: 7
