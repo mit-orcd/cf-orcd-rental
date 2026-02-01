@@ -57,10 +57,32 @@ CENTER_SUMMARY_ENABLE = False
 HOME_PAGE_ALLOCATIONS_ENABLE = False
 
 # =============================================================================
-# Database (Optional - defaults to SQLite)
+# Database Configuration
 # =============================================================================
 
-# For testing, SQLite is sufficient. For production, use PostgreSQL:
+# For testing, SQLite is sufficient. For production, use PostgreSQL.
+# The TEST configuration ensures pytest-django uses the same database
+# instead of creating a separate test database.
+
+import os
+
+# Get the ColdFront root directory for database file
+# The database is created in the ColdFront root directory (where manage.py is)
+_COLDFRONT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_DB_PATH = os.path.join(_COLDFRONT_ROOT, 'coldfront.db')
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': _DB_PATH,
+        'TEST': {
+            # Use the same database for tests (pytest-django will reuse it)
+            'NAME': _DB_PATH,
+        },
+    }
+}
+
+# For production, use PostgreSQL:
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.postgresql',

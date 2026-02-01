@@ -60,6 +60,8 @@ on:
 env:
   COLDFRONT_VERSION: "1.1.7"
   SERVER_PORT: "8000"
+  # pytest-django options: reuse seeded DB, verbose output, stop after 3 failures
+  PYTEST_ADDOPTS: "--reuse-db -vv --maxfail=3"
 
 jobs:
   user-management-tests:
@@ -118,7 +120,9 @@ jobs:
         run: |
           source ${{ github.workspace }}/coldfront/activate_env.sh
           cd ${{ github.workspace }}/coldfront-orcd-direct-charge
-          python tests/system_tests/run_tests.py --dry-run --verbose
+          python tests/system_tests/run_tests.py --dry-run --verbose 2>&1 | tee pytest_output.log
+        env:
+          COLDFRONT_DIR: ${{ github.workspace }}/coldfront
 
       # Run full system tests (default)
       - name: Run System Tests
@@ -126,7 +130,10 @@ jobs:
         run: |
           source ${{ github.workspace }}/coldfront/activate_env.sh
           cd ${{ github.workspace }}/coldfront-orcd-direct-charge
-          python tests/system_tests/run_tests.py --verbose
+          # Run with verbose output and capture to log file for debugging
+          python tests/system_tests/run_tests.py --verbose 2>&1 | tee pytest_output.log
+        env:
+          COLDFRONT_DIR: ${{ github.workspace }}/coldfront
 
       # Upload generated commands as artifact
       - name: Upload Generated Commands
@@ -144,4 +151,13 @@ jobs:
         with:
           name: server-logs
           path: /tmp/coldfront_server.log
+          retention-days: 7
+
+      # Upload pytest output on failure for debugging
+      - name: Upload Pytest Output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-output
+          path: coldfront-orcd-direct-charge/pytest_output.log
           retention-days: 7

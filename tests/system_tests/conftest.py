@@ -1,26 +1,21 @@
 """pytest configuration for system tests.
 
-This module configures pytest-django to work with the ColdFront environment
-set up by tests/setup/setup_environment.sh.
+Configures pytest-django to use the existing database created by
+tests/setup/setup_environment.sh rather than creating a test database.
 
-The key configuration here:
-1. Sets DJANGO_SETTINGS_MODULE before any Django imports
-2. Calls django.setup() to initialize Django
-3. Configures pytest-django to use the existing database (not create a new one)
+Key configuration:
+1. Sets DJANGO_SETTINGS_MODULE before pytest-django initializes
+2. Overrides django_db_setup to skip test database creation
+3. Automatically grants database access to all tests
+
+IMPORTANT: Do NOT override django_db_blocker - it breaks pytest-django internals.
 """
 
 import os
-import sys
-
-# Ensure Django settings are configured before any imports
-# This must happen before importing django or any Django models
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'coldfront.config.settings')
-
-import django
 import pytest
 
-# Initialize Django - this must be done before importing any models
-django.setup()
+# Set Django settings before pytest-django initializes
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'coldfront.config.settings')
 
 
 def pytest_configure(config):
@@ -33,42 +28,32 @@ def pytest_configure(config):
 
 @pytest.fixture(scope='session')
 def django_db_setup():
-    """Use the existing database created by setup_environment.sh.
+    """Override to use existing database instead of creating test database.
     
-    This fixture overrides pytest-django's default behavior of creating
-    a test database. Instead, we use the database that was set up by
-    the setup_environment.sh script, which includes:
+    The database has already been set up by setup_environment.sh with:
     - All migrations applied
     - Initial ColdFront data (from initial_setup)
     - Manager groups created
     - Fixtures loaded
+    
+    By yielding without calling django.test.utils functions to create/destroy
+    a test database, pytest-django will use the default database as-is.
     """
-    # Don't create a new database - use the existing one
-    pass
-
-
-@pytest.fixture(scope='session')
-def django_db_blocker():
-    """Allow database access in session-scoped fixtures."""
-    from django.test.utils import CaptureQueriesContext
-    from django.db import connection
-    return None
+    # Don't create a test database - just use the existing one
+    yield
+    # Don't destroy anything on teardown
 
 
 @pytest.fixture(autouse=True)
-def enable_db_access_for_all_tests(db):
-    """Automatically enable database access for all tests.
+def enable_db_access_for_all_tests(request):
+    """Automatically grant database access to all tests.
     
-    This removes the need to mark every test with @pytest.mark.django_db.
-    Since these are system tests that interact with the database via
-    management commands, all tests need database access.
+    Since these are system tests that execute management commands
+    via subprocess, all tests need database access.
+    
+    Note: This adds the marker without depending on the `db` fixture,
+    avoiding circular dependencies with pytest-django internals.
     """
-    pass
-
-
-# pytest-django settings
-def pytest_collection_modifyitems(config, items):
-    """Add django_db marker to all tests automatically."""
-    for item in items:
-        # Add django_db marker to all test items
-        item.add_marker(pytest.mark.django_db(transaction=True))
+    # Apply django_db marker programmatically if not already present
+    if not request.node.get_closest_marker('django_db'):
+        request.node.add_marker(pytest.mark.django_db(transaction=True))
