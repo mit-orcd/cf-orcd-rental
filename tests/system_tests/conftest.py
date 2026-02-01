@@ -27,48 +27,25 @@ def pytest_configure(config):
 
 
 @pytest.fixture(scope='session')
-def django_db_setup(django_db_blocker):
-    """Override to seed test database with ColdFront initial data.
+def django_db_setup():
+    """Override to use existing database instead of creating test database.
     
-    When pytest-django creates a test database, it doesn't include the data
-    that `coldfront initial_setup` would normally create. This fixture seeds
-    the test database with the required model instances so that subprocess
-    coldfront commands can function properly.
+    The database has already been set up by setup_environment.sh with:
+    - All migrations applied
+    - Initial ColdFront data via initial_setup (includes ProjectStatusChoice, etc.)
+    - Manager groups created
+    - Fixtures loaded
     
-    Required data:
-    - ProjectStatusChoice: Active, Inactive, Archived, New
-    - ProjectUserRoleChoice: Manager, User
-    - ProjectUserStatusChoice: Active, Pending, Removed
-    - FieldOfScience: Other (is_selectable=True)
+    By yielding without calling django.test.utils functions to create/destroy
+    a test database, pytest-django will use the default database as-is.
+    
+    Note: We do NOT seed data here because subprocess coldfront commands
+    run outside pytest's database context. Seeding must happen in
+    initialize_database.sh during the setup phase.
     """
-    with django_db_blocker.unblock():
-        # Import models inside function to avoid import errors before Django setup
-        from coldfront.core.project.models import (
-            ProjectStatusChoice,
-            ProjectUserRoleChoice,
-            ProjectUserStatusChoice,
-        )
-        from coldfront.core.field_of_science.models import FieldOfScience
-        
-        # Create ProjectStatusChoice instances
-        for name in ["Active", "Inactive", "Archived", "New"]:
-            ProjectStatusChoice.objects.get_or_create(name=name)
-        
-        # Create ProjectUserRoleChoice instances
-        for name in ["Manager", "User"]:
-            ProjectUserRoleChoice.objects.get_or_create(name=name)
-        
-        # Create ProjectUserStatusChoice instances
-        for name in ["Active", "Pending", "Removed"]:
-            ProjectUserStatusChoice.objects.get_or_create(name=name)
-        
-        # Create FieldOfScience instance
-        FieldOfScience.objects.get_or_create(
-            description="Other",
-            defaults={"is_selectable": True}
-        )
-    
+    # Don't create a test database - just use the existing one
     yield
+    # Don't destroy anything on teardown
 
 
 @pytest.fixture(autouse=True)

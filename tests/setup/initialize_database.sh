@@ -107,6 +107,18 @@ fi
 echo "initial_setup complete"
 
 # =============================================================================
+# Ensure Project Choices Exist (explicit safety check)
+# =============================================================================
+
+log_step "Ensuring project choices are seeded"
+
+# Run add_default_project_choices explicitly to ensure data exists
+# This is normally called by initial_setup, but we run it again to be safe
+run_coldfront "add_default_project_choices" || log_warn "Could not add project choices"
+
+echo "Project choices seeded"
+
+# =============================================================================
 # Create Manager Groups
 # =============================================================================
 
