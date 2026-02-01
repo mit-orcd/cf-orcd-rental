@@ -65,10 +65,10 @@ tests/system_tests/
 │   ├── test_02_projects.py       # Project creation and setup
 │   ├── test_03_members.py        # Member management
 │   ├── test_04_cost_allocation.py # Cost allocation workflow
-│   ├── test_05_reservations.py   # Reservation workflow
-│   ├── test_06_maintenance.py    # Maintenance window management
-│   ├── test_07_invoices.py       # Invoice workflow
-│   ├── test_08_rates.py          # Rate management
+│   ├── test_05_rates.py          # Rate management
+│   ├── test_06_reservations.py   # Reservation workflow
+│   ├── test_07_maintenance.py    # Maintenance window management
+│   ├── test_08_invoices.py       # Invoice workflow
 │   ├── test_09_api.py            # API endpoint tests
 │   └── test_10_activity_log.py   # Activity log verification
 ├── utils/
@@ -91,10 +91,10 @@ Tests are numbered to enforce execution order due to dependencies:
 02_projects    → Creates test projects (requires users)
 03_members     → Adds members to projects (requires projects + users)
 04_cost_allocation → Creates and approves allocations (requires projects)
-05_reservations → Tests reservation workflow (requires approved allocations)
-06_maintenance  → Tests maintenance windows (requires rental manager)
-07_invoices    → Tests invoice workflow (requires reservations)
-08_rates       → Tests rate management (requires rate manager)
+05_rates       → Tests rate management (requires rate manager)
+06_reservations → Tests reservation workflow (requires approved allocations + rates)
+07_maintenance  → Tests maintenance windows (requires rental manager)
+08_invoices    → Tests invoice workflow (requires reservations)
 09_api         → Tests API endpoints (requires all data)
 10_activity_log → Verifies activity logging (runs last)
 ```
@@ -233,11 +233,48 @@ permissions:
 
 ---
 
-### Phase 4: Reservations (Requires Phase 3)
+### Phase 4: Rate Management (Requires Phase 1)
 
-#### Module 05: Reservation Workflow
+#### Module 05: Rate Management
 
-**Dependencies**: Module 04 (approved allocations)
+**Dependencies**: Module 01 (rate manager user exists)
+
+**Tests**:
+1. **View Current Rates**:
+   - Any authenticated user views current rates page
+   - Verify visible SKUs are displayed
+   - Verify rates show correct values
+
+2. **Rate History**:
+   - Rate Manager views SKU detail
+   - Verify rate history is displayed
+
+3. **Add New Rate**:
+   - Rate Manager adds future rate to SKU
+   - Verify rate appears in history
+   - Verify rate is not yet effective
+
+4. **Create Custom SKU**:
+   - Rate Manager creates new QoS SKU
+   - Add initial rate to new SKU
+   - Verify SKU appears in rate management
+
+5. **Toggle Visibility**:
+   - Rate Manager toggles SKU visibility
+   - Verify SKU hidden from public rates page
+   - Toggle back and verify visible
+
+**Artifacts Created**:
+- Rate history entries
+- Custom SKUs (optional)
+
+---
+
+### Phase 5: Reservations (Requires Phases 3, 4)
+
+#### Module 06: Reservation Workflow
+
+**Dependencies**: Module 04 (approved allocations), Module 05 (rates configured)
 
 **Tests**:
 1. **Prerequisite Checks**:
@@ -282,9 +319,9 @@ permissions:
 
 ---
 
-### Phase 5: Maintenance Windows (Requires Phase 1)
+### Phase 6: Maintenance Windows (Requires Phase 1)
 
-#### Module 06: Maintenance Window Management
+#### Module 07: Maintenance Window Management
 
 **Dependencies**: Module 01 (rental manager user exists)
 
@@ -316,11 +353,11 @@ permissions:
 
 ---
 
-### Phase 6: Invoicing (Requires Phases 4, 5)
+### Phase 7: Invoicing (Requires Phases 5, 6)
 
-#### Module 07: Invoice Workflow
+#### Module 08: Invoice Workflow
 
-**Dependencies**: Module 05 (reservations), Module 06 (maintenance windows)
+**Dependencies**: Module 06 (reservations), Module 07 (maintenance windows)
 
 **Tests**:
 1. **Invoice Generation**:
@@ -357,43 +394,6 @@ permissions:
 **Artifacts Created**:
 - Invoice periods with various states
 - Invoice overrides
-
----
-
-### Phase 7: Rate Management (Requires Phase 1)
-
-#### Module 08: Rate Management
-
-**Dependencies**: Module 01 (rate manager user exists)
-
-**Tests**:
-1. **View Current Rates**:
-   - Any authenticated user views current rates page
-   - Verify visible SKUs are displayed
-   - Verify rates show correct values
-
-2. **Rate History**:
-   - Rate Manager views SKU detail
-   - Verify rate history is displayed
-
-3. **Add New Rate**:
-   - Rate Manager adds future rate to SKU
-   - Verify rate appears in history
-   - Verify rate is not yet effective
-
-4. **Create Custom SKU**:
-   - Rate Manager creates new QoS SKU
-   - Add initial rate to new SKU
-   - Verify SKU appears in rate management
-
-5. **Toggle Visibility**:
-   - Rate Manager toggles SKU visibility
-   - Verify SKU hidden from public rates page
-   - Toggle back and verify visible
-
-**Artifacts Created**:
-- Rate history entries
-- Custom SKUs (optional)
 
 ---
 
@@ -529,10 +529,10 @@ modules:
     - test_02_projects
     - test_03_members
     - test_04_cost_allocation
-    - test_05_reservations
-    - test_06_maintenance
-    - test_07_invoices
-    - test_08_rates
+    - test_05_rates
+    - test_06_reservations
+    - test_07_maintenance
+    - test_08_invoices
     - test_09_api
     - test_10_activity_log
   
@@ -1065,11 +1065,45 @@ class TestCostAllocationWorkflow:
 
 ---
 
-### Module 05: Reservations (`test_05_reservations.py`)
+### Module 05: Rate Management (`test_05_rates.py`)
+
+**Purpose**: Test rate and SKU management.
+
+**Dependencies**: Module 01 (rate manager)
+
+**Tests**:
+
+```python
+class TestRateManagement:
+    def test_view_current_rates(self):
+        """Authenticated user can view current rates."""
+        
+    def test_visible_skus_displayed(self):
+        """Only visible SKUs shown on public page."""
+        
+    def test_rate_manager_sku_detail(self):
+        """Rate Manager can view SKU detail with history."""
+        
+    def test_add_rate(self):
+        """Rate Manager adds new rate to SKU."""
+        
+    def test_rate_effective_date(self):
+        """Rate becomes effective on specified date."""
+        
+    def test_create_sku(self):
+        """Rate Manager creates new SKU."""
+        
+    def test_toggle_visibility(self):
+        """Rate Manager toggles SKU visibility."""
+```
+
+---
+
+### Module 06: Reservations (`test_06_reservations.py`)
 
 **Purpose**: Test reservation creation, approval, and lifecycle.
 
-**Dependencies**: Modules 01-04
+**Dependencies**: Modules 01-05
 
 **Tests**:
 
@@ -1123,7 +1157,7 @@ class TestReservationWorkflow:
 
 ---
 
-### Module 06: Maintenance Windows (`test_06_maintenance.py`)
+### Module 07: Maintenance Windows (`test_07_maintenance.py`)
 
 **Purpose**: Test maintenance window CRUD operations.
 
@@ -1157,11 +1191,11 @@ class TestMaintenanceWindows:
 
 ---
 
-### Module 07: Invoices (`test_07_invoices.py`)
+### Module 08: Invoices (`test_08_invoices.py`)
 
 **Purpose**: Test invoice generation, editing, and finalization.
 
-**Dependencies**: Modules 05, 06
+**Dependencies**: Modules 06, 07
 
 **Tests**:
 
@@ -1211,40 +1245,6 @@ class TestInvoiceWorkflow:
         
     def test_reopen_invoice(self):
         """Billing Manager can reopen finalized invoice."""
-```
-
----
-
-### Module 08: Rate Management (`test_08_rates.py`)
-
-**Purpose**: Test rate and SKU management.
-
-**Dependencies**: Module 01 (rate manager)
-
-**Tests**:
-
-```python
-class TestRateManagement:
-    def test_view_current_rates(self):
-        """Authenticated user can view current rates."""
-        
-    def test_visible_skus_displayed(self):
-        """Only visible SKUs shown on public page."""
-        
-    def test_rate_manager_sku_detail(self):
-        """Rate Manager can view SKU detail with history."""
-        
-    def test_add_rate(self):
-        """Rate Manager adds new rate to SKU."""
-        
-    def test_rate_effective_date(self):
-        """Rate becomes effective on specified date."""
-        
-    def test_create_sku(self):
-        """Rate Manager creates new SKU."""
-        
-    def test_toggle_visibility(self):
-        """Rate Manager toggles SKU visibility."""
 ```
 
 ---
