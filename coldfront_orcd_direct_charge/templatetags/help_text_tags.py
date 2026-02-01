@@ -5,7 +5,7 @@
 """Template tags for loading and rendering help text from markdown files.
 
 This module provides a modular help text system that loads markdown content
-from the help_text/ directory and renders it as HTML for display in templates.
+from the help_and_notices_text/ directory and renders it as HTML for display in templates.
 
 Usage:
     {% load help_text_tags %}
@@ -24,7 +24,7 @@ register = template.Library()
 def load_help_text(feature_name):
     """Load and render help text markdown for a feature.
 
-    Loads the markdown file from the help_text directory and converts it to HTML.
+    Loads the markdown file from the help_and_notices_text directory and converts it to HTML.
     If the markdown library is not installed, returns the raw markdown text.
     If the file doesn't exist, returns an empty string.
 
@@ -35,7 +35,7 @@ def load_help_text(feature_name):
         str: Rendered HTML from the markdown file, or raw text as fallback,
              or empty string if file not found
     """
-    help_dir = Path(__file__).parent.parent / "help_text"
+    help_dir = Path(__file__).parent.parent / "help_and_notices_text"
     help_file = help_dir / f"{feature_name}.md"
 
     if not help_file.exists():
