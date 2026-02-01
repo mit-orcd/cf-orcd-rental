@@ -7,6 +7,17 @@
 #
 
 # =============================================================================
+# Security Settings (for testing only - DO NOT use in production)
+# =============================================================================
+
+# Fixed SECRET_KEY for testing - this is intentionally hardcoded for CI/test use
+# In production, use a unique, randomly generated key stored securely
+SECRET_KEY = 'test-secret-key-for-coldfront-plugin-testing-not-for-production-use'
+
+# Allow all hosts for testing
+ALLOWED_HOSTS = ['*']
+
+# =============================================================================
 # Plugin Configuration
 # =============================================================================
 

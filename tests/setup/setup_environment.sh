@@ -15,7 +15,8 @@
 #   RUNNER_TYPE        - Runner type: github, self-hosted, local (default: github)
 #   SERVER_PORT        - Port for test server (default: 8000)
 #   SKIP_SERVER        - Skip starting server (default: false)
-#   SKIP_FIXTURES      - Skip loading fixtures (default: false)
+#   SKIP_FIXTURES      - Skip loading fixtures (default: false, deprecated - use SKIP_INIT)
+#   SKIP_INIT          - Skip database initialization (default: false)
 #
 
 set -e  # Exit on first error
@@ -32,6 +33,7 @@ USE_UV="${USE_UV:-true}"
 RUNNER_TYPE="${RUNNER_TYPE:-github}"
 SKIP_SERVER="${SKIP_SERVER:-false}"
 SKIP_FIXTURES="${SKIP_FIXTURES:-false}"
+SKIP_INIT="${SKIP_INIT:-false}"
 
 # Get script and plugin directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -236,24 +238,47 @@ else
 fi
 
 # =============================================================================
-# Load Fixtures
+# Initialize Database (initial_setup, manager groups, fixtures)
 # =============================================================================
 
-if [ "$SKIP_FIXTURES" != "true" ]; then
-    log_step "Loading fixtures"
+if [ "$SKIP_INIT" != "true" ]; then
+    log_step "Initializing database"
     
-    if [ "$INSTALLER" = "uv" ]; then
-        uv run coldfront loaddata node_types || log_warn "Could not load node_types fixture"
-        uv run coldfront loaddata gpu_node_instances || log_warn "Could not load gpu_node_instances fixture"
-        uv run coldfront loaddata cpu_node_instances || log_warn "Could not load cpu_node_instances fixture"
+    # Call the modular initialization script
+    INIT_SCRIPT="$SCRIPT_DIR/initialize_database.sh"
+    if [ -f "$INIT_SCRIPT" ]; then
+        # Export variables needed by initialize_database.sh
+        export COLDFRONT_DIR
+        export PLUGIN_DIR
+        export INSTALLER
+        
+        # Run the initialization script
+        bash "$INIT_SCRIPT"
     else
-        source "$COLDFRONT_DIR/.venv/bin/activate"
-        coldfront loaddata node_types || log_warn "Could not load node_types fixture"
-        coldfront loaddata gpu_node_instances || log_warn "Could not load gpu_node_instances fixture"
-        coldfront loaddata cpu_node_instances || log_warn "Could not load cpu_node_instances fixture"
+        log_warn "initialize_database.sh not found, running basic initialization"
+        
+        # Fallback: run basic initialization inline
+        if [ "$INSTALLER" = "uv" ]; then
+            echo 'yes' | uv run coldfront initial_setup || log_warn "initial_setup may have already been run"
+            uv run coldfront setup_rental_manager --create-group || true
+            uv run coldfront setup_billing_manager --create-group || true
+            uv run coldfront setup_rate_manager --create-group || true
+            uv run coldfront loaddata node_types || log_warn "Could not load node_types fixture"
+            uv run coldfront loaddata gpu_node_instances || log_warn "Could not load gpu_node_instances fixture"
+            uv run coldfront loaddata cpu_node_instances || log_warn "Could not load cpu_node_instances fixture"
+        else
+            source "$COLDFRONT_DIR/.venv/bin/activate"
+            echo 'yes' | coldfront initial_setup || log_warn "initial_setup may have already been run"
+            coldfront setup_rental_manager --create-group || true
+            coldfront setup_billing_manager --create-group || true
+            coldfront setup_rate_manager --create-group || true
+            coldfront loaddata node_types || log_warn "Could not load node_types fixture"
+            coldfront loaddata gpu_node_instances || log_warn "Could not load gpu_node_instances fixture"
+            coldfront loaddata cpu_node_instances || log_warn "Could not load cpu_node_instances fixture"
+        fi
     fi
 else
-    echo "Skipping fixtures (SKIP_FIXTURES=true)"
+    echo "Skipping database initialization (SKIP_INIT=true)"
 fi
 
 # =============================================================================

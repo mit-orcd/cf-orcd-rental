@@ -14,15 +14,16 @@ This will:
 3. Install ColdFront and the plugin
 4. Configure local settings
 5. Apply database migrations
-6. Load fixtures
+6. Initialize the database (initial_setup, manager groups, fixtures)
 7. Start the development server
 
 ## Files
 
 | File | Description |
 |------|-------------|
-| `setup_environment.sh` | Main setup script |
-| `local_settings.py.template` | ColdFront configuration template |
+| `setup_environment.sh` | Main setup script - clones ColdFront, installs packages, configures settings |
+| `initialize_database.sh` | Database initialization - runs initial_setup, creates manager groups, loads fixtures |
+| `local_settings.py.template` | ColdFront configuration template with plugin settings |
 | `README.md` | This documentation |
 
 ## Generated Files
@@ -50,6 +51,23 @@ This script sets:
 - `PYTHONPATH` to include the ColdFront directory
 - Activates the Python virtual environment
 
+### Database Initialization
+
+The `initialize_database.sh` script (called automatically by `setup_environment.sh`) performs:
+
+1. **ColdFront initial_setup**: Creates default ColdFront data (fields of science, resource types, etc.)
+2. **Manager group creation**: Creates Rental Manager, Billing Manager, and Rate Manager groups with appropriate permissions
+3. **Fixture loading**: Loads plugin fixtures (node types, node instances)
+4. **Test superuser**: Creates a superuser for testing (username: `admin`, password: `testpass123`)
+
+You can run it independently if needed:
+
+```bash
+export COLDFRONT_DIR=/path/to/coldfront
+export PLUGIN_DIR=/path/to/plugin
+./initialize_database.sh
+```
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -60,7 +78,10 @@ This script sets:
 | `RUNNER_TYPE` | `github` | Runner type: `github`, `self-hosted`, `local` |
 | `SERVER_PORT` | `8000` | Port for development server |
 | `SKIP_SERVER` | `false` | Skip starting the server |
-| `SKIP_FIXTURES` | `false` | Skip loading fixtures |
+| `SKIP_INIT` | `false` | Skip database initialization (initial_setup, manager groups, fixtures) |
+| `SKIP_FIXTURES` | `false` | Deprecated - use `SKIP_INIT` instead |
+| `TEST_SUPERUSER` | `admin` | Username for test superuser (used by initialize_database.sh) |
+| `TEST_PASSWORD` | `testpass123` | Password for test superuser |
 
 ## Usage Examples
 

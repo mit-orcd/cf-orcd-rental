@@ -1,11 +1,21 @@
-"""Module 01: User Management Tests."""
+"""Module 01: User Management Tests.
 
+This module tests user management functionality via coldfront management commands.
+It uses pytest-django for Django test integration.
+
+Note: The conftest.py in the parent directory configures Django and pytest-django,
+including automatic database access for all tests. The @pytest.mark.django_db
+decorators are added for explicitness but are also applied automatically.
+"""
+
+import pytest
 import unittest
 from pathlib import Path
 from django.contrib.auth.models import User, Group
 from .base import BaseSystemTest
 
 
+@pytest.mark.django_db(transaction=True)
 class TestUserCreation(BaseSystemTest, unittest.TestCase):
     """Test user creation via management commands."""
     
@@ -65,6 +75,7 @@ class TestUserCreation(BaseSystemTest, unittest.TestCase):
         self.assertFalse(User.objects.filter(username='dryrunuser').exists())
 
 
+@pytest.mark.django_db(transaction=True)
 class TestGroupManagement(BaseSystemTest, unittest.TestCase):
     """Test manager group setup and membership."""
     
@@ -92,6 +103,7 @@ class TestGroupManagement(BaseSystemTest, unittest.TestCase):
         self.assertTrue(user.groups.filter(name='Billing Manager').exists())
 
 
+@pytest.mark.django_db(transaction=True)
 class TestAccountMaintenanceFee(BaseSystemTest, unittest.TestCase):
     """Test account maintenance fee configuration."""
     
@@ -146,6 +158,7 @@ class TestAccountMaintenanceFee(BaseSystemTest, unittest.TestCase):
         )
 
 
+@pytest.mark.django_db(transaction=True)
 class TestBulkUserCreation(BaseSystemTest, unittest.TestCase):
     """Test creating multiple users from YAML config."""
     
