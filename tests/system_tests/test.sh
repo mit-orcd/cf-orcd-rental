@@ -55,6 +55,14 @@ if [ ! -d "$COLDFRONT_DIR/.venv" ]; then
     exit 1
 fi
 
+# Check for activation script
+ACTIVATE_SCRIPT="$COLDFRONT_DIR/activate_env.sh"
+if [ ! -f "$ACTIVATE_SCRIPT" ]; then
+    log_error "Activation script not found at $ACTIVATE_SCRIPT"
+    log_error "Run tests/setup/setup_environment.sh to regenerate it"
+    exit 1
+fi
+
 # Check for config files
 CONFIG_DIR="$SCRIPT_DIR/config"
 if [ ! -f "$CONFIG_DIR/users.yaml" ]; then
@@ -88,9 +96,9 @@ for arg in "$@"; do
     esac
 done
 
-# Activate ColdFront virtual environment
+# Activate ColdFront environment (sets venv, DJANGO_SETTINGS_MODULE, PYTHONPATH)
 log_step "Activating ColdFront environment"
-source "$COLDFRONT_DIR/.venv/bin/activate"
+source "$ACTIVATE_SCRIPT"
 
 # Install system test dependencies if needed
 if ! python -c "import pytest" 2>/dev/null; then

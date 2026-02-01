@@ -25,6 +25,31 @@ This will:
 | `local_settings.py.template` | ColdFront configuration template |
 | `README.md` | This documentation |
 
+## Generated Files
+
+After running `setup_environment.sh`, the following files are created:
+
+| File | Location | Description |
+|------|----------|-------------|
+| `activate_env.sh` | `$WORKSPACE/coldfront/` | Environment activation script that sets up venv, `DJANGO_SETTINGS_MODULE`, and `PYTHONPATH` |
+| `local_settings.py` | `$WORKSPACE/coldfront/coldfront/config/` | ColdFront local settings with plugin enabled |
+
+### Using activate_env.sh
+
+The `activate_env.sh` script should be sourced before running any Python code that imports Django models:
+
+```bash
+source ../coldfront/activate_env.sh
+
+# Now Django is properly configured
+python -c "from django.contrib.auth.models import User; print(User.objects.count())"
+```
+
+This script sets:
+- `DJANGO_SETTINGS_MODULE=coldfront.config.settings`
+- `PYTHONPATH` to include the ColdFront directory
+- Activates the Python virtual environment
+
 ## Environment Variables
 
 | Variable | Default | Description |
