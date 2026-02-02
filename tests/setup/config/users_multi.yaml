@@ -1,0 +1,67 @@
+version: "1.0"
+
+# Multi-user test configuration
+# Creates 13 users: 3 managers with privileged roles + 10 regular users
+# All users are created with PI status (can create and own projects)
+
+defaults:
+  email_domain: "example.edu"
+  password: "TestPass123!"
+
+users:
+  # Manager accounts with privileged roles
+  - username: orcd_rtm
+    first_name: Rate
+    last_name: Manager
+    groups: [rate]
+
+  - username: orcd_bim
+    first_name: Billing
+    last_name: Manager
+    groups: [billing]
+
+  - username: orcd_rem
+    first_name: Rental
+    last_name: Manager
+    groups: [rental]
+
+  # Regular user accounts (orcd_u0 through orcd_u9)
+  - username: orcd_u0
+    first_name: User
+    last_name: Zero
+
+  - username: orcd_u1
+    first_name: User
+    last_name: One
+
+  - username: orcd_u2
+    first_name: User
+    last_name: Two
+
+  - username: orcd_u3
+    first_name: User
+    last_name: Three
+
+  - username: orcd_u4
+    first_name: User
+    last_name: Four
+
+  - username: orcd_u5
+    first_name: User
+    last_name: Five
+
+  - username: orcd_u6
+    first_name: User
+    last_name: Six
+
+  - username: orcd_u7
+    first_name: User
+    last_name: Seven
+
+  - username: orcd_u8
+    first_name: User
+    last_name: Eight
+
+  - username: orcd_u9
+    first_name: User
+    last_name: Nine
