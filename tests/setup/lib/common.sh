@@ -37,8 +37,25 @@ db_exists() {
     [ -f "$COLDFRONT_DIR/coldfront.db" ] || [ -f "$COLDFRONT_DIR/db.sqlite3" ]
 }
 
+# Get the Python command that has access to installed packages (pyyaml, etc.)
+# This checks for the coldfront virtualenv first, then falls back to uv run or system python
+get_python_cmd() {
+    # Check if coldfront virtualenv exists and has python
+    if [ -f "${COLDFRONT_DIR:-.}/.venv/bin/python3" ]; then
+        echo "${COLDFRONT_DIR}/.venv/bin/python3"
+    elif [ "${USE_UV:-true}" = "true" ] && command -v uv >/dev/null 2>&1 && [ -f "${PLUGIN_DIR:-$PWD}/pyproject.toml" ]; then
+        # Use uv run from the plugin directory (which has pyyaml as a dependency)
+        echo "uv run --directory ${PLUGIN_DIR:-$PWD} python3"
+    else
+        echo "python3"
+    fi
+}
+
 ensure_yaml_support() {
-    python3 - << 'PY'
+    local python_cmd
+    python_cmd="$(get_python_cmd)"
+    
+    $python_cmd - << 'PY'
 try:
     import yaml  # noqa: F401
 except Exception:
@@ -49,7 +66,9 @@ PY
 yaml_list() {
     local file="$1"
     local path="$2"
-    python3 - "$file" "$path" << 'PY'
+    local python_cmd
+    python_cmd="$(get_python_cmd)"
+    $python_cmd - "$file" "$path" << 'PY'
 import json
 import sys
 import yaml
@@ -169,5 +188,7 @@ api_get() {
 pretty_json() {
     local raw="$1"
     local pretty="$2"
-    python3 -m json.tool "$raw" > "$pretty"
+    local python_cmd
+    python_cmd="$(get_python_cmd)"
+    $python_cmd -m json.tool "$raw" > "$pretty"
 }
