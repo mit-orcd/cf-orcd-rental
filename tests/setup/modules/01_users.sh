@@ -102,39 +102,6 @@ first_username=""
 first_token=""
 
 while IFS=$'\t' read -r username email password groups; do
-import json
-import sys
-import yaml
-
-with open(sys.argv[1], "r", encoding="utf-8") as f:
-    data = yaml.safe_load(f) or {}
-
-defaults = data.get("defaults", {})
-default_password = defaults.get("password", "")
-default_domain = defaults.get("email_domain", "")
-
-def emit(user):
-    username = user.get("username", "")
-    email = user.get("email", "")
-    password = user.get("password", default_password)
-    groups = user.get("groups", [])
-
-    if not email and default_domain:
-        email = f"{username}@{default_domain}"
-
-    line = "\t".join([
-        username,
-        email,
-        password or "",
-        ",".join(groups),
-    ])
-    print(line)
-
-for u in data.get("managers", []):
-    emit(u)
-for u in data.get("users", []):
-    emit(u)
-PY
     [ -n "$username" ] || continue
 
     if [ "$DRY_RUN" = "true" ]; then
@@ -166,7 +133,6 @@ PY
         fi
     fi
 done < <(python3 - "$USERS_CONFIG" << 'PY'
-import json
 import sys
 import yaml
 
@@ -194,8 +160,7 @@ def emit(user):
     ])
     print(line)
 
-for u in data.get("managers", []):
-    emit(u)
+# Single users list - all users are equal (all have PI status)
 for u in data.get("users", []):
     emit(u)
 PY

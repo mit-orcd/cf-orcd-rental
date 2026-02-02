@@ -1,109 +1,50 @@
 version: "1.0"
 
+# Simplified users configuration
+# All users are created with PI status (can create and own projects)
+# Use 'groups' to assign privileged roles: billing, rental, rate
+
 defaults:
   email_domain: "example.edu"
   password: "TestPass123!"
 
-# Manager users (system-level permissions)
-managers:
-  - id: billing_admin
-    username: billing_admin
+users:
+  # System administrators with privileged roles
+  - username: billing_admin
     email: billing_admin@example.edu
     first_name: Billing
     last_name: Administrator
     groups: [billing]
-    
-  - id: rental_admin
-    username: rental_admin
+
+  - username: rental_admin
     email: rental_admin@example.edu
     first_name: Rental
     last_name: Administrator
     groups: [rental]
 
-  - id: rate_admin
-    username: rate_admin
+  - username: rate_admin
     email: rate_admin@example.edu
     first_name: Rate
     last_name: Administrator
     groups: [rate]
 
-# Project owners and members
-users:
-  # Project: project_alpha
-  - id: user_pi_alpha
-    username: pi_alpha
-    email: pi_alpha@example.edu
-    first_name: Principal
-    last_name: Investigator Alpha
-    
-  - id: user_member_alpha1
-    username: member_alpha1
-    email: member_alpha1@example.edu
-    first_name: Member
-    last_name: Alpha One
-    maintenance:
-      status: basic
-      project: project_alpha
+  # Regular users for testing
+  - username: alice
+    first_name: Alice
+    last_name: Smith
 
-  - id: user_member_alpha2
-    username: member_alpha2
-    email: member_alpha2@example.edu
-    first_name: Member
-    last_name: Alpha Two
-    maintenance:
-      status: advanced
-      project: project_alpha
+  - username: bob
+    first_name: Bob
+    last_name: Jones
 
-  # Project: project_beta
-  - id: user_pi_beta
-    username: pi_beta
-    email: pi_beta@example.edu
-    first_name: Principal
-    last_name: Investigator Beta
-    
-  - id: user_member_beta1
-    username: member_beta1
-    email: member_beta1@example.edu
-    first_name: Member
-    last_name: Beta One
-    maintenance:
-      status: advanced
-      project: project_beta
+  - username: charlie
+    first_name: Charlie
+    last_name: Brown
 
-  # Project: project_gamma (small project - owner only)
-  - id: user_pi_gamma
-    username: pi_gamma
-    email: pi_gamma@example.edu
-    first_name: Principal
-    last_name: Investigator Gamma
+  - username: diana
+    first_name: Diana
+    last_name: Prince
 
-  # Project: project_delta
-  - id: user_pi_delta
-    username: pi_delta
-    email: pi_delta@example.edu
-    first_name: Principal
-    last_name: Investigator Delta
-    
-  - id: user_member_delta1
-    username: member_delta1
-    email: member_delta1@example.edu
-    first_name: Member
-    last_name: Delta One
-    
-  - id: user_member_delta2
-    username: member_delta2
-    email: member_delta2@example.edu
-    first_name: Member
-    last_name: Delta Two
-    maintenance:
-      status: basic
-      project: project_delta
-
-  - id: user_member_delta3
-    username: member_delta3
-    email: member_delta3@example.edu
-    first_name: Member
-    last_name: Delta Three
-    maintenance:
-      status: advanced
-      project: project_delta
+  - username: edward
+    first_name: Edward
+    last_name: Norton
