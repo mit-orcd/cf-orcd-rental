@@ -1,3 +1,3 @@
 Watching for file changes with StatReloader
-"GET / HTTP/1.1" 200 4849
+"GET / HTTP/1.1" 200 4834
 "GET /nodes/api/user-search/?q=smokeuser HTTP/1.1" 200 115
