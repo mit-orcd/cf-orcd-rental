@@ -36,34 +36,10 @@ class CommandGenerator:
         commands = []
         defaults = self.config.get('defaults', {})
         
-        # Manager users
-        for user in self.config.get('managers', []):
-            cmd = self._build_create_user_cmd(user, defaults)
-            commands.append(cmd)
-        
-        # Regular users
+        # All users (single list - all have PI status)
         for user in self.config.get('users', []):
             cmd = self._build_create_user_cmd(user, defaults)
             commands.append(cmd)
-        
-        return commands
-    
-    def generate_amf_commands(self) -> List[str]:
-        """Generate set_user_amf commands for users with maintenance status.
-        
-        Returns:
-            List of set_user_amf command strings (without 'coldfront' prefix)
-        """
-        commands = []
-        
-        for user in self.config.get('users', []):
-            maint = user.get('maintenance')
-            if maint and maint.get('status') != 'inactive':
-                username = user['username']
-                status = maint['status']
-                project = maint['project']
-                cmd = f"set_user_amf {username} {status} --project {project} --force --quiet"
-                commands.append(cmd)
         
         return commands
     
@@ -89,13 +65,11 @@ class CommandGenerator:
         cmd += " --force --quiet"
         return cmd
     
-    def write_script(self, output_path: str, include_projects: bool = False) -> None:
+    def write_script(self, output_path: str) -> None:
         """Write all commands to a shell script.
         
         Args:
             output_path: Path where the shell script should be written
-            include_projects: If True, include set_user_amf commands (requires
-                            projects to exist first)
         """
         commands = []
         
@@ -107,14 +81,8 @@ class CommandGenerator:
         commands.append("")
         
         # User creation commands
-        commands.append("# Create users")
+        commands.append("# Create users (all users have PI status)")
         commands.extend(self.generate_user_commands())
-        commands.append("")
-        
-        # AMF commands (after projects exist)
-        if include_projects:
-            commands.append("# Set maintenance status (run after projects created)")
-            commands.extend(self.generate_amf_commands())
         
         output_path = Path(output_path)
         with open(output_path, 'w') as f:

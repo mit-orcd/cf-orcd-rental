@@ -114,12 +114,7 @@ def load_users_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     
     defaults = config.get('defaults', {})
     
-    # Apply defaults to managers
-    managers = []
-    for manager in config.get('managers', []):
-        managers.append(_apply_defaults(manager, defaults))
-    
-    # Apply defaults to users
+    # Apply defaults to all users (single list - all users have PI status)
     users = []
     for user in config.get('users', []):
         users.append(_apply_defaults(user, defaults))
@@ -127,7 +122,6 @@ def load_users_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     _users_config = {
         'version': config.get('version'),
         'defaults': defaults,
-        'managers': managers,
         'users': users
     }
     
@@ -182,13 +176,13 @@ def load_projects_config(config_path: Optional[str] = None) -> Dict[str, Any]:
 
 
 def get_all_users() -> List[Dict[str, Any]]:
-    """Return combined list of managers and users.
+    """Return list of all users.
     
     Returns:
-        List of all user dictionaries (managers + users)
+        List of all user dictionaries
     """
     config = load_users_config()
-    return config['managers'] + config['users']
+    return config['users']
 
 
 def get_users_by_project(project_id: str) -> List[Dict[str, Any]]:
@@ -197,7 +191,6 @@ def get_users_by_project(project_id: str) -> List[Dict[str, Any]]:
     A user is associated with a project if:
     - They are the owner of the project
     - They are a member of the project
-    - They have maintenance status for the project
     
     Args:
         project_id: Project identifier
@@ -206,7 +199,6 @@ def get_users_by_project(project_id: str) -> List[Dict[str, Any]]:
         List of user dictionaries associated with the project
     """
     projects_config = load_projects_config()
-    users_config = load_users_config()
     
     # Find the project
     project = None
@@ -218,44 +210,22 @@ def get_users_by_project(project_id: str) -> List[Dict[str, Any]]:
     if not project:
         return []
     
-    # Collect user IDs associated with this project
-    user_ids = set()
+    # Collect usernames associated with this project
+    usernames = set()
     
     # Add owner
-    owner_id = project.get('owner')
-    if owner_id:
-        user_ids.add(owner_id)
+    owner = project.get('owner')
+    if owner:
+        usernames.add(owner)
     
     # Add members
     for member in project.get('members', []):
-        member_id = member.get('user_id')
-        if member_id:
-            user_ids.add(member_id)
-    
-    # Add users with maintenance status for this project
-    for user in users_config['users']:
-        maintenance = user.get('maintenance')
-        if maintenance and maintenance.get('project') == project_id:
-            user_ids.add(user.get('id'))
+        username = member.get('username')
+        if username:
+            usernames.add(username)
     
     # Build list of user dictionaries
     all_users = get_all_users()
-    project_users = [user for user in all_users if user.get('id') in user_ids]
+    project_users = [user for user in all_users if user.get('username') in usernames]
     
     return project_users
-
-
-def get_users_with_maintenance() -> List[Dict[str, Any]]:
-    """Return users that have maintenance status set.
-    
-    Returns:
-        List of user dictionaries that have a maintenance field
-    """
-    config = load_users_config()
-    
-    users_with_maintenance = []
-    for user in config['users']:
-        if 'maintenance' in user:
-            users_with_maintenance.append(user)
-    
-    return users_with_maintenance
