@@ -127,6 +127,15 @@ jobs:
           path: coldfront-orcd-direct-charge/tests/setup/output/
           retention-days: 7
 
+      # Redact sensitive API tokens before pushing to public branch
+      # This prevents Git Guardian from flagging disposable test tokens as leaked secrets
+      - name: Redact API tokens from artifacts
+        if: always()
+        run: |
+          cd coldfront-orcd-direct-charge
+          chmod +x tests/setup/lib/redact_secrets.sh
+          ./tests/setup/lib/redact_secrets.sh tests/setup/output/
+
       # Push artifacts to a dedicated branch for persistence
       - name: Push artifacts to branch
         if: always()
