@@ -163,7 +163,12 @@ class TestBulkUserCreation(BaseSystemTest, unittest.TestCase):
     """Test creating multiple users from YAML config."""
     
     def test_create_users_from_yaml(self):
-        """Create all users defined in users.yaml."""
+        """Create all users defined in users.yaml.
+        
+        The users.yaml uses a simplified schema with a single 'users' list.
+        All users are created with PI status (can create and own projects).
+        Privileged roles are assigned via the 'groups' field.
+        """
         from ..utils.yaml_loader import load_users_config
         from ..utils.command_generator import CommandGenerator
         
@@ -186,7 +191,7 @@ class TestBulkUserCreation(BaseSystemTest, unittest.TestCase):
         
         # Verify that users were created
         config = load_users_config(str(config_path))
-        all_users = config.get('managers', []) + config.get('users', [])
+        all_users = config.get('users', [])
         
         for user_config in all_users:
             username = user_config.get('username')
