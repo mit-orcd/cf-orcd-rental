@@ -107,6 +107,17 @@ jobs:
           USE_UV: "true"
           SERVER_PORT: "8000"
 
+      # Run multi-user creation test
+      - name: Run Multi-user Test
+        run: |
+          cd ${{ github.workspace }}/coldfront-orcd-direct-charge
+          bash tests/setup/modules/01_1_multiusers.sh
+        env:
+          RUNNER_TYPE: github
+          WORKSPACE: ${{ github.workspace }}
+          USE_UV: "true"
+          SERVER_PORT: "8000"
+
       # Upload smoke test outputs for review
       - name: Upload Smoke Test Outputs
         if: always()
