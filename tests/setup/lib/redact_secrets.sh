@@ -7,6 +7,7 @@
 # This script replaces actual API token values with "XXXX" in:
 #   - JSON files containing "token" keys
 #   - TSV files with token columns
+#   - Log/text files with "API Token:" patterns (extensible)
 #
 # Run this before pushing artifacts to public branches to prevent
 # secret detection tools (e.g., Git Guardian) from flagging tokens.
@@ -14,6 +15,25 @@
 set -euo pipefail
 
 OUTPUT_DIR="${1:-.}"
+
+# =============================================================================
+# Redaction Patterns for Text Files (log, txt, etc.)
+# =============================================================================
+# Each pattern is a sed substitution expression using extended regex (-E).
+# Format: 's/PATTERN/REPLACEMENT/'
+#
+# To add new patterns, simply append to this array.
+# Patterns are applied in order to all .log and .txt files.
+# =============================================================================
+
+TEXT_REDACT_PATTERNS=(
+    # API Token: <40-char hex> -> API Token: XXXX
+    's/(API Token: )[a-f0-9]{32,}/\1XXXX/g'
+    
+    # Generated token <40-char hex> -> Generated ... XXXX
+    # Handles lines like: "Generated new API token for 'user'\nAPI Token: abc123..."
+    's/(token[^a-f0-9]{0,20})[a-f0-9]{32,}/\1XXXX/gi'
+)
 
 if [ ! -d "$OUTPUT_DIR" ]; then
     echo "Error: Directory not found: $OUTPUT_DIR"
@@ -72,6 +92,35 @@ if [ -n "$tsv_files" ]; then
             sed 's/\t[a-f0-9]\{32,\}$/\tXXXX/' "$tsv_file" > "$tmp_file"
             mv "$tmp_file" "$tsv_file"
             echo "  Redacted: $tsv_file"
+        fi
+    done
+fi
+
+# =============================================================================
+# Redact patterns in text files (log, txt, etc.)
+# =============================================================================
+# Uses the extensible TEXT_REDACT_PATTERNS array defined above.
+# Each pattern is applied using sed with extended regex (-E).
+# =============================================================================
+
+text_files=$(find "$OUTPUT_DIR" \( -name "*.log" -o -name "*.txt" \) -type f 2>/dev/null || true)
+
+if [ -n "$text_files" ]; then
+    echo "$text_files" | while read -r text_file; do
+        if [ -f "$text_file" ]; then
+            tmp_file="${text_file}.tmp"
+            cp "$text_file" "$tmp_file"
+            
+            # Apply each pattern from the extensible array
+            for pattern in "${TEXT_REDACT_PATTERNS[@]}"; do
+                # Use sed -E for extended regex (portable across BSD and GNU sed)
+                # Write to temp file, then rename for portability
+                sed -E "$pattern" "$tmp_file" > "${tmp_file}.sed"
+                mv "${tmp_file}.sed" "$tmp_file"
+            done
+            
+            mv "$tmp_file" "$text_file"
+            echo "  Redacted: $text_file"
         fi
     done
 fi
