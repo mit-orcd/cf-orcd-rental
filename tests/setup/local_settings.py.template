@@ -43,8 +43,19 @@ CENTER_NAME = 'MIT ORCD Rental Services'
 # API Configuration
 # =============================================================================
 
-# Enable the REST API
-PLUGIN_API = True
+# IMPORTANT: PLUGIN_API must be set as an ENVIRONMENT VARIABLE, not here!
+#
+# ColdFront's settings.py checks environment variables BEFORE loading
+# local_settings.py to decide which plugins to include. Setting PLUGIN_API
+# here has NO EFFECT on plugin loading.
+#
+# The setup_environment.sh script sets: export PLUGIN_API=True
+# This enables:
+#   - rest_framework.authtoken (provides drf_create_token command)
+#   - coldfront.plugins.api (provides regenerate_token URL)
+#
+# The line below is kept for documentation purposes only.
+PLUGIN_API = True  # Has no effect - must be environment variable
 
 # =============================================================================
 # UI Configuration

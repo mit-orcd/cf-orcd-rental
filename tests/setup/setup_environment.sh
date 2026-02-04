@@ -17,6 +17,7 @@
 #   SKIP_SERVER        - Skip starting server (default: false)
 #   SKIP_FIXTURES      - Skip loading fixtures (default: false, deprecated - use SKIP_INIT)
 #   SKIP_INIT          - Skip database initialization (default: false)
+#   PLUGIN_API         - Enable ColdFront API plugin (default: True, set by script)
 #
 
 set -e  # Exit on first error
@@ -34,6 +35,16 @@ RUNNER_TYPE="${RUNNER_TYPE:-github}"
 SKIP_SERVER="${SKIP_SERVER:-false}"
 SKIP_FIXTURES="${SKIP_FIXTURES:-false}"
 SKIP_INIT="${SKIP_INIT:-false}"
+
+# =============================================================================
+# ColdFront Plugin Environment Variables
+# =============================================================================
+# These MUST be set as environment variables BEFORE Django loads settings.
+# ColdFront's settings.py checks these during initialization to decide which
+# plugins to load. Setting them in local_settings.py is too late.
+# =============================================================================
+
+export PLUGIN_API=True
 
 # Get script and plugin directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -354,6 +365,12 @@ export DJANGO_SETTINGS_MODULE=coldfront.config.settings
 # Set Python path to include ColdFront
 export PYTHONPATH="$COLDFRONT_DIR:\${PYTHONPATH:-}"
 
+# Enable ColdFront API plugin
+# This MUST be set before Django loads settings so that rest_framework.authtoken
+# is added to INSTALLED_APPS (required for drf_create_token command and
+# regenerate_token URL)
+export PLUGIN_API=True
+
 # Plugin location for reference
 export ORCD_PLUGIN_DIR="$PLUGIN_DIR"
 
@@ -361,6 +378,7 @@ export ORCD_PLUGIN_DIR="$PLUGIN_DIR"
 echo "ColdFront environment activated"
 echo "  DJANGO_SETTINGS_MODULE=\$DJANGO_SETTINGS_MODULE"
 echo "  PYTHONPATH includes: $COLDFRONT_DIR"
+echo "  PLUGIN_API=\$PLUGIN_API"
 EOF
 
 chmod +x "$ACTIVATE_SCRIPT"
