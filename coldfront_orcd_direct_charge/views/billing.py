@@ -918,7 +918,7 @@ class InvoiceEditView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView)
 
             eligible_qs = Project.objects.filter(
                 status__name="Active",
-            ).exclude(pk=current_project.pk)
+            )
 
             if current_fin_admin_user_ids:
                 eligible_qs = eligible_qs.filter(
@@ -945,7 +945,6 @@ class InvoiceEditView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView)
             # All active projects (for "any project" option, billing managers only)
             all_projects = list(
                 Project.objects.filter(status__name="Active")
-                .exclude(pk=current_project.pk)
                 .select_related("pi")
                 .order_by("pi__username", "title")
             )
@@ -1041,8 +1040,42 @@ class InvoiceEditView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView)
                 return redirect(f"{request.path}?reservation={reservation_id}")
 
             if target_project.pk == reservation.project.pk:
-                messages.error(request, "Target project must be different from the current project.")
-                return redirect(f"{request.path}?reservation={reservation_id}")
+                # Selecting the original project means "revert to normal billing"
+                existing = InvoiceLineOverride.objects.filter(
+                    invoice_period=invoice_period,
+                    reservation=reservation,
+                ).first()
+                if existing:
+                    override_type_display = existing.get_override_type_display()
+                    existing.delete()
+                    logger.info(
+                        f"Invoice override deleted (revert to original project): "
+                        f"reservation={reservation.pk}, by={request.user.username}"
+                    )
+                    log_activity(
+                        action="invoice.override_deleted",
+                        category=ActivityLog.ActionCategory.INVOICE,
+                        description=(
+                            f"Override removed for reservation #{reservation.pk} "
+                            f"(reverted to original project)"
+                        ),
+                        request=request,
+                        extra_data={
+                            "year": year,
+                            "month": month,
+                            "reservation_id": reservation.pk,
+                            "override_type": override_type_display,
+                        },
+                    )
+                    messages.success(
+                        request,
+                        "Override removed. Reservation reverted to original project billing.",
+                    )
+                else:
+                    messages.info(request, "Reservation is already billed to this project.")
+                return redirect(
+                    "coldfront_orcd_direct_charge:invoice-detail", year=year, month=month
+                )
 
             # Verify the target project has an approved cost allocation
             try:
