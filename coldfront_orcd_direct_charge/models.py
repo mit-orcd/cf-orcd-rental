@@ -951,6 +951,7 @@ class InvoiceLineOverride(TimeStampedModel):
         HOURS = "HOURS", "Hours Override"
         COST_SPLIT = "COST_SPLIT", "Cost Split Override"
         EXCLUDE = "EXCLUDE", "Exclude from Invoice"
+        CHARGE_PROJECT = "CHARGE_PROJECT", "Charge to Different Project"
 
     invoice_period = models.ForeignKey(
         InvoicePeriod,

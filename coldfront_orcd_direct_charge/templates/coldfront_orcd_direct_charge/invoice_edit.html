@@ -86,6 +86,9 @@ Edit Invoice Override - {{ month_name }} {{ year }}
           <option value="COST_SPLIT" {% if existing_override.override_type == 'COST_SPLIT' %}selected{% endif %}>
             Override Cost Split
           </option>
+          <option value="CHARGE_PROJECT" {% if existing_override.override_type == 'CHARGE_PROJECT' %}selected{% endif %}>
+            Charge to Different Project
+          </option>
         </select>
       </div>
 
@@ -134,6 +137,30 @@ Edit Invoice Override - {{ month_name }} {{ year }}
         </table>
       </div>
 
+      <div id="charge_project_fields" style="display: none;">
+        <label><strong>Charge to Different Project</strong></label>
+        <p class="text-muted">Select a project to charge instead of the current project. The target project's cost allocation will be used.</p>
+
+        {% if is_billing_manager %}
+        <div class="form-check mb-3">
+          <input type="checkbox" class="form-check-input" id="show_all_projects" onchange="toggleProjectList()">
+          <label class="form-check-label" for="show_all_projects">
+            Show all projects (any project)
+          </label>
+        </div>
+        {% endif %}
+
+        <div class="form-group">
+          <label for="target_project_id"><strong>Target Project</strong></label>
+          <select name="target_project_id" id="target_project_id" class="form-control">
+            <option value="">-- Select a project --</option>
+          </select>
+          <small class="form-text text-muted" id="eligible_projects_help">
+            Showing projects with the same owner or shared financial admin.
+          </small>
+        </div>
+      </div>
+
       <div class="form-group">
         <label for="notes"><strong>Notes (Required)</strong></label>
         <textarea name="notes" id="notes" class="form-control" rows="3" required
@@ -169,10 +196,65 @@ Edit Invoice Override - {{ month_name }} {{ year }}
 {% block javascript %}
 {{ block.super }}
 <script>
+// Project lists passed from view context as JSON
+var eligibleProjects = {{ eligible_projects_json|safe|default:"[]" }};
+var allProjects = {{ all_projects_json|safe|default:"[]" }};
+var existingTargetProjectId = {{ existing_target_project_id|default:"null" }};
+
 function toggleOverrideFields() {
   var type = document.getElementById('override_type').value;
   document.getElementById('hours_override_fields').style.display = (type === 'HOURS') ? 'block' : 'none';
   document.getElementById('cost_split_fields').style.display = (type === 'COST_SPLIT') ? 'block' : 'none';
+  document.getElementById('charge_project_fields').style.display = (type === 'CHARGE_PROJECT') ? 'block' : 'none';
+
+  if (type === 'CHARGE_PROJECT') {
+    populateProjectDropdown();
+  }
+}
+
+function populateProjectDropdown() {
+  var select = document.getElementById('target_project_id');
+  var showAll = document.getElementById('show_all_projects');
+  var helpText = document.getElementById('eligible_projects_help');
+  var projects = (showAll && showAll.checked) ? allProjects : eligibleProjects;
+
+  // Destroy existing Select2 instance if present
+  if ($(select).data('select2')) {
+    $(select).select2('destroy');
+  }
+
+  // Clear and repopulate
+  select.innerHTML = '<option value="">-- Select a project --</option>';
+  projects.forEach(function(p) {
+    var opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.label;
+    if (existingTargetProjectId && p.id === existingTargetProjectId) {
+      opt.selected = true;
+    }
+    select.appendChild(opt);
+  });
+
+  // Update help text
+  if (helpText) {
+    if (showAll && showAll.checked) {
+      helpText.textContent = 'Showing all active projects.';
+    } else {
+      helpText.textContent = 'Showing projects with the same owner or shared financial admin.';
+    }
+  }
+
+  // Initialize Select2 for searchable dropdown
+  $(select).select2({
+    theme: 'bootstrap4',
+    placeholder: '-- Select a project --',
+    allowClear: true,
+    width: '100%'
+  });
+}
+
+function toggleProjectList() {
+  populateProjectDropdown();
 }
 
 function updateCostSplitTotal() {

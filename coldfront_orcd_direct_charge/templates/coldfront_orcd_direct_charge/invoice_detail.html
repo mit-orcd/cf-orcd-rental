@@ -135,6 +135,13 @@ Invoice Report - {{ month_name }} {{ year }}
             {% if line.excluded %}
               <span class="badge badge-dark">Excluded</span>
             {% endif %}
+            {% if line.charge_redirected %}
+              <br>
+              <small class="text-info" title="Originally charged to {{ line.original_project.title }}">
+                <i class="fas fa-exchange-alt"></i>
+                Charged from: {{ line.original_project.title }}
+              </small>
+            {% endif %}
           </td>
           <td>{{ line.reservation.node_instance.associated_resource_address }}</td>
           <td>{% if line.sku %}{{ line.sku.sku_code }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
