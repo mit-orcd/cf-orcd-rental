@@ -25,6 +25,7 @@ from coldfront_orcd_direct_charge.api.serializers import (
 from coldfront_orcd_direct_charge.models import (
     ActivityLog,
     CostAllocationSnapshot,
+    GpuNodeInstance,
     InvoiceLineOverride,
     InvoicePeriod,
     MaintenanceWindow,
@@ -752,3 +753,102 @@ class SKUListView(APIView):
 
         serializer = SKUSerializer(queryset, many=True)
         return Response(serializer.data)
+
+
+class NodeAvailabilityView(APIView):
+    """Return booked periods for a GPU node to support availability checks.
+
+    GET /api/node-availability/?node_id=<id>
+
+    Requires authentication (any logged-in user).
+
+    Returns all APPROVED and PENDING reservation time intervals for the
+    specified node within the bookable window (today+7 days through
+    today+3 months).  Does NOT expose project names, user names, or
+    reservation IDs -- only time intervals and status.
+
+    Response shape:
+    {
+      "node_id": 1,
+      "node_name": "node2433",
+      "booked_periods": [
+        {
+          "start_datetime": "2026-02-13T16:00:00",
+          "end_datetime": "2026-02-14T04:00:00",
+          "status": "approved",
+          "is_mine": false
+        }
+      ]
+    }
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        node_id = request.GET.get("node_id")
+        if not node_id:
+            return Response(
+                {"error": "node_id query parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            node = GpuNodeInstance.objects.get(pk=node_id, is_rentable=True)
+        except GpuNodeInstance.DoesNotExist:
+            return Response(
+                {"error": "Node not found or not rentable"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Bookable window: today + 7 days through today + 3 months
+        today = date.today()
+        window_start = today + timedelta(days=7)
+        max_month = today.month + 3
+        max_year = today.year
+        if max_month > 12:
+            max_month = max_month - 12
+            max_year += 1
+        import calendar as cal_module
+        window_end = date(
+            max_year, max_month, cal_module.monthrange(max_year, max_month)[1]
+        )
+
+        # Convert to datetimes for overlap comparison
+        window_start_dt = datetime.combine(window_start, time(0, 0))
+        window_end_dt = datetime.combine(window_end + timedelta(days=1), time(0, 0))
+
+        # Get user's project IDs to determine "is_mine"
+        from coldfront.core.project.models import Project
+
+        user_project_ids = set(
+            Project.objects.filter(
+                projectuser__user=request.user,
+                projectuser__status__name="Active",
+            ).values_list("id", flat=True)
+        )
+
+        # Query APPROVED and PENDING reservations that overlap the bookable window
+        reservations = Reservation.objects.filter(
+            node_instance=node,
+            status__in=[
+                Reservation.StatusChoices.APPROVED,
+                Reservation.StatusChoices.PENDING,
+            ],
+        ).select_related("project")
+
+        booked_periods = []
+        for res in reservations:
+            # Check if reservation overlaps with the bookable window
+            if res.start_datetime < window_end_dt and res.end_datetime > window_start_dt:
+                booked_periods.append({
+                    "start_datetime": res.start_datetime.isoformat(),
+                    "end_datetime": res.end_datetime.isoformat(),
+                    "status": res.status.lower(),
+                    "is_mine": res.project_id in user_project_ids,
+                })
+
+        return Response({
+            "node_id": node.pk,
+            "node_name": node.associated_resource_address,
+            "booked_periods": booked_periods,
+        })

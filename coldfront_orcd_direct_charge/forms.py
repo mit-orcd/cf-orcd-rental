@@ -135,7 +135,7 @@ class ReservationRequestForm(forms.ModelForm):
 
         if node_instance and start_date and num_blocks:
             num_blocks = int(num_blocks)
-            # Check for overlapping approved reservations
+            # Check for overlapping approved or pending reservations
             from datetime import datetime, time, timedelta
 
             new_start = datetime.combine(start_date, time(Reservation.START_HOUR, 0))
@@ -143,7 +143,10 @@ class ReservationRequestForm(forms.ModelForm):
 
             overlapping = Reservation.objects.filter(
                 node_instance=node_instance,
-                status=Reservation.StatusChoices.APPROVED,
+                status__in=[
+                    Reservation.StatusChoices.APPROVED,
+                    Reservation.StatusChoices.PENDING,
+                ],
             )
 
             for reservation in overlapping:
@@ -152,10 +155,16 @@ class ReservationRequestForm(forms.ModelForm):
 
                 # Check if there's any overlap
                 if new_start < existing_end and new_end > existing_start:
+                    status_label = (
+                        "confirmed" if reservation.status == Reservation.StatusChoices.APPROVED
+                        else "pending"
+                    )
                     raise ValidationError(
-                        f"This reservation overlaps with an existing approved reservation "
+                        f"This reservation overlaps with an existing reservation "
+                        f"({status_label}) on {node_instance.associated_resource_address} "
                         f"from {existing_start.strftime('%b %d %I:%M %p')} to "
-                        f"{existing_end.strftime('%b %d %I:%M %p')}."
+                        f"{existing_end.strftime('%b %d %I:%M %p')}. "
+                        f"Please choose a different date or duration."
                     )
 
         return cleaned_data
