@@ -446,9 +446,33 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVie
             else:
                 hours_in_month = hours_data["hours"]
 
+            # Determine the effective project for cost breakdown
+            # (may differ from reservation project if CHARGE_PROJECT override)
+            charge_redirected = False
+            original_project = None
+            effective_project = res.project
+
+            if override and override.override_type == InvoiceLineOverride.OverrideTypeChoices.CHARGE_PROJECT:
+                from coldfront.core.project.models import Project
+
+                target_id = override.override_value.get("target_project_id")
+                if target_id:
+                    try:
+                        target_project = Project.objects.select_related("pi").get(pk=target_id)
+                        original_project = res.project
+                        effective_project = target_project
+                        charge_redirected = True
+                    except Project.DoesNotExist:
+                        pass  # Fall back to original project
+
             # Calculate cost breakdown using snapshots
             if override and override.override_type == InvoiceLineOverride.OverrideTypeChoices.COST_SPLIT:
                 cost_breakdown = override.override_value.get("cost_breakdown", [])
+            elif charge_redirected:
+                # Use target project's cost allocation for the breakdown
+                cost_breakdown = self._calculate_cost_breakdown_for_project(
+                    effective_project, res, year, month, hours_in_month
+                )
             else:
                 cost_breakdown = self._calculate_cost_breakdown(
                     res, year, month, hours_in_month
@@ -459,7 +483,7 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVie
                 res, year, month
             )
 
-            invoice_lines.append({
+            line_data = {
                 "reservation": res,
                 "excluded": False,
                 "override": override,
@@ -468,12 +492,19 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVie
                 "cost_breakdown": cost_breakdown,
                 "daily_breakdown": hours_data.get("daily_breakdown", []),
                 "sku": sku,
-            })
+            }
 
-        # Group by project
+            if charge_redirected:
+                line_data["charge_redirected"] = True
+                line_data["original_project"] = original_project
+                line_data["effective_project"] = effective_project
+
+            invoice_lines.append(line_data)
+
+        # Group by project (use effective_project for charge-redirected lines)
         projects = {}
         for line in invoice_lines:
-            project = line["reservation"].project
+            project = line.get("effective_project", line["reservation"].project)
             if project.pk not in projects:
                 projects[project.pk] = {
                     "project": project,
@@ -572,6 +603,68 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVie
             current_date += timedelta(days=1)
 
         # Convert to list format
+        breakdown = [
+            {"cost_object": co, "hours": round(hours, 2)}
+            for co, hours in sorted(cost_hours.items())
+        ]
+
+        return breakdown
+
+    def _calculate_cost_breakdown_for_project(self, project, reservation, year, month, total_hours):
+        """Calculate cost object breakdown using a specific project's snapshots.
+
+        Similar to _calculate_cost_breakdown, but uses the given project's cost
+        allocation snapshots instead of the reservation's project. Used when a
+        CHARGE_PROJECT override redirects charges to a different project.
+        """
+        month_start = date(year, month, 1)
+        if month == 12:
+            month_end = date(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            month_end = date(year, month + 1, 1) - timedelta(days=1)
+
+        cost_hours = {}
+
+        current_date = max(reservation.start_date, month_start)
+        end_date = min(reservation.end_date, month_end)
+
+        while current_date <= end_date:
+            day_hours = self._get_hours_for_day(reservation, current_date, year, month)
+
+            if day_hours > 0:
+                # Use the TARGET project's snapshot instead of the reservation's project
+                snapshot = CostAllocationSnapshot.get_active_snapshot_for_date(
+                    project, current_date
+                )
+
+                if snapshot:
+                    for co_snap in snapshot.cost_objects.all():
+                        co_id = co_snap.cost_object
+                        pct = float(co_snap.percentage) / 100.0
+                        hours_for_co = day_hours * pct
+
+                        if co_id not in cost_hours:
+                            cost_hours[co_id] = 0
+                        cost_hours[co_id] += hours_for_co
+                else:
+                    # No snapshot; fall back to current cost allocation
+                    try:
+                        allocation = project.cost_allocation
+                        for co in allocation.cost_objects.all():
+                            co_id = co.cost_object
+                            pct = float(co.percentage) / 100.0
+                            hours_for_co = day_hours * pct
+
+                            if co_id not in cost_hours:
+                                cost_hours[co_id] = 0
+                            cost_hours[co_id] += hours_for_co
+                    except ProjectCostAllocation.DoesNotExist:
+                        if "UNKNOWN" not in cost_hours:
+                            cost_hours["UNKNOWN"] = 0
+                        cost_hours["UNKNOWN"] += day_hours
+
+            current_date += timedelta(days=1)
+
         breakdown = [
             {"cost_object": co, "hours": round(hours, 2)}
             for co, hours in sorted(cost_hours.items())
@@ -807,6 +900,80 @@ class InvoiceEditView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView)
             except ProjectCostAllocation.DoesNotExist:
                 context["cost_objects"] = []
 
+            # --- Charge to Different Project: build eligible and all project lists ---
+            from coldfront.core.project.models import Project
+            from coldfront_orcd_direct_charge.models import ProjectMemberRole
+
+            current_project = reservation.project
+
+            # Eligible projects: same PI OR shared financial admin
+            current_fin_admin_user_ids = list(
+                ProjectMemberRole.objects.filter(
+                    project=current_project,
+                    role=ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN,
+                ).values_list("user_id", flat=True)
+            )
+
+            from django.db.models import Q
+
+            eligible_qs = Project.objects.filter(
+                status__name="Active",
+            )
+
+            if current_fin_admin_user_ids:
+                eligible_qs = eligible_qs.filter(
+                    Q(pi=current_project.pi)
+                    | Q(
+                        member_roles__user_id__in=current_fin_admin_user_ids,
+                        member_roles__role=ProjectMemberRole.RoleChoices.FINANCIAL_ADMIN,
+                    )
+                    | Q(pi_id__in=current_fin_admin_user_ids)
+                ).distinct()
+            else:
+                eligible_qs = eligible_qs.filter(pi=current_project.pi)
+
+            eligible_projects = list(
+                eligible_qs.select_related("pi").order_by("pi__username", "title")
+            )
+            import json
+
+            context["eligible_projects_json"] = json.dumps([
+                {"id": p.pk, "label": f"{p.pi.username} - {p.title}"}
+                for p in eligible_projects
+            ])
+
+            # All active projects (for "any project" option, billing managers only)
+            all_projects = list(
+                Project.objects.filter(status__name="Active")
+                .select_related("pi")
+                .order_by("pi__username", "title")
+            )
+            context["all_projects_json"] = json.dumps([
+                {"id": p.pk, "label": f"{p.pi.username} - {p.title}"}
+                for p in all_projects
+            ])
+
+            context["is_billing_manager"] = self.request.user.has_perm(
+                "coldfront_orcd_direct_charge.can_manage_billing"
+            )
+
+            # If editing an existing CHARGE_PROJECT override, include target project info
+            if (
+                existing_override
+                and existing_override.override_type
+                == InvoiceLineOverride.OverrideTypeChoices.CHARGE_PROJECT
+            ):
+                target_id = existing_override.override_value.get("target_project_id")
+                if target_id:
+                    try:
+                        target_project = Project.objects.select_related("pi").get(pk=target_id)
+                        context["existing_target_project_id"] = target_project.pk
+                        context["existing_target_project_label"] = (
+                            f"{target_project.pi.username} - {target_project.title}"
+                        )
+                    except Project.DoesNotExist:
+                        context["existing_target_project_id"] = None
+
         return context
 
     def post(self, request, *args, **kwargs):
@@ -858,6 +1025,77 @@ class InvoiceEditView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView)
                     hours = float(value) if value else 0
                     cost_breakdown.append({"cost_object": co_id, "hours": hours})
             override_value = {"cost_breakdown": cost_breakdown}
+        elif override_type == InvoiceLineOverride.OverrideTypeChoices.CHARGE_PROJECT:
+            from coldfront.core.project.models import Project
+
+            target_project_id = request.POST.get("target_project_id")
+            if not target_project_id:
+                messages.error(request, "Please select a target project.")
+                return redirect(f"{request.path}?reservation={reservation_id}")
+
+            try:
+                target_project = Project.objects.get(pk=int(target_project_id))
+            except (Project.DoesNotExist, ValueError, TypeError):
+                messages.error(request, "Selected project does not exist.")
+                return redirect(f"{request.path}?reservation={reservation_id}")
+
+            if target_project.pk == reservation.project.pk:
+                # Selecting the original project means "revert to normal billing"
+                existing = InvoiceLineOverride.objects.filter(
+                    invoice_period=invoice_period,
+                    reservation=reservation,
+                ).first()
+                if existing:
+                    override_type_display = existing.get_override_type_display()
+                    existing.delete()
+                    logger.info(
+                        f"Invoice override deleted (revert to original project): "
+                        f"reservation={reservation.pk}, by={request.user.username}"
+                    )
+                    log_activity(
+                        action="invoice.override_deleted",
+                        category=ActivityLog.ActionCategory.INVOICE,
+                        description=(
+                            f"Override removed for reservation #{reservation.pk} "
+                            f"(reverted to original project)"
+                        ),
+                        request=request,
+                        extra_data={
+                            "year": year,
+                            "month": month,
+                            "reservation_id": reservation.pk,
+                            "override_type": override_type_display,
+                        },
+                    )
+                    messages.success(
+                        request,
+                        "Override removed. Reservation reverted to original project billing.",
+                    )
+                else:
+                    messages.info(request, "Reservation is already billed to this project.")
+                return redirect(
+                    "coldfront_orcd_direct_charge:invoice-detail", year=year, month=month
+                )
+
+            # Verify the target project has an approved cost allocation
+            try:
+                target_allocation = target_project.cost_allocation
+                if not target_allocation.is_approved():
+                    messages.error(
+                        request,
+                        f"Project \"{target_project.title}\" does not have an approved cost allocation.",
+                    )
+                    return redirect(f"{request.path}?reservation={reservation_id}")
+            except ProjectCostAllocation.DoesNotExist:
+                messages.error(
+                    request,
+                    f"Project \"{target_project.title}\" does not have a cost allocation configured.",
+                )
+                return redirect(f"{request.path}?reservation={reservation_id}")
+
+            override_value = {"target_project_id": target_project.pk}
+            # Also record the original project id for audit trail
+            original_value["original_project_id"] = reservation.project.pk
         else:
             messages.error(request, "Invalid override type.")
             return redirect(
@@ -977,6 +1215,15 @@ class InvoiceExportView(LoginRequiredMixin, PermissionRequiredMixin, View):
                         "created_at": override.created.isoformat(),
                         "original_value": override.original_value,
                         "override_value": override.override_value,
+                    }
+
+                # Include charge redirect metadata
+                if line.get("charge_redirected"):
+                    original_proj = line["original_project"]
+                    res_export["charge_redirect"] = {
+                        "original_project_id": original_proj.pk,
+                        "original_project_title": original_proj.title,
+                        "original_project_owner": original_proj.pi.username,
                     }
 
                 project_export["reservations"].append(res_export)
