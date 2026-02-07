@@ -18,6 +18,13 @@
 #   SKIP_FIXTURES      - Skip loading fixtures (default: false, deprecated - use SKIP_INIT)
 #   SKIP_INIT          - Skip database initialization (default: false)
 #   PLUGIN_API         - Enable ColdFront API plugin (default: True, set by script)
+#   DISABLE_SECURE_COOKIES - Allow session cookies over HTTP (default: true)
+#                        ColdFront's auth.py sets SESSION_COOKIE_SECURE = True,
+#                        which prevents browsers from storing session cookies on
+#                        plain HTTP. When true (the default), this script adds
+#                        SESSION_COOKIE_SECURE = False to local_settings.py so
+#                        that login works on http://localhost. Set to false for
+#                        HTTPS-only test environments.
 #
 
 set -e  # Exit on first error
@@ -35,6 +42,7 @@ RUNNER_TYPE="${RUNNER_TYPE:-github}"
 SKIP_SERVER="${SKIP_SERVER:-false}"
 SKIP_FIXTURES="${SKIP_FIXTURES:-false}"
 SKIP_INIT="${SKIP_INIT:-false}"
+DISABLE_SECURE_COOKIES="${DISABLE_SECURE_COOKIES:-true}"
 
 # =============================================================================
 # ColdFront Plugin Environment Variables
@@ -212,6 +220,30 @@ EOF
     echo "Created minimal local_settings.py"
 fi
 
+# Optionally disable secure session cookies for HTTP development servers.
+# ColdFront's auth.py sets SESSION_COOKIE_SECURE = True, which causes browsers
+# to reject session cookies over plain HTTP (e.g. http://localhost:8000).
+# This override lets login sessions persist on non-HTTPS dev servers.
+if [ "$DISABLE_SECURE_COOKIES" = "true" ]; then
+    if ! grep -q "SESSION_COOKIE_SECURE" "$LOCAL_SETTINGS"; then
+        cat >> "$LOCAL_SETTINGS" << 'COOKIE_EOF'
+
+# =============================================================================
+# Session Cookie Security (for local HTTP development)
+# =============================================================================
+# ColdFront's auth.py sets SESSION_COOKIE_SECURE = True, which tells browsers
+# to only send the session cookie over HTTPS. This must be False for login to
+# work on http://localhost. Added by setup_environment.sh (DISABLE_SECURE_COOKIES=true).
+SESSION_COOKIE_SECURE = False
+COOKIE_EOF
+        echo "Disabled secure session cookies (HTTP development mode)"
+    else
+        echo "SESSION_COOKIE_SECURE already configured in local_settings.py"
+    fi
+else
+    echo "Secure session cookies enabled (HTTPS required for login)"
+fi
+
 # Add plugin URLs to ColdFront
 URLS_FILE="$COLDFRONT_DIR/coldfront/config/urls.py"
 if ! grep -q "coldfront_orcd_direct_charge" "$URLS_FILE"; then
@@ -306,6 +338,7 @@ if [ "$SKIP_SERVER" != "true" ]; then
     
     # Start server in background
     cd "$COLDFRONT_DIR"
+    DEBUG=True
     if [ "$INSTALLER" = "uv" ]; then
         nohup uv run coldfront runserver "0.0.0.0:$SERVER_PORT" > /tmp/coldfront_server.log 2>&1 &
     else
