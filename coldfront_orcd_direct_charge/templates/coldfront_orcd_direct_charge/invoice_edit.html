@@ -218,11 +218,6 @@ function populateProjectDropdown() {
   var helpText = document.getElementById('eligible_projects_help');
   var projects = (showAll && showAll.checked) ? allProjects : eligibleProjects;
 
-  // Destroy existing Select2 instance if present
-  if ($(select).data('select2')) {
-    $(select).select2('destroy');
-  }
-
   // Clear and repopulate
   select.innerHTML = '<option value="">-- Select a project --</option>';
   projects.forEach(function(p) {
@@ -244,13 +239,6 @@ function populateProjectDropdown() {
     }
   }
 
-  // Initialize Select2 for searchable dropdown
-  $(select).select2({
-    theme: 'bootstrap4',
-    placeholder: '-- Select a project --',
-    allowClear: true,
-    width: '100%'
-  });
 }
 
 function toggleProjectList() {
