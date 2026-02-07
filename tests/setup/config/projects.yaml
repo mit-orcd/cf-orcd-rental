@@ -1,38 +1,56 @@
 version: "1.0"
 
+# Project configuration for multi-user test setup
+# Each orcd_uNN user gets two projects: orcd_uNN_p1 and orcd_uNN_p2
+# Members are NOT assigned here -- use 03_members for role assignments
+
 projects:
-  - id: project_alpha
-    name: "Project Alpha"
-    description: "Research project Alpha - demonstrates multiple members with mixed maintenance status"
-    owner: user_pi_alpha
-    members:
-      - user_id: user_member_alpha1
-        role: member
-      - user_id: user_member_alpha2
-        role: technical_admin
+  - name: orcd_u0_p1
+    owner: orcd_u0
+  - name: orcd_u0_p2
+    owner: orcd_u0
 
-  - id: project_beta
-    name: "Project Beta"
-    description: "Research project Beta - demonstrates smaller team"
-    owner: user_pi_beta
-    members:
-      - user_id: user_member_beta1
-        role: technical_admin
+  - name: orcd_u1_p1
+    owner: orcd_u1
+  - name: orcd_u1_p2
+    owner: orcd_u1
 
-  - id: project_gamma
-    name: "Project Gamma"
-    description: "Research project Gamma - single PI, no members"
-    owner: user_pi_gamma
-    members: []
+  - name: orcd_u2_p1
+    owner: orcd_u2
+  - name: orcd_u2_p2
+    owner: orcd_u2
 
-  - id: project_delta
-    name: "Project Delta"
-    description: "Research project Delta - larger team with various roles"
-    owner: user_pi_delta
-    members:
-      - user_id: user_member_delta1
-        role: financial_admin
-      - user_id: user_member_delta2
-        role: member
-      - user_id: user_member_delta3
-        role: technical_admin
+  - name: orcd_u3_p1
+    owner: orcd_u3
+  - name: orcd_u3_p2
+    owner: orcd_u3
+
+  - name: orcd_u4_p1
+    owner: orcd_u4
+  - name: orcd_u4_p2
+    owner: orcd_u4
+
+  - name: orcd_u5_p1
+    owner: orcd_u5
+  - name: orcd_u5_p2
+    owner: orcd_u5
+
+  - name: orcd_u6_p1
+    owner: orcd_u6
+  - name: orcd_u6_p2
+    owner: orcd_u6
+
+  - name: orcd_u7_p1
+    owner: orcd_u7
+  - name: orcd_u7_p2
+    owner: orcd_u7
+
+  - name: orcd_u8_p1
+    owner: orcd_u8
+  - name: orcd_u8_p2
+    owner: orcd_u8
+
+  - name: orcd_u9_p1
+    owner: orcd_u9
+  - name: orcd_u9_p2
+    owner: orcd_u9

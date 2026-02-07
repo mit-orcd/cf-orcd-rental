@@ -1,3 +1,3 @@
-main
-cd52c3f
-2026-02-06_21:30
+feature/simplify-projects-yaml
+dfb1330
+2026-02-06_21:39
