@@ -1,0 +1,159 @@
+version: "1.0"
+
+# Cost allocation configuration for multi-user test setup.
+#
+# Each project must have at least one cost object, and percentages must sum
+# to exactly 100.  The `defaults` block supplies values that individual
+# entries can override.
+#
+# This file is consumed by modules/04_cost_allocation.sh, which calls
+#   coldfront set_project_cost_allocation <project> <CO:PCT>... [options]
+# for every entry below.
+#
+# Depends on:
+#   - users_multi.yaml  (creates orcd_bim, the billing manager)
+#   - projects.yaml     (creates the projects referenced here)
+
+defaults:
+  status: "APPROVED"
+  reviewed_by: "orcd_bim"
+  review_notes: "Auto-approved during test setup"
+
+cost_allocations:
+  # ── User 0 ─────────────────────────────────────────────────────────
+  - project: orcd_u0_p1
+    cost_objects:
+      - code: "CO-U0-A"
+        percentage: 100
+    notes: "Single cost object for user 0, project 1"
+
+  - project: orcd_u0_p2
+    cost_objects:
+      - code: "CO-U0-B"
+        percentage: 60
+      - code: "CO-U0-C"
+        percentage: 40
+    notes: "Split allocation for user 0, project 2"
+
+  # ── User 1 ─────────────────────────────────────────────────────────
+  - project: orcd_u1_p1
+    cost_objects:
+      - code: "CO-U1-A"
+        percentage: 100
+
+  - project: orcd_u1_p2
+    cost_objects:
+      - code: "CO-U1-B"
+        percentage: 50
+      - code: "CO-U1-C"
+        percentage: 50
+
+  # ── User 2 ─────────────────────────────────────────────────────────
+  - project: orcd_u2_p1
+    cost_objects:
+      - code: "CO-U2-A"
+        percentage: 100
+
+  - project: orcd_u2_p2
+    cost_objects:
+      - code: "CO-U2-B"
+        percentage: 70
+      - code: "CO-U2-C"
+        percentage: 30
+
+  # ── User 3 ─────────────────────────────────────────────────────────
+  - project: orcd_u3_p1
+    cost_objects:
+      - code: "CO-U3-A"
+        percentage: 100
+
+  - project: orcd_u3_p2
+    cost_objects:
+      - code: "CO-U3-B"
+        percentage: 40
+      - code: "CO-U3-C"
+        percentage: 35
+      - code: "CO-U3-D"
+        percentage: 25
+    notes: "Three-way split for user 3, project 2"
+
+  # ── User 4 ─────────────────────────────────────────────────────────
+  - project: orcd_u4_p1
+    cost_objects:
+      - code: "CO-U4-A"
+        percentage: 100
+
+  - project: orcd_u4_p2
+    cost_objects:
+      - code: "CO-U4-B"
+        percentage: 80
+      - code: "CO-U4-C"
+        percentage: 20
+
+  # ── User 5 ─────────────────────────────────────────────────────────
+  - project: orcd_u5_p1
+    cost_objects:
+      - code: "CO-U5-A"
+        percentage: 100
+
+  - project: orcd_u5_p2
+    cost_objects:
+      - code: "CO-U5-B"
+        percentage: 50
+      - code: "CO-U5-C"
+        percentage: 50
+
+  # ── User 6 ─────────────────────────────────────────────────────────
+  - project: orcd_u6_p1
+    cost_objects:
+      - code: "CO-U6-A"
+        percentage: 100
+
+  - project: orcd_u6_p2
+    cost_objects:
+      - code: "CO-U6-B"
+        percentage: 60
+      - code: "CO-U6-C"
+        percentage: 40
+
+  # ── User 7 ─────────────────────────────────────────────────────────
+  - project: orcd_u7_p1
+    cost_objects:
+      - code: "CO-U7-A"
+        percentage: 100
+
+  - project: orcd_u7_p2
+    cost_objects:
+      - code: "CO-U7-B"
+        percentage: 55
+      - code: "CO-U7-C"
+        percentage: 45
+
+  # ── User 8 ─────────────────────────────────────────────────────────
+  - project: orcd_u8_p1
+    cost_objects:
+      - code: "CO-U8-A"
+        percentage: 100
+
+  - project: orcd_u8_p2
+    cost_objects:
+      - code: "CO-U8-B"
+        percentage: 30
+      - code: "CO-U8-C"
+        percentage: 30
+      - code: "CO-U8-D"
+        percentage: 40
+    notes: "Three-way split for user 8, project 2"
+
+  # ── User 9 ─────────────────────────────────────────────────────────
+  - project: orcd_u9_p1
+    cost_objects:
+      - code: "CO-U9-A"
+        percentage: 100
+
+  - project: orcd_u9_p2
+    cost_objects:
+      - code: "CO-U9-B"
+        percentage: 75
+      - code: "CO-U9-C"
+        percentage: 25
