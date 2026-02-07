@@ -12,6 +12,7 @@ modules:
 includes:
   users: "users.yaml"
   projects: "projects.yaml"
+  members: "members.yaml"
   cost_allocations: "cost_allocations.yaml"
   reservations: "reservations.yaml"
   invoices: "invoices.yaml"
