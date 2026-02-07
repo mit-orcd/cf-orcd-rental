@@ -1,11 +1,11 @@
 Watching for file changes with StatReloader
-"GET / HTTP/1.1" 200 4857
+"GET / HTTP/1.1" 200 4831
 "GET /nodes/api/user-search/?q=smokeuser HTTP/1.1" 200 115
 /home/runner/work/cf-orcd-rental/cf-orcd-rental/coldfront/.venv/bin/coldfront changed, reloading.
 Performing system checks...
 
 System check identified no issues (0 silenced).
-February 06, 2026 - 21:40:00
+February 06, 2026 - 21:52:02
 Django version 4.2.23, using settings 'coldfront.config.settings'
 Starting development server at http://0.0.0.0:8000/
 Quit the server with CONTROL-C.
