@@ -16,6 +16,7 @@ from datetime import date, datetime, time, timedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.db import transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
@@ -50,6 +51,15 @@ from coldfront_orcd_direct_charge.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class _ReservationConflict(Exception):
+    """Raised inside an atomic block when a reservation overlap is detected.
+
+    This is an internal exception used to break out of the transaction so that
+    the atomic block rolls back cleanly.  It is caught in
+    ReservationRequestView.form_valid() and converted into a form error.
+    """
 
 
 class RentingCalendarView(LoginRequiredMixin, TemplateView):
@@ -275,11 +285,100 @@ class ReservationRequestView(LoginRequiredMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
+        """Save the reservation inside an atomic transaction with row-level locking.
+
+        Locks the GpuNodeInstance row to serialize all reservation creations for
+        the same node.  Re-checks for overlapping APPROVED or PENDING
+        reservations under the lock so that concurrent submissions cannot both
+        succeed for the same time slot.
+
+        On SQLite the select_for_update() is silently ignored, but SQLite
+        serializes all writes at the database level anyway.  On PostgreSQL this
+        provides proper row-level locking with no deadlock risk (only one row is
+        ever locked per transaction).
+        """
+        node_instance = form.cleaned_data["node_instance"]
+        start_date = form.cleaned_data["start_date"]
+        num_blocks = int(form.cleaned_data["num_blocks"])
+        new_start = datetime.combine(start_date, time(Reservation.START_HOUR, 0))
+        new_end = Reservation.calculate_end_datetime(new_start, num_blocks)
+
+        try:
+            with transaction.atomic():
+                # Lock the GpuNodeInstance row -- acts as a per-node mutex
+                GpuNodeInstance.objects.select_for_update().get(pk=node_instance.pk)
+
+                # Authoritative overlap check under the lock
+                conflicts = Reservation.objects.filter(
+                    node_instance=node_instance,
+                    status__in=[
+                        Reservation.StatusChoices.APPROVED,
+                        Reservation.StatusChoices.PENDING,
+                    ],
+                )
+
+                for res in conflicts:
+                    if new_start < res.end_datetime and new_end > res.start_datetime:
+                        status_label = (
+                            "confirmed" if res.status == Reservation.StatusChoices.APPROVED
+                            else "pending"
+                        )
+                        # Raise inside the atomic block to trigger rollback
+                        raise _ReservationConflict(
+                            f"This time slot became unavailable while your request "
+                            f"was being processed. Another reservation ({status_label}) "
+                            f"now occupies "
+                            f"{res.start_datetime.strftime('%b %d %I:%M %p')} to "
+                            f"{res.end_datetime.strftime('%b %d %I:%M %p')} on "
+                            f"{node_instance.associated_resource_address}. "
+                            f"Please review the calendar and try again."
+                        )
+
+                # No conflict -- save the reservation
+                instance = form.save()
+
+                # Log the successful submission
+                log_activity(
+                    action="reservation.requested",
+                    category=ActivityLog.ActionCategory.RESERVATION,
+                    description=(
+                        f"Reservation requested by {self.request.user.username} "
+                        f"for {node_instance.associated_resource_address}"
+                    ),
+                    request=self.request,
+                    target=instance,
+                    extra_data={
+                        "node": node_instance.associated_resource_address,
+                        "start_date": str(start_date),
+                        "num_blocks": num_blocks,
+                    },
+                )
+
+        except _ReservationConflict as exc:
+            # Log the rejected attempt
+            log_activity(
+                action="reservation.conflict_rejected",
+                category=ActivityLog.ActionCategory.RESERVATION,
+                description=(
+                    f"Reservation request by {self.request.user.username} rejected "
+                    f"due to conflict on {node_instance.associated_resource_address}"
+                ),
+                request=self.request,
+                extra_data={
+                    "node": node_instance.associated_resource_address,
+                    "start_date": str(start_date),
+                    "num_blocks": num_blocks,
+                    "reason": str(exc),
+                },
+            )
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
+
         messages.success(
             self.request,
             "Your reservation request has been submitted and is pending approval."
         )
-        return super().form_valid(form)
+        return redirect(self.success_url)
 
 
 class RentalManagerView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):

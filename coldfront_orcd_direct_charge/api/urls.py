@@ -25,4 +25,6 @@ urlpatterns = router.urls + [
     path("qos-subscriptions/", views.QoSSubscriptionListView.as_view(),
          name="qos-subscriptions"),
     path("skus/", views.SKUListView.as_view(), name="sku-list"),
+    # Node availability for reservation conflict checking
+    path("node-availability/", views.NodeAvailabilityView.as_view(), name="node-availability"),
 ]

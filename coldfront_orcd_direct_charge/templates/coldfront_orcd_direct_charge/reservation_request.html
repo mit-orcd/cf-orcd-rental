@@ -4,6 +4,80 @@
 {% block title %}Request Reservation{% endblock %}
 
 {% block content %}
+<style>
+  /* Flatpickr availability indicators */
+  .flatpickr-day.day-available {
+    position: relative;
+  }
+  .flatpickr-day.day-available::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #28a745;
+  }
+  .flatpickr-day.day-partial::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #ffc107;
+  }
+  .flatpickr-day.day-full::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #dc3545;
+  }
+  .flatpickr-day.day-full {
+    color: #999 !important;
+  }
+  /* Booked periods list */
+  .booked-period-item {
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+  .booked-period-approved {
+    background-color: #f8d7da;
+    border-left: 3px solid #dc3545;
+  }
+  .booked-period-pending {
+    background-color: #e2d5f1;
+    border-left: 3px solid #6f42c1;
+  }
+  .booked-period-mine {
+    border-left-color: #17a2b8 !important;
+  }
+  /* Conflict warning */
+  #conflict-warning {
+    display: none;
+  }
+  /* Legend dots */
+  .legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+</style>
+
 <h2><i class="fas fa-calendar-plus"></i> Request GPU Node Reservation</h2>
 <hr>
 
@@ -23,6 +97,12 @@
             {{ form.non_field_errors }}
           </div>
           {% endif %}
+
+          <div id="conflict-warning" class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Scheduling conflict:</strong>
+            <span id="conflict-warning-text"></span>
+          </div>
 
           <div class="form-group">
             <label for="{{ form.node_instance.id_for_label }}">
@@ -85,11 +165,23 @@
             <a href="{% url 'coldfront_orcd_direct_charge:renting-calendar' %}" class="btn btn-secondary">
               <i class="fas fa-arrow-left"></i> Back to Calendar
             </a>
-            <button type="submit" class="btn btn-primary">
+            <button type="submit" class="btn btn-primary" id="submit-btn">
               <i class="fas fa-paper-plane"></i> Submit Request
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Booked Periods Summary -->
+    <div class="card mt-3" id="booked-periods-card" style="display: none;">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-calendar-times"></i> Existing Reservations for Selected Node</h5>
+      </div>
+      <div class="card-body">
+        <div id="booked-periods-list">
+          <p class="text-muted mb-0">Select a GPU node to see existing reservations.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -108,6 +200,13 @@
           <li>End time must be no later than 9:00 AM on the final day</li>
         </ul>
         <hr>
+        <p class="mb-2"><strong>Calendar Legend:</strong></p>
+        <ul class="list-unstyled mb-0" style="font-size: 0.9rem;">
+          <li><span class="legend-dot" style="background-color: #28a745;"></span> Fully available</li>
+          <li><span class="legend-dot" style="background-color: #ffc107;"></span> Partially booked</li>
+          <li><span class="legend-dot" style="background-color: #dc3545;"></span> Fully booked (cannot start here)</li>
+        </ul>
+        <hr>
         <p class="mb-0 text-muted">
           <small>
             Your request will be reviewed by a rental manager. 
@@ -124,19 +223,342 @@
 {% block javascript %}
 {{ block.super }}
 <script>
-  // Calculate min date (7 days from today) and max date (end of 3rd month from now)
+(function() {
+  "use strict";
+
+  // ── Constants ──────────────────────────────────────────────────────────
+  var START_HOUR = 16;   // 4:00 PM
+  var MAX_END_HOUR = 9;  // 9:00 AM cap
+  var BLOCK_MS = 12 * 60 * 60 * 1000;  // 12 hours in ms
+
+  // ── State ──────────────────────────────────────────────────────────────
+  var bookedPeriods = [];   // Array of {start: Date, end: Date, status: str, is_mine: bool}
+  var flatpickrInstance = null;
+
+  // ── DOM refs ───────────────────────────────────────────────────────────
+  var nodeSelect = document.getElementById("id_node_instance");
+  var dateInput  = document.querySelector(".datepicker");
+  var durationSelect = document.getElementById("id_num_blocks");
+  var conflictWarning = document.getElementById("conflict-warning");
+  var conflictText = document.getElementById("conflict-warning-text");
+  var bookedPeriodsCard = document.getElementById("booked-periods-card");
+  var bookedPeriodsList = document.getElementById("booked-periods-list");
+  var submitBtn = document.getElementById("submit-btn");
+
+  // ── Helper: calculate reservation end datetime ─────────────────────────
+  function calcEnd(startDate, numBlocks) {
+    var startMs = startDate.getTime();
+    var endMs = startMs + numBlocks * BLOCK_MS;
+    var endDt = new Date(endMs);
+    // Cap at 9 AM if the calculated end is past 9 AM on that day
+    if (endDt.getHours() > MAX_END_HOUR ||
+        (endDt.getHours() === MAX_END_HOUR && endDt.getMinutes() > 0)) {
+      endDt = new Date(endDt.getFullYear(), endDt.getMonth(), endDt.getDate(), MAX_END_HOUR, 0, 0);
+    }
+    return endDt;
+  }
+
+  // ── Helper: build start datetime from a date ───────────────────────────
+  function makeStart(dateObj) {
+    return new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), START_HOUR, 0, 0);
+  }
+
+  // ── Helper: check if [s1,e1) overlaps [s2,e2) ─────────────────────────
+  function overlaps(s1, e1, s2, e2) {
+    return s1 < e2 && e1 > s2;
+  }
+
+  // ── Helper: format datetime for display ────────────────────────────────
+  function fmtDt(dt) {
+    var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var h = dt.getHours();
+    var ampm = h >= 12 ? "PM" : "AM";
+    var h12 = h % 12 || 12;
+    var min = dt.getMinutes();
+    var minStr = min < 10 ? "0" + min : "" + min;
+    return months[dt.getMonth()] + " " + dt.getDate() + " " + h12 + ":" + minStr + " " + ampm;
+  }
+
+  // ── Determine day availability status ──────────────────────────────────
+  // Returns "available", "partial", or "full"
+  // "full" means the minimum 12-hour block (4 PM - 4 AM) is completely
+  //  covered, so no reservation can start on this date.
+  function getDayStatus(dateObj) {
+    if (bookedPeriods.length === 0) return "available";
+
+    var dayStart = makeStart(dateObj);  // 4 PM on this date
+    var dayEnd = calcEnd(dayStart, 1);  // 4 AM next day (minimum block)
+
+    var hasOverlap = false;
+    var fullyCovered = true;
+
+    // Check each booked period for overlap with the minimum block
+    for (var i = 0; i < bookedPeriods.length; i++) {
+      var bp = bookedPeriods[i];
+      if (overlaps(dayStart, dayEnd, bp.start, bp.end)) {
+        hasOverlap = true;
+        break;
+      }
+    }
+
+    if (!hasOverlap) return "available";
+
+    // Check if the minimum block is fully covered
+    // Sort periods that overlap this block and see if they tile the entire range
+    var relevantPeriods = [];
+    for (var i = 0; i < bookedPeriods.length; i++) {
+      var bp = bookedPeriods[i];
+      if (overlaps(dayStart, dayEnd, bp.start, bp.end)) {
+        relevantPeriods.push({
+          start: bp.start < dayStart ? dayStart : bp.start,
+          end: bp.end > dayEnd ? dayEnd : bp.end
+        });
+      }
+    }
+
+    // Sort by start time
+    relevantPeriods.sort(function(a, b) { return a.start - b.start; });
+
+    // Check if periods tile the full block
+    var cursor = dayStart.getTime();
+    for (var i = 0; i < relevantPeriods.length; i++) {
+      if (relevantPeriods[i].start.getTime() > cursor) {
+        fullyCovered = false;
+        break;
+      }
+      if (relevantPeriods[i].end.getTime() > cursor) {
+        cursor = relevantPeriods[i].end.getTime();
+      }
+    }
+    if (cursor < dayEnd.getTime()) {
+      fullyCovered = false;
+    }
+
+    return fullyCovered ? "full" : "partial";
+  }
+
+  // ── Fetch availability from API ────────────────────────────────────────
+  function fetchAvailability(nodeId) {
+    bookedPeriods = [];
+    if (!nodeId) {
+      updateUI();
+      return;
+    }
+
+    fetch("/nodes/api/node-availability/?node_id=" + encodeURIComponent(nodeId), {
+      credentials: "same-origin",
+      headers: { "X-Requested-With": "XMLHttpRequest" }
+    })
+    .then(function(resp) {
+      if (!resp.ok) throw new Error("Failed to fetch availability");
+      return resp.json();
+    })
+    .then(function(data) {
+      bookedPeriods = (data.booked_periods || []).map(function(bp) {
+        return {
+          start: new Date(bp.start_datetime),
+          end: new Date(bp.end_datetime),
+          status: bp.status,
+          is_mine: bp.is_mine
+        };
+      });
+      updateUI();
+    })
+    .catch(function(err) {
+      console.error("Availability fetch error:", err);
+      bookedPeriods = [];
+      updateUI();
+    });
+  }
+
+  // ── Update all UI elements after availability data changes ─────────────
+  function updateUI() {
+    renderBookedPeriods();
+    updateDurationOptions();
+    checkConflict();
+    // Redraw flatpickr to update day indicators
+    if (flatpickrInstance) {
+      flatpickrInstance.redraw();
+    }
+  }
+
+  // ── Render booked periods summary ──────────────────────────────────────
+  function renderBookedPeriods() {
+    if (!nodeSelect.value) {
+      bookedPeriodsCard.style.display = "none";
+      return;
+    }
+
+    bookedPeriodsCard.style.display = "block";
+
+    if (bookedPeriods.length === 0) {
+      bookedPeriodsList.innerHTML = '<p class="text-success mb-0"><i class="fas fa-check-circle"></i> No existing reservations &mdash; fully available.</p>';
+      return;
+    }
+
+    // Sort by start time
+    var sorted = bookedPeriods.slice().sort(function(a, b) { return a.start - b.start; });
+
+    var html = "";
+    for (var i = 0; i < sorted.length; i++) {
+      var bp = sorted[i];
+      var statusLabel = bp.status === "approved" ? "Confirmed" : "Pending";
+      var cssClass = bp.status === "approved" ? "booked-period-approved" : "booked-period-pending";
+      if (bp.is_mine) cssClass += " booked-period-mine";
+      var mineTag = bp.is_mine ? ' <span class="badge badge-info">My Project</span>' : "";
+      html += '<div class="booked-period-item ' + cssClass + '">';
+      html += '<strong>' + fmtDt(bp.start) + '</strong> &rarr; <strong>' + fmtDt(bp.end) + '</strong>';
+      html += ' <span class="badge badge-' + (bp.status === "approved" ? "danger" : "secondary") + '">' + statusLabel + '</span>';
+      html += mineTag;
+      html += '</div>';
+    }
+    bookedPeriodsList.innerHTML = html;
+  }
+
+  // ── Update duration dropdown: disable conflicting options ──────────────
+  function updateDurationOptions() {
+    if (!durationSelect) return;
+    var options = durationSelect.options;
+    var selectedDate = flatpickrInstance ? flatpickrInstance.selectedDates[0] : null;
+
+    for (var i = 0; i < options.length; i++) {
+      var opt = options[i];
+      if (!opt.value) continue;  // skip placeholder
+
+      if (!selectedDate || bookedPeriods.length === 0) {
+        opt.disabled = false;
+        // Restore original text if it was modified
+        opt.text = opt.text.replace(/ \u2014 unavailable$/, "");
+        continue;
+      }
+
+      var numBlocks = parseInt(opt.value, 10);
+      var candStart = makeStart(selectedDate);
+      var candEnd = calcEnd(candStart, numBlocks);
+      var hasConflict = false;
+
+      for (var j = 0; j < bookedPeriods.length; j++) {
+        if (overlaps(candStart, candEnd, bookedPeriods[j].start, bookedPeriods[j].end)) {
+          hasConflict = true;
+          break;
+        }
+      }
+
+      // Clean any previous marker first
+      var cleanText = opt.text.replace(/ \u2014 unavailable$/, "");
+      if (hasConflict) {
+        opt.disabled = true;
+        opt.text = cleanText + " \u2014 unavailable";
+      } else {
+        opt.disabled = false;
+        opt.text = cleanText;
+      }
+    }
+
+    // If currently selected option became disabled, deselect it
+    if (durationSelect.selectedOptions.length > 0 && durationSelect.selectedOptions[0].disabled) {
+      // Try to find the first non-disabled, non-placeholder option
+      var found = false;
+      for (var i = 0; i < options.length; i++) {
+        if (!options[i].disabled && options[i].value) {
+          durationSelect.value = options[i].value;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        // All options disabled -- leave as-is so the conflict warning shows
+      }
+    }
+  }
+
+  // ── Check for conflict with current selections ─────────────────────────
+  function checkConflict() {
+    var selectedDate = flatpickrInstance ? flatpickrInstance.selectedDates[0] : null;
+    var numBlocks = durationSelect ? parseInt(durationSelect.value, 10) : 0;
+
+    if (!selectedDate || !numBlocks || !nodeSelect.value || bookedPeriods.length === 0) {
+      conflictWarning.style.display = "none";
+      submitBtn.disabled = false;
+      return;
+    }
+
+    var candStart = makeStart(selectedDate);
+    var candEnd = calcEnd(candStart, numBlocks);
+    var conflicting = null;
+
+    for (var i = 0; i < bookedPeriods.length; i++) {
+      if (overlaps(candStart, candEnd, bookedPeriods[i].start, bookedPeriods[i].end)) {
+        conflicting = bookedPeriods[i];
+        break;
+      }
+    }
+
+    if (conflicting) {
+      var statusLabel = conflicting.status === "approved" ? "confirmed" : "pending";
+      conflictText.textContent =
+        "Your selected period (" + fmtDt(candStart) + " to " + fmtDt(candEnd) +
+        ") overlaps with an existing " + statusLabel + " reservation (" +
+        fmtDt(conflicting.start) + " to " + fmtDt(conflicting.end) +
+        "). Please choose a different date or duration.";
+      conflictWarning.style.display = "block";
+      submitBtn.disabled = true;
+    } else {
+      conflictWarning.style.display = "none";
+      submitBtn.disabled = false;
+    }
+  }
+
+  // ── Initialize flatpickr with availability indicators ──────────────────
   var today = new Date();
   var minDate = new Date(today);
   minDate.setDate(minDate.getDate() + 7);
-  
-  // Calculate max date: last day of the month 3 months from now
-  var maxDate = new Date(today.getFullYear(), today.getMonth() + 4, 0); // Day 0 of month+4 = last day of month+3
-  
-  $(".datepicker").flatpickr({
+  var maxDate = new Date(today.getFullYear(), today.getMonth() + 4, 0);
+
+  flatpickrInstance = $(".datepicker").flatpickr({
     dateFormat: "Y-m-d",
     allowInput: false,
     minDate: minDate,
-    maxDate: maxDate
+    maxDate: maxDate,
+    onDayCreate: function(dObj, dStr, fp, dayElem) {
+      var dt = dayElem.dateObj;
+      if (!dt || bookedPeriods.length === 0) return;
+      // Only annotate dates within the selectable range
+      if (dt < minDate || dt > maxDate) return;
+
+      var status = getDayStatus(dt);
+      if (status === "available") {
+        dayElem.classList.add("day-available");
+      } else if (status === "partial") {
+        dayElem.classList.add("day-partial");
+      } else if (status === "full") {
+        dayElem.classList.add("day-full");
+      }
+    },
+    onChange: function() {
+      updateDurationOptions();
+      checkConflict();
+    }
   });
+
+  // ── Event listeners ────────────────────────────────────────────────────
+  if (nodeSelect) {
+    nodeSelect.addEventListener("change", function() {
+      fetchAvailability(this.value);
+    });
+
+    // If a node is already selected (e.g. form re-render after error), fetch now
+    if (nodeSelect.value) {
+      fetchAvailability(nodeSelect.value);
+    }
+  }
+
+  if (durationSelect) {
+    durationSelect.addEventListener("change", function() {
+      checkConflict();
+    });
+  }
+
+})();
 </script>
 {% endblock %}
