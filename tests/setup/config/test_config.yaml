@@ -15,6 +15,7 @@ includes:
   members: "members.yaml"
   cost_allocations: "cost_allocations.yaml"
   rates: "rates.yaml"
+  amf: "amf.yaml"
   reservations: "reservations.yaml"
   invoices: "invoices.yaml"
   maintenance_windows: "maintenance_windows.yaml"
