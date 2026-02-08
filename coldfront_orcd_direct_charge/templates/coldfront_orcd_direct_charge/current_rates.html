@@ -1,5 +1,6 @@
 {% extends "common/base.html" %}
 {% load static %}
+{% load rate_filters %}
 
 {% block title %}
 Current Rates
@@ -120,7 +121,7 @@ Current Rates
           <h5 class="card-title">{{ item.sku.name }}</h5>
           <div class="mb-3">
             {% if item.current_rate %}
-              <span class="rate-price">${{ item.current_rate.rate }}</span>
+              <span class="rate-price">${{ item.current_rate.rate|format_rate }}</span>
               <span class="rate-unit">/hour</span>
             {% else %}
               <span class="text-muted">Rate pending</span>
@@ -151,7 +152,7 @@ Current Rates
           <div class="alert alert-warning py-1 px-2 mb-2 upcoming-rate-badge">
             <small>
               <i class="fas fa-clock"></i> 
-              New rate ${{ item.next_rate_change.rate }}/hr 
+              New rate ${{ item.next_rate_change.rate|format_rate }}/hr 
               effective {{ item.next_rate_change.effective_date|date:"M d, Y" }}
             </small>
           </div>
@@ -188,7 +189,7 @@ Current Rates
           <h5 class="card-title">{{ item.sku.name }}</h5>
           <div class="mb-3">
             {% if item.current_rate %}
-              <span class="rate-price">${{ item.current_rate.rate }}</span>
+              <span class="rate-price">${{ item.current_rate.rate|format_rate }}</span>
               <span class="rate-unit">/month</span>
             {% else %}
               <span class="text-muted">Rate pending</span>
@@ -204,7 +205,7 @@ Current Rates
           <div class="alert alert-warning py-1 px-2 mb-2 upcoming-rate-badge">
             <small>
               <i class="fas fa-clock"></i> 
-              New rate ${{ item.next_rate_change.rate }}/mo 
+              New rate ${{ item.next_rate_change.rate|format_rate }}/mo 
               effective {{ item.next_rate_change.effective_date|date:"M d, Y" }}
             </small>
           </div>
@@ -241,7 +242,7 @@ Current Rates
           <h5 class="card-title">{{ item.sku.name }}</h5>
           <div class="mb-3">
             {% if item.current_rate %}
-              <span class="rate-price">${{ item.current_rate.rate }}</span>
+              <span class="rate-price">${{ item.current_rate.rate|format_rate }}</span>
               <span class="rate-unit">/month</span>
             {% else %}
               <span class="text-muted">Rate pending</span>
@@ -257,7 +258,7 @@ Current Rates
           <div class="alert alert-warning py-1 px-2 mb-2 upcoming-rate-badge">
             <small>
               <i class="fas fa-clock"></i> 
-              New rate ${{ item.next_rate_change.rate }}/mo 
+              New rate ${{ item.next_rate_change.rate|format_rate }}/mo 
               effective {{ item.next_rate_change.effective_date|date:"M d, Y" }}
             </small>
           </div>
