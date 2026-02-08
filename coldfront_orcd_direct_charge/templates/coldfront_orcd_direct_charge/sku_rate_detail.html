@@ -1,6 +1,7 @@
 {% extends "common/base.html" %}
 {% load crispy_forms_tags %}
 {% load static %}
+{% load rate_filters %}
 
 {% block title %}
 {{ sku.name }} - Rate History
@@ -80,7 +81,7 @@
         <h6>Current Rate</h6>
         {% if current_rate %}
           <div class="alert alert-info mb-0">
-            <strong class="h4">${{ current_rate.rate }}</strong>
+            <strong class="h4">${{ current_rate.rate|format_rate }}</strong>
             <span class="text-muted">/ {{ sku.get_billing_unit_display|lower }}</span>
             <br>
             <small>Effective since {{ current_rate.effective_date|date:"M d, Y" }}</small>
@@ -125,7 +126,7 @@
             {% for rate in rates %}
             <tr {% if forloop.first %}class="table-active"{% endif %}>
               <td>
-                <strong>${{ rate.rate }}</strong>
+                <strong>${{ rate.rate|format_rate }}</strong>
                 <span class="text-muted">/ {{ sku.get_billing_unit_display|lower }}</span>
                 {% if forloop.first %}
                   <span class="badge badge-success ml-1">Current</span>

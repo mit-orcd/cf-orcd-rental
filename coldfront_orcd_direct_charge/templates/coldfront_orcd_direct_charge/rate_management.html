@@ -1,6 +1,7 @@
 {% extends "common/base.html" %}
 {% load crispy_forms_tags %}
 {% load static %}
+{% load rate_filters %}
 
 {% block title %}
 Rate Management
@@ -97,7 +98,7 @@ Rate Management
           <td>{{ item.sku.name }}</td>
           <td>
             {% if item.current_rate %}
-              <strong>${{ item.current_rate.rate }}/hr</strong>
+              <strong>${{ item.current_rate.rate|format_rate }}/hr</strong>
             {% else %}
               <span class="text-muted">No rate set</span>
             {% endif %}
@@ -173,7 +174,7 @@ Rate Management
           <td>{{ item.sku.name }}</td>
           <td>
             {% if item.current_rate %}
-              <strong>${{ item.current_rate.rate }}/mo</strong>
+              <strong>${{ item.current_rate.rate|format_rate }}/mo</strong>
             {% else %}
               <span class="text-muted">No rate set</span>
             {% endif %}
@@ -253,7 +254,7 @@ Rate Management
           <td>{{ item.sku.name }}</td>
           <td>
             {% if item.current_rate %}
-              <strong>${{ item.current_rate.rate }}/mo</strong>
+              <strong>${{ item.current_rate.rate|format_rate }}/mo</strong>
             {% else %}
               <span class="text-muted">No rate set</span>
             {% endif %}

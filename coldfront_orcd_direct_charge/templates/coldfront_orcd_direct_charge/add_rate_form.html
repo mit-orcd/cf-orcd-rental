@@ -1,6 +1,7 @@
 {% extends "common/base.html" %}
 {% load crispy_forms_tags %}
 {% load static %}
+{% load rate_filters %}
 
 {% block title %}
 Add Rate - {{ sku.name }}
@@ -124,7 +125,7 @@ Add Rate - {{ sku.name }}
         <h6>Current Rate</h6>
         {% if current_rate %}
           <div class="alert alert-info mb-0 py-2">
-            <strong>${{ current_rate.rate }}</strong>
+            <strong>${{ current_rate.rate|format_rate }}</strong>
             / {{ sku.get_billing_unit_display|lower }}
             <br>
             <small class="text-muted">Since {{ current_rate.effective_date|date:"M d, Y" }}</small>

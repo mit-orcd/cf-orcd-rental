@@ -1,5 +1,6 @@
 {% extends "common/base.html" %}
 {% load static %}
+{% load rate_filters %}
 
 {% block title %}
 {{ sku.name }} - Rate Details
@@ -38,7 +39,7 @@
         <div class="text-center py-4 bg-light rounded mb-4">
           {% if current_rate %}
             <div class="display-4 text-success font-weight-bold">
-              ${{ current_rate.rate }}
+              ${{ current_rate.rate|format_rate }}
             </div>
             <div class="text-muted">
               per {% if sku.billing_unit == 'HOURLY' %}hour{% else %}month{% endif %}
@@ -61,7 +62,7 @@
             <i class="fas fa-exclamation-triangle"></i> Upcoming Rate Change
           </h6>
           <p class="mb-1">
-            New rate of <strong>${{ next_rate_change.rate }}</strong>/{% if sku.billing_unit == 'HOURLY' %}hr{% else %}mo{% endif %}
+            New rate of <strong>${{ next_rate_change.rate|format_rate }}</strong>/{% if sku.billing_unit == 'HOURLY' %}hr{% else %}mo{% endif %}
             will be effective starting <strong>{{ next_rate_change.effective_date|date:"F d, Y" }}</strong>.
           </p>
           {% if next_rate_change.notes %}
@@ -79,7 +80,7 @@
             {% for rate in upcoming_rates %}
             {% if not forloop.first %}
             <li>
-              ${{ rate.rate }}/{% if sku.billing_unit == 'HOURLY' %}hr{% else %}mo{% endif %} 
+              ${{ rate.rate|format_rate }}/{% if sku.billing_unit == 'HOURLY' %}hr{% else %}mo{% endif %} 
               - {{ rate.effective_date|date:"F d, Y" }}
             </li>
             {% endif %}

@@ -1,3 +1,3 @@
-main
-74dd1e7
-2026-02-07_21:49
+feature/smart-rate-formatting
+b86674f
+2026-02-07_21:54
