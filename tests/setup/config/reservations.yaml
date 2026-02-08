@@ -1,4 +1,274 @@
 version: "1.0"
 
-reservations: []
-validation_tests: []
+# Reservation configuration for multi-user test setup.
+#
+# This config drives a two-stage workflow:
+#   Stage 1 (06_1_create_reservations.sh):
+#     Creates reservations as PENDING, submitted by the user specified
+#     in `requesting_user` (project owner or technical admin).
+#   Stage 2 (06_2_confirm_reservations.sh):
+#     Approves all reservations as the rental manager specified in
+#     the `approval` section.
+#
+# Each entry specifies:
+#   - node_address:     GPU node instance to reserve (must be rentable)
+#   - project:          Project to bill the reservation to
+#   - requesting_user:  User submitting the request (must be owner,
+#                       technical_admin, or member of the project)
+#   - start_date:       Reservation start date (always begins at 4:00 PM)
+#   - num_blocks:       Duration in 12-hour blocks (1 block = 12 hours)
+#   - rental_notes:     Optional notes from the requester
+#
+# IMPORTANT: No two reservations on the same node_address may overlap.
+# Reservations start at 4:00 PM on start_date and last num_blocks * 12
+# hours.  When scheduling multiple reservations on the same node, space
+# them far enough apart so the earlier one ends before the next begins.
+#
+# Timing reference (all start at 4:00 PM):
+#   1 block  =  12h -> ends  4:00 AM next day
+#   2 blocks =  24h -> ends  4:00 PM next day
+#   3 blocks =  36h -> ends  4:00 AM day+2
+#   4 blocks =  48h -> ends  4:00 PM day+2
+#   5 blocks =  60h -> ends  4:00 AM day+3 (capped to 9:00 AM day+2)
+#   7 blocks =  84h -> ends  4:00 AM day+4 (capped to 9:00 AM day+3)
+#  14 blocks = 168h -> ends  4:00 PM day+7
+#
+# Node types used:
+#   H200x8 (rentable): node2433, node2434, node3000, node3001,
+#                       node3100, node3101, node3200, node3201
+#   L40Sx4 (rentable):  node1634, node2804, node3002, node3003,
+#                       node3004, node3005, node3006, node3007, ...
+#
+# Eligible requesting users per project (from members.yaml):
+#   orcd_uN_p1: owner = orcd_uN, tech_admin = orcd_u(N+2 mod 10)
+#   orcd_uN_p2: owner = orcd_uN, tech_admin = orcd_u(N+5 mod 10)
+#
+# Depends on:
+#   - users_multi.yaml       (creates user accounts including orcd_rem)
+#   - projects.yaml          (creates the projects referenced here)
+#   - members.yaml           (assigns technical admin roles)
+#   - cost_allocations.yaml  (projects must have APPROVED cost allocations)
+
+defaults:
+  status: "PENDING"
+  num_blocks: 2
+
+approval:
+  processed_by: "orcd_rem"
+  manager_notes: "Approved during test setup"
+
+reservations:
+  # ════════════════════════════════════════════════════════════════════
+  # H200x8 NODES
+  # ════════════════════════════════════════════════════════════════════
+
+  # ── node2433 (H200x8) ──────────────────────────────────────────────
+  # Reservation A: Mar 2-3 (2 blocks = 24h, 4PM Mar 2 -> 4PM Mar 3)
+  - node_address: "node2433"
+    project: "orcd_u0_p1"
+    requesting_user: "orcd_u0"          # project owner
+    start_date: "2026-03-02"
+    num_blocks: 2
+    rental_notes: "Owner-submitted H200 reservation"
+
+  # Reservation B: Mar 9-10 (1 block = 12h, 4PM Mar 9 -> 4AM Mar 10)
+  - node_address: "node2433"
+    project: "orcd_u1_p1"
+    requesting_user: "orcd_u3"          # technical_admin
+    start_date: "2026-03-09"
+    num_blocks: 1
+    rental_notes: "Short single-block reservation by tech admin"
+
+  # Reservation C: Mar 16-19 (7 blocks, 4PM Mar 16 -> 9AM Mar 19)
+  - node_address: "node2433"
+    project: "orcd_u2_p1"
+    requesting_user: "orcd_u2"          # project owner
+    start_date: "2026-03-16"
+    num_blocks: 7
+    rental_notes: "Multi-day H200 reservation"
+
+  # ── node2434 (H200x8) ──────────────────────────────────────────────
+  # Reservation A: Mar 4-5 (3 blocks = 36h, 4PM Mar 4 -> 4AM Mar 6)
+  - node_address: "node2434"
+    project: "orcd_u3_p1"
+    requesting_user: "orcd_u5"          # technical_admin
+    start_date: "2026-03-04"
+    num_blocks: 3
+    rental_notes: "Tech admin 3-block reservation"
+
+  # Reservation B: Mar 23-29 (14 blocks = 168h, 4PM Mar 23 -> 4PM Mar 30)
+  - node_address: "node2434"
+    project: "orcd_u4_p1"
+    requesting_user: "orcd_u4"          # project owner
+    start_date: "2026-03-23"
+    num_blocks: 14
+    rental_notes: "Full-week H200 reservation"
+
+  # ── node3000 (H200x8) ──────────────────────────────────────────────
+  # Reservation A: Mar 5-7 (4 blocks = 48h, 4PM Mar 5 -> 4PM Mar 7)
+  - node_address: "node3000"
+    project: "orcd_u5_p1"
+    requesting_user: "orcd_u7"          # technical_admin
+    start_date: "2026-03-05"
+    num_blocks: 4
+    rental_notes: "Two-day H200 reservation by tech admin"
+
+  # Reservation B: Mar 12-13 (2 blocks, 4PM Mar 12 -> 4PM Mar 13)
+  - node_address: "node3000"
+    project: "orcd_u6_p1"
+    requesting_user: "orcd_u6"          # project owner
+    start_date: "2026-03-12"
+    num_blocks: 2
+    rental_notes: "Owner-submitted standard reservation"
+
+  # ── node3001 (H200x8) ──────────────────────────────────────────────
+  # Single reservation: Mar 10-12 (5 blocks, 4PM Mar 10 -> 9AM Mar 12)
+  - node_address: "node3001"
+    project: "orcd_u7_p1"
+    requesting_user: "orcd_u9"          # technical_admin
+    start_date: "2026-03-10"
+    num_blocks: 5
+    rental_notes: "5-block reservation spanning 2+ days"
+
+  # ── node3100 (H200x8) ──────────────────────────────────────────────
+  # Single reservation: Apr 1-2 (2 blocks, 4PM Apr 1 -> 4PM Apr 2)
+  - node_address: "node3100"
+    project: "orcd_u8_p1"
+    requesting_user: "orcd_u0"          # technical_admin
+    start_date: "2026-04-01"
+    num_blocks: 2
+    rental_notes: "April H200 reservation"
+
+  # ── node3101 (H200x8) ──────────────────────────────────────────────
+  # Single reservation: Apr 6-9 (7 blocks, 4PM Apr 6 -> 9AM Apr 9)
+  - node_address: "node3101"
+    project: "orcd_u9_p1"
+    requesting_user: "orcd_u1"          # technical_admin
+    start_date: "2026-04-06"
+    num_blocks: 7
+    rental_notes: "Multi-day April reservation"
+
+  # ════════════════════════════════════════════════════════════════════
+  # L40Sx4 NODES
+  # ════════════════════════════════════════════════════════════════════
+
+  # ── node1634 (L40Sx4) ──────────────────────────────────────────────
+  # Reservation A: Mar 3-4 (2 blocks, 4PM Mar 3 -> 4PM Mar 4)
+  - node_address: "node1634"
+    project: "orcd_u0_p2"
+    requesting_user: "orcd_u5"          # technical_admin
+    start_date: "2026-03-03"
+    num_blocks: 2
+    rental_notes: "L40S reservation by tech admin"
+
+  # Reservation B: Mar 10-11 (3 blocks, 4PM Mar 10 -> 4AM Mar 12)
+  - node_address: "node1634"
+    project: "orcd_u1_p2"
+    requesting_user: "orcd_u1"          # project owner
+    start_date: "2026-03-10"
+    num_blocks: 3
+    rental_notes: "Owner-submitted L40S reservation"
+
+  # Reservation C: Mar 18 (1 block, 4PM Mar 18 -> 4AM Mar 19)
+  - node_address: "node1634"
+    project: "orcd_u2_p2"
+    requesting_user: "orcd_u7"          # technical_admin
+    start_date: "2026-03-18"
+    num_blocks: 1
+    rental_notes: "Quick single-block L40S"
+
+  # ── node2804 (L40Sx4) ──────────────────────────────────────────────
+  # Reservation A: Mar 6-7 (2 blocks, 4PM Mar 6 -> 4PM Mar 7)
+  - node_address: "node2804"
+    project: "orcd_u3_p2"
+    requesting_user: "orcd_u3"          # project owner
+    start_date: "2026-03-06"
+    num_blocks: 2
+    rental_notes: "Owner-submitted L40S reservation"
+
+  # Reservation B: Mar 20-23 (7 blocks, 4PM Mar 20 -> 9AM Mar 23)
+  - node_address: "node2804"
+    project: "orcd_u4_p2"
+    requesting_user: "orcd_u9"          # technical_admin
+    start_date: "2026-03-20"
+    num_blocks: 7
+    rental_notes: "Extended L40S reservation by tech admin"
+
+  # ── node3002 (L40Sx4) ──────────────────────────────────────────────
+  # Single reservation: Mar 11-14 (7 blocks, 4PM Mar 11 -> 9AM Mar 14)
+  - node_address: "node3002"
+    project: "orcd_u5_p2"
+    requesting_user: "orcd_u0"          # technical_admin
+    start_date: "2026-03-11"
+    num_blocks: 7
+    rental_notes: "Multi-day L40S reservation"
+
+  # ── node3003 (L40Sx4) ──────────────────────────────────────────────
+  # Reservation A: Mar 4-5 (1 block, 4PM Mar 4 -> 4AM Mar 5)
+  - node_address: "node3003"
+    project: "orcd_u6_p2"
+    requesting_user: "orcd_u1"          # technical_admin
+    start_date: "2026-03-04"
+    num_blocks: 1
+    rental_notes: "Single-block L40S by tech admin"
+
+  # Reservation B: Mar 9-10 (2 blocks, 4PM Mar 9 -> 4PM Mar 10)
+  - node_address: "node3003"
+    project: "orcd_u7_p2"
+    requesting_user: "orcd_u7"          # project owner
+    start_date: "2026-03-09"
+    num_blocks: 2
+    rental_notes: "Owner-submitted reservation"
+
+  # ── node3004 (L40Sx4) ──────────────────────────────────────────────
+  # Single reservation: Mar 16-22 (14 blocks, 4PM Mar 16 -> 4PM Mar 23)
+  - node_address: "node3004"
+    project: "orcd_u8_p2"
+    requesting_user: "orcd_u3"          # technical_admin
+    start_date: "2026-03-16"
+    num_blocks: 14
+    rental_notes: "Full-week L40S reservation"
+
+  # ── node3005 (L40Sx4) ──────────────────────────────────────────────
+  # Single reservation: Apr 2-3 (4 blocks, 4PM Apr 2 -> 4PM Apr 4)
+  - node_address: "node3005"
+    project: "orcd_u9_p2"
+    requesting_user: "orcd_u4"          # technical_admin
+    start_date: "2026-04-02"
+    num_blocks: 4
+    rental_notes: "April L40S reservation"
+
+  # ── node3006 (L40Sx4) ──────────────────────────────────────────────
+  # Reservation A: Mar 2 (1 block, 4PM Mar 2 -> 4AM Mar 3)
+  - node_address: "node3006"
+    project: "orcd_u0_p1"
+    requesting_user: "orcd_u2"          # technical_admin
+    start_date: "2026-03-02"
+    num_blocks: 1
+    rental_notes: "Tech admin short L40S reservation"
+
+  # Reservation B: Mar 5-6 (3 blocks, 4PM Mar 5 -> 4AM Mar 7)
+  - node_address: "node3006"
+    project: "orcd_u1_p1"
+    requesting_user: "orcd_u1"          # project owner
+    start_date: "2026-03-05"
+    num_blocks: 3
+    rental_notes: "Owner 3-block reservation"
+
+  # ── node3007 (L40Sx4) ──────────────────────────────────────────────
+  # Single reservation: Mar 24-25 (2 blocks, 4PM Mar 24 -> 4PM Mar 25)
+  - node_address: "node3007"
+    project: "orcd_u2_p2"
+    requesting_user: "orcd_u2"          # project owner
+    start_date: "2026-03-24"
+    num_blocks: 2
+    rental_notes: "Late March L40S reservation"
+
+  # ── node3008 (L40Sx4) ──────────────────────────────────────────────
+  # Single reservation: Apr 8-9 (3 blocks, 4PM Apr 8 -> 4AM Apr 10)
+  - node_address: "node3008"
+    project: "orcd_u3_p1"
+    requesting_user: "orcd_u3"          # project owner
+    start_date: "2026-04-08"
+    num_blocks: 3
+    rental_notes: "Owner April L40S reservation"
