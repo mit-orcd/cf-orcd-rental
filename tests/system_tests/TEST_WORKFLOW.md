@@ -30,7 +30,8 @@ tests/setup/
 │   ├── 01_users.sh
 │   ├── 02_projects.sh
 │   ├── 03_members.sh
-│   ├── 04_cost_allocation.sh
+│   ├── 04_1_attach_cost_allocations.sh   # Stage 1: submit as PENDING
+│   ├── 04_2_confirm_cost_allocations.sh  # Stage 2: approve as billing manager
 │   ├── 05_rates.sh
 │   ├── 06_reservations.sh
 │   ├── 07_maintenance.sh
@@ -39,8 +40,11 @@ tests/setup/
 │   └── 10_activity_log.sh
 ├── config/
 │   ├── test_config.yaml
-│   ├── users.yaml
+│   ├── users.yaml / users_multi.yaml
 │   ├── projects.yaml
+│   ├── members.yaml
+│   ├── cost_allocations.yaml
+│   ├── rates.yaml
 │   ├── reservations.yaml
 │   ├── invoices.yaml
 │   └── maintenance_windows.yaml
