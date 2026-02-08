@@ -9,8 +9,10 @@ version: "1.0"
 # Per-entry is_public overrides the default (e.g. configured SKUs are
 # made public while unconfigured SKUs remain hidden).
 #
-# defaults.effective_date can be any date including past dates -- the
-# set_sku_rate management command has no future-only restriction.
+# defaults.effective_date can be any date including past dates, or the
+# special value "today" which resolves to the current date at runtime.
+# Using "today" ensures the new rate always takes precedence over any
+# placeholder rate created by migrations or sync_node_skus.
 #
 # This file is consumed by modules/05_rates.sh, which calls
 #   coldfront set_sku_rate <sku_code> <rate> [options]
@@ -21,7 +23,7 @@ version: "1.0"
 
 defaults:
   is_public: false
-  effective_date: "2025-01-01"
+  effective_date: "today"
   set_by: "orcd_rtm"
   notes: "Rate set during test setup"
 
@@ -38,7 +40,7 @@ rates:
     notes: "L40Sx4 GPU node rental rate"
 
   # ── Account maintenance fees (monthly) ─────────────────────────────
-  - sku_code: MAINT_BASIC
+  - sku_code: MAINT_STANDARD
     rate: "56.00"
     is_public: true
     notes: "Standard account maintenance fee"

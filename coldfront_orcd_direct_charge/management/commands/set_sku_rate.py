@@ -16,6 +16,9 @@ Examples:
     # Set a rate with a specific effective date (including past dates)
     coldfront set_sku_rate NODE_H200x8 8.00 --effective-date 2025-01-01
 
+    # Use "today" as a relative date (resolved at runtime)
+    coldfront set_sku_rate NODE_H200x8 8.00 --effective-date today
+
     # Set rate and make the SKU visible on the public rates page
     coldfront set_sku_rate NODE_H200x8 8.00 --visibility public
 
@@ -52,7 +55,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "sku_code",
             type=str,
-            help="SKU code (e.g., 'NODE_H200x8', 'MAINT_BASIC')",
+            help="SKU code (e.g., 'NODE_H200x8', 'MAINT_STANDARD')",
         )
         parser.add_argument(
             "rate",
@@ -67,7 +70,7 @@ class Command(BaseCommand):
             dest="effective_date",
             default=None,
             help=(
-                "Date when this rate becomes effective (YYYY-MM-DD). "
+                "Date when this rate becomes effective (YYYY-MM-DD or 'today'). "
                 "Defaults to today. Accepts any date including past dates."
             ),
         )
@@ -140,18 +143,19 @@ class Command(BaseCommand):
             return
 
         # -----------------------------------------------------------------
-        # Parse effective date
+        # Parse effective date ("today" resolves to current date)
         # -----------------------------------------------------------------
-        if effective_date_str:
+        if effective_date_str is None or effective_date_str.lower() == "today":
+            effective_date = date.today()
+        else:
             try:
                 effective_date = datetime.strptime(effective_date_str, "%Y-%m-%d").date()
             except ValueError:
                 self.stdout.write(self.style.ERROR(
-                    f"Invalid date format '{effective_date_str}'. Expected YYYY-MM-DD."
+                    f"Invalid date format '{effective_date_str}'. "
+                    "Expected YYYY-MM-DD or 'today'."
                 ))
                 return
-        else:
-            effective_date = date.today()
 
         # -----------------------------------------------------------------
         # Look up SKU

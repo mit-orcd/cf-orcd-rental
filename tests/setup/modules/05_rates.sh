@@ -132,6 +132,7 @@ while IFS=$'\t' read -r sku_code rate effective_date set_by notes visibility; do
 
 done < <(python3 - "$RATES_CONFIG" << 'PY'
 import sys
+from datetime import date
 import yaml
 
 with open(sys.argv[1], "r", encoding="utf-8") as f:
@@ -143,13 +144,20 @@ default_effective_date = str(defaults.get("effective_date", ""))
 default_set_by = defaults.get("set_by", "")
 default_notes = defaults.get("notes", "")
 
+def resolve_date(value):
+    """Resolve date value: 'today' becomes current date, otherwise pass through."""
+    s = str(value).strip().lower()
+    if s == "today":
+        return str(date.today())
+    return str(value)
+
 for entry in data.get("rates", []):
     sku_code = entry.get("sku_code", "")
     rate = str(entry.get("rate", ""))
     if not sku_code or not rate:
         continue
 
-    effective_date = str(entry.get("effective_date", default_effective_date))
+    effective_date = resolve_date(entry.get("effective_date", default_effective_date))
     set_by = entry.get("set_by", default_set_by)
     notes = entry.get("notes", default_notes)
 
