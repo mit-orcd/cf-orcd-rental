@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
 #
-# Module 04: Cost Allocation
+# Module 04_1: Attach Cost Allocations (Submit as PENDING)
 #
-# Creates and approves cost allocations for projects based on YAML config.
-# Each entry in the config specifies a project name, one or more cost objects
-# (code + percentage, must sum to 100), and optional status/reviewer fields.
+# Creates cost allocations for projects based on YAML config, setting
+# them to PENDING status.  Each entry specifies a project, cost objects,
+# and the user who submits the allocation (project owner or financial
+# admin).
 #
-# The YAML config supports a `defaults` block so that common values (e.g.
-# status=APPROVED, reviewed_by=orcd_bim) don't need to be repeated on
-# every entry.
+# This is stage 1 of the two-stage cost allocation workflow:
+#   Stage 1 (this script): Submit allocations as PENDING
+#   Stage 2 (04_2_confirm_cost_allocations.sh): Approve as billing manager
 #
-# Uses `coldfront set_project_cost_allocation` with --force so the module
-# is idempotent on re-runs.
+# Uses `coldfront set_project_cost_allocation` with --force and
+# --status PENDING so the module is idempotent on re-runs.
 #
 # Depends on:
-#   - 01_1_multiusers.sh  (creates users including orcd_bim billing manager)
-#   - 02_projects.sh      (creates the projects referenced in the config)
+#   - 01_1_multiusers.sh  (creates user accounts)
+#   - 02_projects.sh      (creates the projects)
+#   - 03_members.sh       (assigns financial admin roles)
 #
 set -euo pipefail
 
@@ -31,7 +33,7 @@ DRY_RUN="false"
 
 usage() {
     cat << 'EOF'
-Usage: 04_cost_allocation.sh [options]
+Usage: 04_1_attach_cost_allocations.sh [options]
   --config <path>      Path to test_config.yaml
   --output-dir <path>  Output directory for artifacts
   --dry-run            Print actions without applying changes
@@ -68,7 +70,7 @@ if [ -n "$OUTPUT_DIR_OVERRIDE" ]; then
     OUTPUT_DIR="$OUTPUT_DIR_OVERRIDE"
 fi
 
-MODULE_OUTPUT="$OUTPUT_DIR/04_cost_allocation"
+MODULE_OUTPUT="$OUTPUT_DIR/04_1_attach_cost_allocations"
 mkdir -p "$MODULE_OUTPUT"
 
 # ---------------------------------------------------------------------------
@@ -108,23 +110,27 @@ activate_env
 # Main loop: parse YAML, call set_project_cost_allocation for each entry
 # ---------------------------------------------------------------------------
 
-log_step "Setting cost allocations from YAML"
+log_step "Submitting cost allocations as PENDING"
 
-ALLOC_LOG="$MODULE_OUTPUT/set_cost_allocations.log"
+ALLOC_LOG="$MODULE_OUTPUT/attach_cost_allocations.log"
 alloc_count=0
 
-while IFS=$'\t' read -r project co_args status reviewed_by review_notes notes; do
+while IFS=$'\t' read -r project co_args submitted_by notes; do
     [ -n "$project" ] || continue
 
     # Build the command array.  $co_args is space-separated CO:PCT pairs
     # and must be unquoted so word-splitting produces individual arguments.
     # shellcheck disable=SC2086
-    cmd=(set_project_cost_allocation "$project" $co_args --force)
+    cmd=(set_project_cost_allocation "$project" $co_args --force --status PENDING)
 
-    [ -n "$status" ]       && cmd+=(--status "$status")
-    [ -n "$reviewed_by" ]  && cmd+=(--reviewed-by "$reviewed_by")
-    [ -n "$review_notes" ] && cmd+=(--review-notes "$review_notes")
-    [ -n "$notes" ]        && cmd+=(--notes "$notes")
+    # Include submitter in notes for audit trail
+    if [ -n "$submitted_by" ] && [ -n "$notes" ]; then
+        cmd+=(--notes "Submitted by $submitted_by: $notes")
+    elif [ -n "$submitted_by" ]; then
+        cmd+=(--notes "Submitted by $submitted_by")
+    elif [ -n "$notes" ]; then
+        cmd+=(--notes "$notes")
+    fi
 
     if [ "$DRY_RUN" = "true" ]; then
         echo "[DRY-RUN] coldfront ${cmd[*]}" >> "$ALLOC_LOG"
@@ -142,11 +148,6 @@ import yaml
 with open(sys.argv[1], "r", encoding="utf-8") as f:
     data = yaml.safe_load(f) or {}
 
-defaults = data.get("defaults", {})
-default_status = defaults.get("status", "")
-default_reviewed_by = defaults.get("reviewed_by", "")
-default_review_notes = defaults.get("review_notes", "")
-
 for entry in data.get("cost_allocations", []):
     project = entry.get("project", "")
     if not project:
@@ -159,18 +160,13 @@ for entry in data.get("cost_allocations", []):
         for co in cost_objects
     )
 
-    # Per-entry values override defaults
-    status = entry.get("status", default_status)
-    reviewed_by = entry.get("reviewed_by", default_reviewed_by)
-    review_notes = entry.get("review_notes", default_review_notes)
+    submitted_by = entry.get("submitted_by", "")
     notes = entry.get("notes", "")
 
     line = "\t".join([
         project,
         co_args,
-        status,
-        reviewed_by,
-        review_notes,
+        submitted_by,
         notes,
     ])
     print(line)
@@ -182,9 +178,11 @@ PY
 # ---------------------------------------------------------------------------
 
 echo ""
-echo "Module 04 complete."
-echo "  Cost allocations set: $alloc_count"
+echo "Module 04_1 complete."
+echo "  Cost allocations submitted (PENDING): $alloc_count"
 echo "  Output directory: $MODULE_OUTPUT"
 echo ""
 echo "Output files:"
-echo "  - set_cost_allocations.log : Command output log"
+echo "  - attach_cost_allocations.log : Command output log"
+echo ""
+echo "Next step: run 04_2_confirm_cost_allocations.sh to approve"
