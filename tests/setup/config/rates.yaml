@@ -39,6 +39,24 @@ rates:
     is_public: true
     notes: "L40Sx4 GPU node rental rate"
 
+  # ── Remaining node types (hidden, placeholder rate) ─────────────────
+  # These inherit is_public: false from defaults, hiding them from the
+  # Current Rates page.  Rate stays at $0.01 placeholder.
+  - sku_code: NODE_H200x4
+    rate: "0.01"
+  - sku_code: NODE_H200x2
+    rate: "0.01"
+  - sku_code: NODE_H200x1
+    rate: "0.01"
+  - sku_code: NODE_L40Sx2
+    rate: "0.01"
+  - sku_code: NODE_L40Sx1
+    rate: "0.01"
+  - sku_code: NODE_CPU_384G
+    rate: "0.01"
+  - sku_code: NODE_CPU_1500G
+    rate: "0.01"
+
   # ── Account maintenance fees (monthly) ─────────────────────────────
   - sku_code: MAINT_STANDARD
     rate: "56.00"
