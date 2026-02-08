@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
 #
-# Module 06_2: Confirm Reservations (Approve as Rental Manager)
+# Module 07_1: Create Reservations (Submit as PENDING)
 #
-# Approves all PENDING reservations using the rental manager
-# account specified in the YAML config's `approval` section.
+# Creates node rental reservations based on YAML config, setting
+# them to PENDING status.  Each entry specifies a node, project,
+# requesting user, start date, and duration in 12-hour blocks.
 #
-# This is stage 2 of the two-stage reservation workflow:
-#   Stage 1 (06_1_create_reservations.sh): Submit reservations as PENDING
-#   Stage 2 (this script): Approve as rental manager
+# This is stage 1 of the two-stage reservation workflow:
+#   Stage 1 (this script): Submit reservations as PENDING
+#   Stage 2 (07_2_confirm_reservations.sh): Approve as rental manager
 #
-# Uses `coldfront approve_node_rental` with --force so the module
-# is idempotent on re-runs (re-approves already-approved reservations).
+# Uses `coldfront create_node_rental` with --force and --status PENDING
+# so the module is idempotent on re-runs.
 #
 # Depends on:
-#   - 01_1_multiusers.sh          (creates orcd_rem rental manager)
-#   - 06_1_create_reservations.sh (creates PENDING reservations)
+#   - 01_1_multiusers.sh               (creates user accounts)
+#   - 02_projects.sh                   (creates the projects)
+#   - 03_members.sh                    (assigns technical admin roles)
+#   - 04_1_attach_cost_allocations.sh  (submits cost allocations)
+#   - 04_2_confirm_cost_allocations.sh (approves cost allocations)
+#   - 06_add_amf.sh                    (sets account maintenance fees)
 #
 set -euo pipefail
 
@@ -30,7 +35,7 @@ DRY_RUN="false"
 
 usage() {
     cat << 'EOF'
-Usage: 06_2_confirm_reservations.sh [options]
+Usage: 07_1_create_reservations.sh [options]
   --config <path>      Path to test_config.yaml
   --output-dir <path>  Output directory for artifacts
   --dry-run            Print actions without applying changes
@@ -67,7 +72,7 @@ if [ -n "$OUTPUT_DIR_OVERRIDE" ]; then
     OUTPUT_DIR="$OUTPUT_DIR_OVERRIDE"
 fi
 
-MODULE_OUTPUT="$OUTPUT_DIR/06_2_confirm_reservations"
+MODULE_OUTPUT="$OUTPUT_DIR/07_1_create_reservations"
 mkdir -p "$MODULE_OUTPUT"
 
 # ---------------------------------------------------------------------------
@@ -104,58 +109,33 @@ ensure_env
 activate_env
 
 # ---------------------------------------------------------------------------
-# Read approval config from YAML
+# Main loop: parse YAML, call create_node_rental for each entry
 # ---------------------------------------------------------------------------
 
-APPROVAL_ARGS="$(python3 - "$RESERV_CONFIG" << 'PY'
-import sys
-import yaml
+log_step "Creating reservations as PENDING"
 
-with open(sys.argv[1], "r", encoding="utf-8") as f:
-    data = yaml.safe_load(f) or {}
+RESERV_LOG="$MODULE_OUTPUT/create_reservations.log"
+reserv_count=0
 
-approval = data.get("approval", {})
-processed_by = approval.get("processed_by", "")
-manager_notes = approval.get("manager_notes", "")
-
-print(f"{processed_by}\t{manager_notes}")
-PY
-)"
-
-PROCESSED_BY="$(echo "$APPROVAL_ARGS" | cut -f1)"
-MANAGER_NOTES="$(echo "$APPROVAL_ARGS" | cut -f2)"
-
-if [ -z "$PROCESSED_BY" ]; then
-    die "approval.processed_by not found in reservations.yaml"
-fi
-
-# ---------------------------------------------------------------------------
-# Main loop: approve each reservation
-# ---------------------------------------------------------------------------
-
-log_step "Approving reservations as rental manager ($PROCESSED_BY)"
-
-APPROVE_LOG="$MODULE_OUTPUT/confirm_reservations.log"
-approve_count=0
-
-while IFS=$'\t' read -r node_address project start_date; do
+while IFS=$'\t' read -r node_address project username start_date num_blocks rental_notes; do
     [ -n "$node_address" ] || continue
 
-    cmd=(approve_node_rental "$node_address" "$project"
+    cmd=(create_node_rental "$node_address" "$project" "$username"
          --start-date "$start_date"
-         --processed-by "$PROCESSED_BY"
+         --num-blocks "$num_blocks"
+         --status PENDING
          --force)
 
-    [ -n "$MANAGER_NOTES" ] && cmd+=(--manager-notes "$MANAGER_NOTES")
+    [ -n "$rental_notes" ] && cmd+=(--rental-notes "$rental_notes")
 
     if [ "$DRY_RUN" = "true" ]; then
-        echo "[DRY-RUN] coldfront ${cmd[*]}" >> "$APPROVE_LOG"
+        echo "[DRY-RUN] coldfront ${cmd[*]}" >> "$RESERV_LOG"
     else
         output="$(coldfront "${cmd[@]}" 2>&1)"
-        printf "%s\n" "$output" >> "$APPROVE_LOG"
+        printf "%s\n" "$output" >> "$RESERV_LOG"
     fi
 
-    approve_count=$((approve_count + 1))
+    reserv_count=$((reserv_count + 1))
 
 done < <(python3 - "$RESERV_CONFIG" << 'PY'
 import sys
@@ -164,15 +144,30 @@ import yaml
 with open(sys.argv[1], "r", encoding="utf-8") as f:
     data = yaml.safe_load(f) or {}
 
+defaults = data.get("defaults", {})
+default_num_blocks = defaults.get("num_blocks", 2)
+
 for entry in data.get("reservations", []):
     node_address = entry.get("node_address", "")
     project = entry.get("project", "")
+    username = entry.get("requesting_user", "")
     start_date = entry.get("start_date", "")
 
-    if not all([node_address, project, start_date]):
+    if not all([node_address, project, username, start_date]):
         continue
 
-    print(f"{node_address}\t{project}\t{start_date}")
+    num_blocks = entry.get("num_blocks", default_num_blocks)
+    rental_notes = entry.get("rental_notes", "")
+
+    line = "\t".join([
+        str(node_address),
+        str(project),
+        str(username),
+        str(start_date),
+        str(num_blocks),
+        str(rental_notes),
+    ])
+    print(line)
 PY
 )
 
@@ -181,10 +176,11 @@ PY
 # ---------------------------------------------------------------------------
 
 echo ""
-echo "Module 06_2 complete."
-echo "  Reservations approved: $approve_count"
-echo "  Processed by: $PROCESSED_BY"
+echo "Module 07_1 complete."
+echo "  Reservations created (PENDING): $reserv_count"
 echo "  Output directory: $MODULE_OUTPUT"
 echo ""
 echo "Output files:"
-echo "  - confirm_reservations.log : Command output log"
+echo "  - create_reservations.log : Command output log"
+echo ""
+echo "Next step: run 07_2_confirm_reservations.sh to approve"
