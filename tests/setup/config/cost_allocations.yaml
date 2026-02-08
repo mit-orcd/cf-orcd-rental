@@ -2,32 +2,42 @@ version: "1.0"
 
 # Cost allocation configuration for multi-user test setup.
 #
-# Each project must have at least one cost object, and percentages must sum
-# to exactly 100.  The `defaults` block supplies values that individual
-# entries can override.
+# This config drives a two-stage workflow:
+#   Stage 1 (04_1_attach_cost_allocations.sh):
+#     Creates cost allocations as PENDING, submitted by the user specified
+#     in `submitted_by` (project owner or financial admin).
+#   Stage 2 (04_2_confirm_cost_allocations.sh):
+#     Approves all allocations as the billing manager specified in
+#     the `approval` section.
 #
-# This file is consumed by modules/04_cost_allocation.sh, which calls
-#   coldfront set_project_cost_allocation <project> <CO:PCT>... [options]
-# for every entry below.
+# Each project must have at least one cost object, and percentages must
+# sum to exactly 100.
 #
 # Depends on:
-#   - users_multi.yaml  (creates orcd_bim, the billing manager)
+#   - users_multi.yaml  (creates user accounts including orcd_bim)
 #   - projects.yaml     (creates the projects referenced here)
+#   - members.yaml      (assigns financial admin roles)
 
 defaults:
-  status: "APPROVED"
+  status: "PENDING"
+
+approval:
   reviewed_by: "orcd_bim"
-  review_notes: "Auto-approved during test setup"
+  review_notes: "Approved during test setup"
 
 cost_allocations:
   # ── User 0 ─────────────────────────────────────────────────────────
+  # _p1: submitted by project owner
+  # _p2: submitted by financial admin (orcd_u4, from members.yaml)
   - project: orcd_u0_p1
+    submitted_by: "orcd_u0"
     cost_objects:
       - code: "CO-U0-A"
         percentage: 100
     notes: "Single cost object for user 0, project 1"
 
   - project: orcd_u0_p2
+    submitted_by: "orcd_u4"
     cost_objects:
       - code: "CO-U0-B"
         percentage: 60
@@ -37,11 +47,13 @@ cost_allocations:
 
   # ── User 1 ─────────────────────────────────────────────────────────
   - project: orcd_u1_p1
+    submitted_by: "orcd_u1"
     cost_objects:
       - code: "CO-U1-A"
         percentage: 100
 
   - project: orcd_u1_p2
+    submitted_by: "orcd_u5"
     cost_objects:
       - code: "CO-U1-B"
         percentage: 50
@@ -50,11 +62,13 @@ cost_allocations:
 
   # ── User 2 ─────────────────────────────────────────────────────────
   - project: orcd_u2_p1
+    submitted_by: "orcd_u2"
     cost_objects:
       - code: "CO-U2-A"
         percentage: 100
 
   - project: orcd_u2_p2
+    submitted_by: "orcd_u6"
     cost_objects:
       - code: "CO-U2-B"
         percentage: 70
@@ -63,11 +77,13 @@ cost_allocations:
 
   # ── User 3 ─────────────────────────────────────────────────────────
   - project: orcd_u3_p1
+    submitted_by: "orcd_u3"
     cost_objects:
       - code: "CO-U3-A"
         percentage: 100
 
   - project: orcd_u3_p2
+    submitted_by: "orcd_u7"
     cost_objects:
       - code: "CO-U3-B"
         percentage: 40
@@ -79,11 +95,13 @@ cost_allocations:
 
   # ── User 4 ─────────────────────────────────────────────────────────
   - project: orcd_u4_p1
+    submitted_by: "orcd_u4"
     cost_objects:
       - code: "CO-U4-A"
         percentage: 100
 
   - project: orcd_u4_p2
+    submitted_by: "orcd_u8"
     cost_objects:
       - code: "CO-U4-B"
         percentage: 80
@@ -92,11 +110,13 @@ cost_allocations:
 
   # ── User 5 ─────────────────────────────────────────────────────────
   - project: orcd_u5_p1
+    submitted_by: "orcd_u5"
     cost_objects:
       - code: "CO-U5-A"
         percentage: 100
 
   - project: orcd_u5_p2
+    submitted_by: "orcd_u9"
     cost_objects:
       - code: "CO-U5-B"
         percentage: 50
@@ -105,11 +125,13 @@ cost_allocations:
 
   # ── User 6 ─────────────────────────────────────────────────────────
   - project: orcd_u6_p1
+    submitted_by: "orcd_u6"
     cost_objects:
       - code: "CO-U6-A"
         percentage: 100
 
   - project: orcd_u6_p2
+    submitted_by: "orcd_u0"
     cost_objects:
       - code: "CO-U6-B"
         percentage: 60
@@ -118,11 +140,13 @@ cost_allocations:
 
   # ── User 7 ─────────────────────────────────────────────────────────
   - project: orcd_u7_p1
+    submitted_by: "orcd_u7"
     cost_objects:
       - code: "CO-U7-A"
         percentage: 100
 
   - project: orcd_u7_p2
+    submitted_by: "orcd_u1"
     cost_objects:
       - code: "CO-U7-B"
         percentage: 55
@@ -131,11 +155,13 @@ cost_allocations:
 
   # ── User 8 ─────────────────────────────────────────────────────────
   - project: orcd_u8_p1
+    submitted_by: "orcd_u8"
     cost_objects:
       - code: "CO-U8-A"
         percentage: 100
 
   - project: orcd_u8_p2
+    submitted_by: "orcd_u2"
     cost_objects:
       - code: "CO-U8-B"
         percentage: 30
@@ -147,11 +173,13 @@ cost_allocations:
 
   # ── User 9 ─────────────────────────────────────────────────────────
   - project: orcd_u9_p1
+    submitted_by: "orcd_u9"
     cost_objects:
       - code: "CO-U9-A"
         percentage: 100
 
   - project: orcd_u9_p2
+    submitted_by: "orcd_u3"
     cost_objects:
       - code: "CO-U9-B"
         percentage: 75
