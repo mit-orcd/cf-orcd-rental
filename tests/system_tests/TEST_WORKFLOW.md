@@ -33,12 +33,13 @@ tests/setup/
 │   ├── 04_1_attach_cost_allocations.sh   # Stage 1: submit as PENDING
 │   ├── 04_2_confirm_cost_allocations.sh  # Stage 2: approve as billing manager
 │   ├── 05_rates.sh
-│   ├── 06_1_create_reservations.sh     # Stage 1: submit as PENDING
-│   ├── 06_2_confirm_reservations.sh    # Stage 2: approve as rental manager
-│   ├── 07_maintenance.sh
-│   ├── 08_invoices.sh
-│   ├── 09_api.sh
-│   └── 10_activity_log.sh
+│   ├── 06_add_amf.sh                   # Account maintenance fees
+│   ├── 07_1_create_reservations.sh     # Stage 1: submit as PENDING
+│   ├── 07_2_confirm_reservations.sh    # Stage 2: approve as rental manager
+│   ├── 08_maintenance.sh
+│   ├── 09_invoices.sh
+│   ├── 10_api.sh
+│   └── 11_activity_log.sh
 ├── config/
 │   ├── test_config.yaml
 │   ├── users.yaml / users_multi.yaml
@@ -46,6 +47,7 @@ tests/setup/
 │   ├── members.yaml
 │   ├── cost_allocations.yaml
 │   ├── rates.yaml
+│   ├── amf.yaml
 │   ├── reservations.yaml
 │   ├── invoices.yaml
 │   └── maintenance_windows.yaml
@@ -106,16 +108,17 @@ All scripts source `common.sh` for:
 | 04_1 | `04_1_attach_cost_allocations.sh` | Submit cost allocations as PENDING | 02, 03 |
 | 04_2 | `04_2_confirm_cost_allocations.sh` | Approve cost allocations as billing manager | 04_1 |
 | 05 | `05_rates.sh` | Manage SKUs and rates | 01 |
-| 06_1 | `06_1_create_reservations.sh` | Create reservations as PENDING | 04_2, 05 |
-| 06_2 | `06_2_confirm_reservations.sh` | Approve reservations as rental manager | 06_1 |
-| 07 | `07_maintenance.sh` | Maintenance windows | 01 |
-| 08 | `08_invoices.sh` | Invoice generation and overrides | 06, 07 |
-| 09 | `09_api.sh` | API endpoint checks | All |
-| 10 | `10_activity_log.sh` | Activity log verification | All |
+| 06 | `06_add_amf.sh` | Set account maintenance fees | 01-05 |
+| 07_1 | `07_1_create_reservations.sh` | Create reservations as PENDING | 04_2, 05, 06 |
+| 07_2 | `07_2_confirm_reservations.sh` | Approve reservations as rental manager | 07_1 |
+| 08 | `08_maintenance.sh` | Maintenance windows | 01 |
+| 09 | `09_invoices.sh` | Invoice generation and overrides | 07, 08 |
+| 10 | `10_api.sh` | API endpoint checks | All |
+| 11 | `11_activity_log.sh` | Activity log verification | All |
 
 Notes:
-- Implemented modules: 01 (users), 02 (projects), 03 (members), 04_1/04_2 (cost allocations), 05 (rates), 06_1/06_2 (reservations).
-- Modules 07–10 are placeholders that return exit code `2` and log a message until implemented.
+- Implemented modules: 01 (users), 02 (projects), 03 (members), 04_1/04_2 (cost allocations), 05 (rates), 06 (AMF), 07_1/07_2 (reservations).
+- Modules 08-11 are placeholders that return exit code `2` and log a message until implemented.
 
 ## YAML Configuration
 
@@ -147,13 +150,35 @@ includes:
 - Defines projects, owners, and member roles.
 - Roles map to `create_orcd_project --add-member <username:role>`.
 
+### Account Maintenance Fees (`amf.yaml`)
+
+Drives the AMF enrollment workflow (module 06):
+
+```yaml
+version: "1.0"
+defaults:
+  status: "basic"
+entries:
+  - username: "orcd_u0"
+    status: "basic"
+    project: "orcd_u0_p1"
+```
+
+**Fields:**
+- `username`: User to configure
+- `status`: Maintenance level (`basic` for MAINT_STANDARD, `advanced` for MAINT_ADVANCED)
+- `project`: Billing project (user must be owner, technical_admin, or member; must have approved cost allocation)
+
+**Management command:**
+- `coldfront set_user_amf <username> <status> --project <project> --force`
+
 ### Reservations (`reservations.yaml`)
 
-Drives the two-stage reservation workflow (module 06):
+Drives the two-stage reservation workflow (module 07):
 
-**Stage 1** (`06_1_create_reservations.sh`): Creates reservations as PENDING using `coldfront create_node_rental`.
+**Stage 1** (`07_1_create_reservations.sh`): Creates reservations as PENDING using `coldfront create_node_rental`.
 
-**Stage 2** (`06_2_confirm_reservations.sh`): Approves all reservations using `coldfront approve_node_rental`.
+**Stage 2** (`07_2_confirm_reservations.sh`): Approves all reservations using `coldfront approve_node_rental`.
 
 ```yaml
 version: "1.0"

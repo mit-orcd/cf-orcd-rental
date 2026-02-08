@@ -3,10 +3,10 @@ version: "1.0"
 # Reservation configuration for multi-user test setup.
 #
 # This config drives a two-stage workflow:
-#   Stage 1 (06_1_create_reservations.sh):
+#   Stage 1 (07_1_create_reservations.sh):
 #     Creates reservations as PENDING, submitted by the user specified
 #     in `requesting_user` (project owner or technical admin).
-#   Stage 2 (06_2_confirm_reservations.sh):
+#   Stage 2 (07_2_confirm_reservations.sh):
 #     Approves all reservations as the rental manager specified in
 #     the `approval` section.
 #
@@ -48,6 +48,7 @@ version: "1.0"
 #   - projects.yaml          (creates the projects referenced here)
 #   - members.yaml           (assigns technical admin roles)
 #   - cost_allocations.yaml  (projects must have APPROVED cost allocations)
+#   - amf.yaml               (users must have active maintenance status)
 
 defaults:
   status: "PENDING"
