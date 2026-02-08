@@ -224,10 +224,12 @@ class RentalSKUAdmin(admin.ModelAdmin):
 
     @admin.display(description="Current Rate")
     def current_rate_display(self, obj):
+        from coldfront_orcd_direct_charge.templatetags.rate_filters import format_rate_value
+
         rate = obj.current_rate
         if rate:
             unit = "hr" if obj.billing_unit == "HOURLY" else "mo"
-            return f"${rate.rate}/{unit}"
+            return f"${format_rate_value(rate.rate)}/{unit}"
         return "-"
 
     @admin.display(description="Rates")

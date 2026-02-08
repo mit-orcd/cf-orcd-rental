@@ -176,10 +176,12 @@ class MaintenanceSubscriptionSerializer(serializers.ModelSerializer):
 
     def get_current_rate(self, obj):
         """Return the current rate for the maintenance SKU."""
+        from coldfront_orcd_direct_charge.templatetags.rate_filters import format_rate_value
+
         sku = self._get_maintenance_sku(obj.status)
         if sku:
             rate = sku.current_rate
-            return str(rate.rate) if rate else None
+            return format_rate_value(rate.rate) if rate else None
         return None
 
 
@@ -226,8 +228,10 @@ class QoSSubscriptionSerializer(serializers.ModelSerializer):
 
     def get_current_rate(self, obj):
         """Return the current rate for the subscription's SKU."""
+        from coldfront_orcd_direct_charge.templatetags.rate_filters import format_rate_value
+
         rate = obj.sku.current_rate
-        return str(rate.rate) if rate else None
+        return format_rate_value(rate.rate) if rate else None
 
 
 class SKUSerializer(serializers.ModelSerializer):
@@ -251,8 +255,10 @@ class SKUSerializer(serializers.ModelSerializer):
 
     def get_current_rate(self, obj):
         """Return the current rate for the SKU."""
+        from coldfront_orcd_direct_charge.templatetags.rate_filters import format_rate_value
+
         rate = obj.current_rate
-        return str(rate.rate) if rate else None
+        return format_rate_value(rate.rate) if rate else None
 
 
 class ProjectCostObjectSerializer(serializers.ModelSerializer):
