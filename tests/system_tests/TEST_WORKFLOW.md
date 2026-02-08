@@ -33,7 +33,8 @@ tests/setup/
 │   ├── 04_1_attach_cost_allocations.sh   # Stage 1: submit as PENDING
 │   ├── 04_2_confirm_cost_allocations.sh  # Stage 2: approve as billing manager
 │   ├── 05_rates.sh
-│   ├── 06_reservations.sh
+│   ├── 06_1_create_reservations.sh     # Stage 1: submit as PENDING
+│   ├── 06_2_confirm_reservations.sh    # Stage 2: approve as rental manager
 │   ├── 07_maintenance.sh
 │   ├── 08_invoices.sh
 │   ├── 09_api.sh
@@ -102,17 +103,19 @@ All scripts source `common.sh` for:
 | 01 | `01_users.sh` | Create users, generate tokens, verify user search API | None |
 | 02 | `02_projects.sh` | Create projects, add members | 01 |
 | 03 | `03_members.sh` | Manage member roles | 01, 02 |
-| 04 | `04_cost_allocation.sh` | Create/approve cost allocations | 02, 03 |
+| 04_1 | `04_1_attach_cost_allocations.sh` | Submit cost allocations as PENDING | 02, 03 |
+| 04_2 | `04_2_confirm_cost_allocations.sh` | Approve cost allocations as billing manager | 04_1 |
 | 05 | `05_rates.sh` | Manage SKUs and rates | 01 |
-| 06 | `06_reservations.sh` | Reservation workflows | 04, 05 |
+| 06_1 | `06_1_create_reservations.sh` | Create reservations as PENDING | 04_2, 05 |
+| 06_2 | `06_2_confirm_reservations.sh` | Approve reservations as rental manager | 06_1 |
 | 07 | `07_maintenance.sh` | Maintenance windows | 01 |
 | 08 | `08_invoices.sh` | Invoice generation and overrides | 06, 07 |
 | 09 | `09_api.sh` | API endpoint checks | All |
 | 10 | `10_activity_log.sh` | Activity log verification | All |
 
 Notes:
-- `01_users.sh` and `02_projects.sh` are implemented and produce artifacts.
-- Modules 03–10 are placeholders that return exit code `2` and log a message until implemented.
+- Implemented modules: 01 (users), 02 (projects), 03 (members), 04_1/04_2 (cost allocations), 05 (rates), 06_1/06_2 (reservations).
+- Modules 07–10 are placeholders that return exit code `2` and log a message until implemented.
 
 ## YAML Configuration
 
@@ -144,8 +147,49 @@ includes:
 - Defines projects, owners, and member roles.
 - Roles map to `create_orcd_project --add-member <username:role>`.
 
+### Reservations (`reservations.yaml`)
+
+Drives the two-stage reservation workflow (module 06):
+
+**Stage 1** (`06_1_create_reservations.sh`): Creates reservations as PENDING using `coldfront create_node_rental`.
+
+**Stage 2** (`06_2_confirm_reservations.sh`): Approves all reservations using `coldfront approve_node_rental`.
+
+```yaml
+version: "1.0"
+defaults:
+  status: "PENDING"
+  num_blocks: 2
+approval:
+  processed_by: "orcd_rem"
+  manager_notes: "Approved during test setup"
+reservations:
+  - node_address: "node2433"
+    project: "orcd_u0_p1"
+    requesting_user: "orcd_u0"
+    start_date: "2026-03-02"
+    num_blocks: 2
+    rental_notes: "Owner-submitted reservation"
+```
+
+**Fields:**
+- `node_address`: GPU node instance address (must be rentable)
+- `project`: Project name (must have APPROVED cost allocation)
+- `requesting_user`: User submitting the request (must be owner, technical_admin, or member)
+- `start_date`: Reservation start date (always begins at 4:00 PM)
+- `num_blocks`: Duration in 12-hour blocks (default from `defaults.num_blocks`)
+- `rental_notes`: Optional notes from the requester
+
+**Constraints:**
+- No two reservations on the same `node_address` may overlap in time.
+- Reservations start at 4:00 PM and last `num_blocks * 12` hours (capped at 9:00 AM on the final day).
+
+**Management commands:**
+- `coldfront create_node_rental <node> <project> <user> --start-date <date> --num-blocks <n> --status PENDING --force`
+- `coldfront approve_node_rental <node> <project> --start-date <date> --processed-by <user> --force`
+
 ### Future Modules
-`reservations.yaml`, `maintenance_windows.yaml`, and `invoices.yaml` provide placeholders for the upcoming module scripts.
+`maintenance_windows.yaml` and `invoices.yaml` provide placeholders for the upcoming module scripts.
 
 ## CI/CD Integration (Script-Based)
 
