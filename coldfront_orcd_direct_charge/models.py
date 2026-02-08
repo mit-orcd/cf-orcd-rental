@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import logging
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
@@ -1195,6 +1196,14 @@ def has_approved_cost_allocation(project):
 # =============================================================================
 # Rate Management Models
 # =============================================================================
+
+# Sentinel values for placeholder rates.
+# Every SKU is created with an initial $0.01 placeholder rate so that the
+# rate lookup (get_rate_for_date) always returns a value.  The sentinel date
+# of 1999-01-01 ensures that any subsequently set rate -- even a retroactive
+# one -- will have a later effective_date and take precedence.
+PLACEHOLDER_RATE_DATE = date(1999, 1, 1)
+PLACEHOLDER_RATE_AMOUNT = Decimal("0.01")
 
 
 class RentalSKU(TimeStampedModel):

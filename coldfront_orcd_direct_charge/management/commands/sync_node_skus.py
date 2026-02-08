@@ -17,15 +17,16 @@ Usage:
     coldfront sync_node_skus --dry-run # Show what would be done
 """
 
-from datetime import date
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 
 from coldfront_orcd_direct_charge.models import (
     NodeType,
-    RentalSKU,
+    PLACEHOLDER_RATE_AMOUNT,
+    PLACEHOLDER_RATE_DATE,
     RentalRate,
+    RentalSKU,
 )
 
 
@@ -120,11 +121,12 @@ class Command(BaseCommand):
                         metadata=metadata,
                     )
 
-                    # Create initial placeholder rate
+                    # Create initial placeholder rate with sentinel date
+                    # (1999-01-01) so any real rate always takes precedence
                     RentalRate.objects.create(
                         sku=sku,
-                        rate=Decimal("0.01"),
-                        effective_date=date.today(),
+                        rate=PLACEHOLDER_RATE_AMOUNT,
+                        effective_date=PLACEHOLDER_RATE_DATE,
                         notes="Initial placeholder rate (created by sync_node_skus)",
                     )
 

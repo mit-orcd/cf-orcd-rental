@@ -16,7 +16,9 @@ def create_initial_skus_and_rates(apps, schema_editor):
     RentalRate = apps.get_model("coldfront_orcd_direct_charge", "RentalRate")
     NodeType = apps.get_model("coldfront_orcd_direct_charge", "NodeType")
 
-    today = date.today()
+    # Use a fixed sentinel date so that any subsequently set rate
+    # (even a retroactive one) will always take precedence.
+    sentinel_date = date(1999, 1, 1)
     placeholder_rate = Decimal("0.01")
 
     # Create Node SKUs from all active NodeTypes
@@ -34,7 +36,7 @@ def create_initial_skus_and_rates(apps, schema_editor):
         RentalRate.objects.create(
             sku=sku,
             rate=placeholder_rate,
-            effective_date=today,
+            effective_date=sentinel_date,
             notes="Initial placeholder rate",
         )
 
@@ -50,7 +52,7 @@ def create_initial_skus_and_rates(apps, schema_editor):
     RentalRate.objects.create(
         sku=maint_basic,
         rate=placeholder_rate,
-        effective_date=today,
+        effective_date=sentinel_date,
         notes="Initial placeholder rate",
     )
 
@@ -65,7 +67,7 @@ def create_initial_skus_and_rates(apps, schema_editor):
     RentalRate.objects.create(
         sku=maint_advanced,
         rate=placeholder_rate,
-        effective_date=today,
+        effective_date=sentinel_date,
         notes="Initial placeholder rate",
     )
 
