@@ -12,7 +12,7 @@ When a `NodeType` record is created or updated (including via `loaddata` fixture
 
 1. **Creates a new RentalSKU** if one doesn't exist for the NodeType
 2. **Updates the existing RentalSKU** if the NodeType changes (name, description, is_active)
-3. **Creates an initial placeholder rate** of $0.01/hour for new SKUs
+3. **Creates an initial placeholder rate** of $0.01/hour for new SKUs with `effective_date = 1999-01-01` (the sentinel date -- see [Placeholder Rates and the Sentinel Date](RATE_MANAGER.md#placeholder-rates-and-the-sentinel-date))
 
 The signal handler is defined in `signals.py`:
 - `sync_nodetype_to_sku()` - Handles NodeType post_save signals
@@ -78,11 +78,13 @@ If you see this after loading NodeType fixtures:
 
 ### SKUs Have Placeholder Rates
 
-New SKUs are created with $0.01/hour placeholder rates. Use the Rate Management interface to set actual rates:
+New SKUs are created with $0.01/hour placeholder rates and an `effective_date` of `1999-01-01` (the sentinel date). This sentinel date ensures that any real rate you set -- even with a retroactive effective date -- will always take precedence over the placeholder.
 
+To set actual rates:
 1. Log in as a Rate Manager
 2. Go to Project → Manage Rates
 3. Select each SKU and add the correct rate
+4. Or use the `set_sku_rate` management command (see [RATE_MANAGER.md](RATE_MANAGER.md#management-commands))
 
 ## Historical Context
 

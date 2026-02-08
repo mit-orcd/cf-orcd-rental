@@ -88,7 +88,12 @@ def sync_nodetype_to_sku(sender, instance, created, **kwargs):
     The sku_code is preserved (not changed on rename) to maintain billing history.
     """
     from django.db import connection
-    from coldfront_orcd_direct_charge.models import RentalSKU, RentalRate
+    from coldfront_orcd_direct_charge.models import (
+        PLACEHOLDER_RATE_AMOUNT,
+        PLACEHOLDER_RATE_DATE,
+        RentalRate,
+        RentalSKU,
+    )
     
     # Check if RentalSKU table exists (might not during initial migrations)
     # This prevents errors when loading NodeType fixtures before migration 0022
@@ -157,11 +162,12 @@ def sync_nodetype_to_sku(sender, instance, created, **kwargs):
             metadata=metadata,
         )
         
-        # Create initial placeholder rate
+        # Create initial placeholder rate with sentinel date
+        # (1999-01-01) so any real rate always takes precedence
         RentalRate.objects.create(
             sku=sku,
-            rate=Decimal("0.01"),
-            effective_date=date.today(),
+            rate=PLACEHOLDER_RATE_AMOUNT,
+            effective_date=PLACEHOLDER_RATE_DATE,
             notes="Initial placeholder rate (auto-created from NodeType)",
         )
         
