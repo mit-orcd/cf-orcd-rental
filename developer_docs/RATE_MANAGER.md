@@ -563,6 +563,36 @@ Rates with future effective dates are stored but not used until their effective 
 3. **Reminder** - Obviously placeholder value prompts Rate Manager to set real rates
 4. **Safety** - Prevents accidental $0.00 billing if real rates aren't set
 
+### Placeholder Rates and the Sentinel Date
+
+**Decision:** All placeholder rates use `effective_date = 1999-01-01` (the "sentinel date").
+
+**Problem:** Placeholder rates were originally created with `effective_date = date.today()`. When a real rate was later set with a retroactive effective date (e.g. `2025-01-01`), the placeholder's date (e.g. `2026-02-06`) was more recent. Since `get_rate_for_date(today)` returns the rate with the most recent `effective_date <= today`, the $0.01 placeholder would win the lookup instead of the intended rate.
+
+**Solution:** Use a fixed sentinel date of January 1, 1999 for all placeholder rates. This date:
+- Obviously predates any real billing period
+- Guarantees any subsequently set rate (even a retroactive one) takes precedence
+- Is immediately recognizable as a placeholder in database queries and admin views
+
+**Constants** (defined in `models.py`):
+```python
+PLACEHOLDER_RATE_DATE = date(1999, 1, 1)    # Sentinel date for placeholder rates
+PLACEHOLDER_RATE_AMOUNT = Decimal("0.01")   # Placeholder rate amount
+```
+
+**Where placeholders are created:**
+
+| Location | When | Notes |
+|----------|------|-------|
+| Migration 0022 | Plugin installation | Creates initial SKUs for all NodeTypes and maintenance fees |
+| `sync_node_skus` command | Manual sync | Creates SKUs for any NodeTypes missing a corresponding SKU |
+| `signals.py` (post_save) | NodeType creation | Auto-creates SKU when a new NodeType is added |
+
+**How to identify placeholder rates:**
+- `rate = $0.01`
+- `notes` contains "placeholder"
+- `effective_date = 1999-01-01`
+
 ---
 
 ## Files Reference
@@ -583,6 +613,7 @@ Rates with future effective dates are stored but not used until their effective 
 | `templates/.../current_rates.html` | Public current rates page with filtering |
 | `templates/.../sku_public_detail.html` | Public SKU detail page |
 | `management/commands/setup_rate_manager.py` | Management command |
-| `migrations/0022_rentalsku_rentalrate.py` | Models + initial data |
+| `migrations/0022_rentalsku_rentalrate.py` | Models + initial data (uses sentinel date 1999-01-01) |
 | `migrations/0024_rentalsku_metadata_visibility.py` | is_public, metadata fields |
+| `migrations/0028_backfill_placeholder_rate_dates.py` | Backfill existing placeholder rates to sentinel date |
 
