@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Module 09: API Checks (placeholder)
+# Module 11: Activity Log (placeholder)
 #
 set -euo pipefail
 
@@ -10,6 +10,6 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
-log_step "Module 09 not implemented yet"
-echo "This module will exercise API endpoints and save responses."
+log_step "Module 11 not implemented yet"
+echo "This module will verify activity log entries."
 exit 2

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Module 10: Activity Log (placeholder)
+# Module 10: API Checks (placeholder)
 #
 set -euo pipefail
 
@@ -11,5 +11,5 @@ source "$SETUP_DIR/lib/common.sh"
 common_init
 
 log_step "Module 10 not implemented yet"
-echo "This module will verify activity log entries."
+echo "This module will exercise API endpoints and save responses."
 exit 2

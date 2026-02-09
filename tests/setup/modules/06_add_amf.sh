@@ -1,24 +1,25 @@
 #!/usr/bin/env bash
 #
-# Module 06_1: Create Reservations (Submit as PENDING)
+# Module 06: Account Maintenance Fees (AMF)
 #
-# Creates node rental reservations based on YAML config, setting
-# them to PENDING status.  Each entry specifies a node, project,
-# requesting user, start date, and duration in 12-hour blocks.
+# Sets account maintenance fee status for each regular user based on
+# YAML config.  Each entry specifies a user, their maintenance level
+# (basic or advanced), and the project to charge for the service.
 #
-# This is stage 1 of the two-stage reservation workflow:
-#   Stage 1 (this script): Submit reservations as PENDING
-#   Stage 2 (06_2_confirm_reservations.sh): Approve as rental manager
+# Status levels:
+#   basic    -> MAINT_STANDARD SKU  (standard maintenance)
+#   advanced -> MAINT_ADVANCED SKU  (advanced maintenance)
 #
-# Uses `coldfront create_node_rental` with --force and --status PENDING
-# so the module is idempotent on re-runs.
+# Uses `coldfront set_user_amf` with --force so the module is
+# idempotent on re-runs.
 #
 # Depends on:
 #   - 01_1_multiusers.sh               (creates user accounts)
 #   - 02_projects.sh                   (creates the projects)
-#   - 03_members.sh                    (assigns technical admin roles)
+#   - 03_members.sh                    (assigns roles for eligibility)
 #   - 04_1_attach_cost_allocations.sh  (submits cost allocations)
 #   - 04_2_confirm_cost_allocations.sh (approves cost allocations)
+#   - 05_rates.sh                      (sets SKU rates)
 #
 set -euo pipefail
 
@@ -34,7 +35,7 @@ DRY_RUN="false"
 
 usage() {
     cat << 'EOF'
-Usage: 06_1_create_reservations.sh [options]
+Usage: 06_add_amf.sh [options]
   --config <path>      Path to test_config.yaml
   --output-dir <path>  Output directory for artifacts
   --dry-run            Print actions without applying changes
@@ -71,14 +72,14 @@ if [ -n "$OUTPUT_DIR_OVERRIDE" ]; then
     OUTPUT_DIR="$OUTPUT_DIR_OVERRIDE"
 fi
 
-MODULE_OUTPUT="$OUTPUT_DIR/06_1_create_reservations"
+MODULE_OUTPUT="$OUTPUT_DIR/06_add_amf"
 mkdir -p "$MODULE_OUTPUT"
 
 # ---------------------------------------------------------------------------
-# Resolve the reservations config path from test_config.yaml includes
+# Resolve the AMF config path from test_config.yaml includes
 # ---------------------------------------------------------------------------
 
-RESERV_CONFIG="$(python3 - "$CONFIG_FILE" << 'PY'
+AMF_CONFIG="$(python3 - "$CONFIG_FILE" << 'PY'
 import sys
 import yaml
 
@@ -86,19 +87,19 @@ with open(sys.argv[1], "r", encoding="utf-8") as f:
     data = yaml.safe_load(f) or {}
 
 includes = data.get("includes", {})
-print(includes.get("reservations", ""))
+print(includes.get("amf", ""))
 PY
 )"
 
-if [ -z "$RESERV_CONFIG" ]; then
-    die "reservations config path not found in test_config.yaml includes section"
+if [ -z "$AMF_CONFIG" ]; then
+    die "amf config path not found in test_config.yaml includes section"
 fi
 
-if [ ! -f "$SETUP_DIR/config/$RESERV_CONFIG" ]; then
-    die "Reservations config not found: $SETUP_DIR/config/$RESERV_CONFIG"
+if [ ! -f "$SETUP_DIR/config/$AMF_CONFIG" ]; then
+    die "AMF config not found: $SETUP_DIR/config/$AMF_CONFIG"
 fi
 
-RESERV_CONFIG="$SETUP_DIR/config/$RESERV_CONFIG"
+AMF_CONFIG="$SETUP_DIR/config/$AMF_CONFIG"
 
 # ---------------------------------------------------------------------------
 # Set up environment
@@ -108,35 +109,29 @@ ensure_env
 activate_env
 
 # ---------------------------------------------------------------------------
-# Main loop: parse YAML, call create_node_rental for each entry
+# Main loop: parse YAML, call set_user_amf for each entry
 # ---------------------------------------------------------------------------
 
-log_step "Creating reservations as PENDING"
+log_step "Setting account maintenance fees"
 
-RESERV_LOG="$MODULE_OUTPUT/create_reservations.log"
-reserv_count=0
+AMF_LOG="$MODULE_OUTPUT/add_amf.log"
+amf_count=0
 
-while IFS=$'\t' read -r node_address project username start_date num_blocks rental_notes; do
-    [ -n "$node_address" ] || continue
+while IFS=$'\t' read -r username status project; do
+    [ -n "$username" ] || continue
 
-    cmd=(create_node_rental "$node_address" "$project" "$username"
-         --start-date "$start_date"
-         --num-blocks "$num_blocks"
-         --status PENDING
-         --force)
-
-    [ -n "$rental_notes" ] && cmd+=(--rental-notes "$rental_notes")
+    cmd=(set_user_amf "$username" "$status" --project "$project" --force)
 
     if [ "$DRY_RUN" = "true" ]; then
-        echo "[DRY-RUN] coldfront ${cmd[*]}" >> "$RESERV_LOG"
+        echo "[DRY-RUN] coldfront ${cmd[*]}" >> "$AMF_LOG"
     else
         output="$(coldfront "${cmd[@]}" 2>&1)"
-        printf "%s\n" "$output" >> "$RESERV_LOG"
+        printf "%s\n" "$output" >> "$AMF_LOG"
     fi
 
-    reserv_count=$((reserv_count + 1))
+    amf_count=$((amf_count + 1))
 
-done < <(python3 - "$RESERV_CONFIG" << 'PY'
+done < <(python3 - "$AMF_CONFIG" << 'PY'
 import sys
 import yaml
 
@@ -144,27 +139,21 @@ with open(sys.argv[1], "r", encoding="utf-8") as f:
     data = yaml.safe_load(f) or {}
 
 defaults = data.get("defaults", {})
-default_num_blocks = defaults.get("num_blocks", 2)
+default_status = defaults.get("status", "basic")
 
-for entry in data.get("reservations", []):
-    node_address = entry.get("node_address", "")
+for entry in data.get("entries", []):
+    username = entry.get("username", "")
     project = entry.get("project", "")
-    username = entry.get("requesting_user", "")
-    start_date = entry.get("start_date", "")
 
-    if not all([node_address, project, username, start_date]):
+    if not all([username, project]):
         continue
 
-    num_blocks = entry.get("num_blocks", default_num_blocks)
-    rental_notes = entry.get("rental_notes", "")
+    status = entry.get("status", default_status)
 
     line = "\t".join([
-        str(node_address),
-        str(project),
         str(username),
-        str(start_date),
-        str(num_blocks),
-        str(rental_notes),
+        str(status),
+        str(project),
     ])
     print(line)
 PY
@@ -175,11 +164,9 @@ PY
 # ---------------------------------------------------------------------------
 
 echo ""
-echo "Module 06_1 complete."
-echo "  Reservations created (PENDING): $reserv_count"
+echo "Module 06 complete."
+echo "  Account maintenance fees set: $amf_count"
 echo "  Output directory: $MODULE_OUTPUT"
 echo ""
 echo "Output files:"
-echo "  - create_reservations.log : Command output log"
-echo ""
-echo "Next step: run 06_2_confirm_reservations.sh to approve"
+echo "  - add_amf.log : Command output log"

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# Module 06_2: Confirm Reservations (Approve as Rental Manager)
+# Module 07_2: Confirm Reservations (Approve as Rental Manager)
 #
 # Approves all PENDING reservations using the rental manager
 # account specified in the YAML config's `approval` section.
 #
 # This is stage 2 of the two-stage reservation workflow:
-#   Stage 1 (06_1_create_reservations.sh): Submit reservations as PENDING
+#   Stage 1 (07_1_create_reservations.sh): Submit reservations as PENDING
 #   Stage 2 (this script): Approve as rental manager
 #
 # Uses `coldfront approve_node_rental` with --force so the module
@@ -14,7 +14,7 @@
 #
 # Depends on:
 #   - 01_1_multiusers.sh          (creates orcd_rem rental manager)
-#   - 06_1_create_reservations.sh (creates PENDING reservations)
+#   - 07_1_create_reservations.sh (creates PENDING reservations)
 #
 set -euo pipefail
 
@@ -30,7 +30,7 @@ DRY_RUN="false"
 
 usage() {
     cat << 'EOF'
-Usage: 06_2_confirm_reservations.sh [options]
+Usage: 07_2_confirm_reservations.sh [options]
   --config <path>      Path to test_config.yaml
   --output-dir <path>  Output directory for artifacts
   --dry-run            Print actions without applying changes
@@ -67,7 +67,7 @@ if [ -n "$OUTPUT_DIR_OVERRIDE" ]; then
     OUTPUT_DIR="$OUTPUT_DIR_OVERRIDE"
 fi
 
-MODULE_OUTPUT="$OUTPUT_DIR/06_2_confirm_reservations"
+MODULE_OUTPUT="$OUTPUT_DIR/07_2_confirm_reservations"
 mkdir -p "$MODULE_OUTPUT"
 
 # ---------------------------------------------------------------------------
@@ -181,7 +181,7 @@ PY
 # ---------------------------------------------------------------------------
 
 echo ""
-echo "Module 06_2 complete."
+echo "Module 07_2 complete."
 echo "  Reservations approved: $approve_count"
 echo "  Processed by: $PROCESSED_BY"
 echo "  Output directory: $MODULE_OUTPUT"

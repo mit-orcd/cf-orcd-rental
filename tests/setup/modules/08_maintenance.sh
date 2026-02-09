@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Module 08: Invoices (placeholder)
+# Module 08: Maintenance Windows (placeholder)
 #
 set -euo pipefail
 
@@ -11,5 +11,5 @@ source "$SETUP_DIR/lib/common.sh"
 common_init
 
 log_step "Module 08 not implemented yet"
-echo "This module will generate and verify invoices from YAML."
+echo "This module will manage maintenance windows from YAML."
 exit 2
