@@ -1,5 +1,61 @@
 version: "1.0"
 
-maintenance_windows: []
-edit_tests: []
-delete_tests: []
+# Maintenance window schedule configuration for test setup.
+#
+# This config defines recurring maintenance window schedules that are
+# expanded into concrete dates at runtime by 08_maintenance.sh.
+#
+# Each schedule specifies a day-of-week pattern (e.g. "3rd Tuesday of
+# every month") and the inline Python expands it into concrete
+# maintenance windows for the next N months from today.
+#
+# Schedule fields:
+#   - title:         Base title for the window; the computed date is
+#                    appended automatically, e.g.
+#                    "Monthly maintenance (Mar 18, 2026)"
+#   - weekday:       Day of the week (monday-sunday, case-insensitive)
+#   - week_of_month: Which occurrence in the month (1, 2, 3, 4, or "last")
+#   - start_time:    Start time in HH:MM format (default from defaults)
+#   - end_time:      End time in HH:MM format (default from defaults)
+#   - months_ahead:  How many months to generate (default from defaults)
+#   - description:   Optional description for each generated window
+#
+# Expansion rules:
+#   - The current month is included if its target day is today or later
+#   - Dates in the past are skipped
+#   - "last" for week_of_month picks the final occurrence in the month
+#   - Each schedule at 3 months_ahead produces ~3 windows
+#
+# The create_maintenance_window command does not have a --force flag,
+# so re-running the script will create duplicate windows.  This is
+# expected for test setup against a fresh database.
+#
+# Depends on:
+#   - 01_1_multiusers.sh  (creates user accounts)
+
+defaults:
+  months_ahead: 3
+  start_time: "06:00"
+  end_time: "18:00"
+
+schedules:
+  # ── Schedule 1: 3rd Tuesday of every month ──────────────────────────
+  # Full-day maintenance window (06:00-18:00, 12 hours)
+  # Example: "3rd Tuesday of every month from today"
+  - title: "Monthly scheduled maintenance"
+    weekday: "tuesday"
+    week_of_month: 3
+    start_time: "06:00"
+    end_time: "18:00"
+    months_ahead: 3
+    description: "3rd Tuesday of every month - scheduled system maintenance"
+
+  # ── Schedule 2: 1st Wednesday of every month ────────────────────────
+  # Morning maintenance window (08:00-14:00, 6 hours)
+  - title: "Infrastructure check"
+    weekday: "wednesday"
+    week_of_month: 1
+    start_time: "08:00"
+    end_time: "14:00"
+    months_ahead: 3
+    description: "1st Wednesday of every month - infrastructure maintenance"

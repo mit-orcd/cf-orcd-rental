@@ -112,14 +112,14 @@ All scripts source `common.sh` for:
 | 06 | `06_add_amf.sh` | Set account maintenance fees | 01-05 |
 | 07_1 | `07_1_create_reservations.sh` | Create reservations as PENDING | 04_2, 05, 06 |
 | 07_2 | `07_2_confirm_reservations.sh` | Approve reservations as rental manager | 07_1 |
-| 08 | `08_maintenance.sh` | Maintenance windows | 01 |
+| 08 | `08_maintenance.sh` | Create maintenance windows from schedules | 01 |
 | 09 | `09_invoices.sh` | Invoice generation and overrides | 07, 08 |
 | 10 | `10_api.sh` | API endpoint checks | All |
 | 11 | `11_activity_log.sh` | Activity log verification | All |
 
 Notes:
-- Implemented modules: 01 (users), 02 (projects), 03 (members), 04_1/04_2 (cost allocations), 05 (rates), 06 (AMF), 07_1/07_2 (reservations).
-- Modules 08-11 are placeholders that return exit code `2` and log a message until implemented.
+- Implemented modules: 01 (users), 02 (projects), 03 (members), 04_1/04_2 (cost allocations), 05 (rates), 06 (AMF), 07_1/07_2 (reservations), 08 (maintenance windows).
+- Modules 09-11 are placeholders that return exit code `2` and log a message until implemented.
 
 ## YAML Configuration
 
@@ -215,8 +215,39 @@ reservations:
 - `coldfront create_node_rental <node> <project> <user> --start-date <date> --num-blocks <n> --status PENDING --force`
 - `coldfront approve_node_rental <node> <project> --start-date <date> --processed-by <user> --force`
 
+### Maintenance Windows (`maintenance_windows.yaml`)
+
+Drives the maintenance window creation workflow (module 08). Uses a **schedule-based format** where each entry defines a recurring pattern that is expanded into concrete dates at runtime.
+
+```yaml
+version: "1.0"
+defaults:
+  months_ahead: 3
+  start_time: "06:00"
+  end_time: "18:00"
+schedules:
+  - title: "Monthly scheduled maintenance"
+    weekday: "tuesday"
+    week_of_month: 3
+    months_ahead: 3
+    description: "3rd Tuesday of every month"
+```
+
+**Schedule fields:**
+- `title`: Base title; the computed date is appended, e.g. "Monthly scheduled maintenance (Mar 18, 2026)"
+- `weekday`: Day of the week (`monday` through `sunday`)
+- `week_of_month`: Which occurrence in the month (1-4, or `last`)
+- `start_time` / `end_time`: Time of day for the window (defaults from `defaults` section)
+- `months_ahead`: How many months to generate from today (default from `defaults`)
+- `description`: Optional description
+
+**Expansion:** The inline Python in the script uses `calendar.monthcalendar` to find the Nth weekday of each month, skipping past dates. Each schedule at 3 months produces ~3 concrete windows.
+
+**Management command:**
+- `coldfront create_maintenance_window --start "YYYY-MM-DD HH:MM" --end "YYYY-MM-DD HH:MM" --title "..." [--description "..."]`
+
 ### Future Modules
-`maintenance_windows.yaml` and `invoices.yaml` provide placeholders for the upcoming module scripts.
+`invoices.yaml` provides a placeholder for the upcoming invoice module script.
 
 ## CI/CD Integration (Script-Based)
 
