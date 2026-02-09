@@ -113,13 +113,13 @@ All scripts source `common.sh` for:
 | 07_1 | `07_1_create_reservations.sh` | Create reservations as PENDING | 04_2, 05, 06 |
 | 07_2 | `07_2_confirm_reservations.sh` | Approve reservations as rental manager | 07_1 |
 | 08 | `08_maintenance.sh` | Create maintenance windows from schedules | 01 |
-| 09 | `09_invoices.sh` | Invoice generation and overrides | 07, 08 |
+| 09 | `09_invoices.sh` | Generate invoice reports via API | 01, 07, 08 |
 | 10 | `10_api.sh` | API endpoint checks | All |
 | 11 | `11_activity_log.sh` | Activity log verification | All |
 
 Notes:
-- Implemented modules: 01 (users), 02 (projects), 03 (members), 04_1/04_2 (cost allocations), 05 (rates), 06 (AMF), 07_1/07_2 (reservations), 08 (maintenance windows).
-- Modules 09-11 are placeholders that return exit code `2` and log a message until implemented.
+- Implemented modules: 01 (users), 02 (projects), 03 (members), 04_1/04_2 (cost allocations), 05 (rates), 06 (AMF), 07_1/07_2 (reservations), 08 (maintenance windows), 09 (invoices).
+- Modules 10-11 are placeholders that return exit code `2` and log a message until implemented.
 
 ## YAML Configuration
 
@@ -246,8 +246,32 @@ schedules:
 **Management command:**
 - `coldfront create_maintenance_window --start "YYYY-MM-DD HH:MM" --end "YYYY-MM-DD HH:MM" --title "..." [--description "..."]`
 
+### Invoices (`invoices.yaml`)
+
+Drives the invoice generation workflow (module 09). Uses the **REST API** rather than management commands, since invoices are computed on-the-fly from reservations.
+
+```yaml
+version: "1.0"
+defaults:
+  billing_user: "orcd_bim"
+invoice_periods:
+  - "today - 2 months"
+  - "today - 1 month"
+  - "today"
+  - "today + 1 month"
+  - "today + 2 months"
+```
+
+**Fields:**
+- `billing_user`: Username whose API token authenticates the requests (must have `can_manage_billing` permission)
+- `invoice_periods`: Relative month expressions resolved at runtime. Supported: `"today"`, `"today - N months"`, `"today + N months"`
+
+**API endpoint:** `GET /nodes/api/invoice/YYYY/MM/` returns full invoice JSON (reservations, hours, cost breakdowns, maintenance deductions, overrides). The script saves raw and pretty-printed JSON to the output directory.
+
+**Output files:** `output/09_invoices/invoice_YYYY_MM.json` and `invoice_YYYY_MM_pretty.json` for each month.
+
 ### Future Modules
-`invoices.yaml` provides a placeholder for the upcoming invoice module script.
+Modules 10 (API checks) and 11 (activity log) are placeholders for the upcoming module scripts.
 
 ## CI/CD Integration (Script-Based)
 
