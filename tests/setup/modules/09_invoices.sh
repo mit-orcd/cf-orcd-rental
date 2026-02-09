@@ -75,6 +75,13 @@ MODULE_OUTPUT="$OUTPUT_DIR/09_invoices"
 mkdir -p "$MODULE_OUTPUT"
 
 # ---------------------------------------------------------------------------
+# Set up environment (must happen before YAML parsing so python3 has PyYAML)
+# ---------------------------------------------------------------------------
+
+ensure_env
+activate_env
+
+# ---------------------------------------------------------------------------
 # Resolve the invoices config path from test_config.yaml includes
 # ---------------------------------------------------------------------------
 
@@ -115,13 +122,6 @@ defaults = data.get("defaults", {})
 print(defaults.get("billing_user", "orcd_bim"))
 PY
 )"
-
-# ---------------------------------------------------------------------------
-# Set up environment and start server
-# ---------------------------------------------------------------------------
-
-ensure_env
-activate_env
 
 SERVER_LOG="$MODULE_OUTPUT/coldfront_server.log"
 PID_FILE="$MODULE_OUTPUT/server.pid"
