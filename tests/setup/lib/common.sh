@@ -99,6 +99,39 @@ for item in node:
 PY
 }
 
+# Resolve a relative date expression to YYYY-MM-DD.
+#
+# Supported formats:
+#   "2026-03-02"       -> passthrough (absolute date)
+#   "today"            -> current date
+#   "today+7"          -> 7 days from today
+#   "today + 7"        -> 7 days from today (spaces allowed)
+#   "today + 7 days"   -> 7 days from today ("days" suffix allowed)
+#
+# Uses Python for portability (macOS date -v vs Linux date -d).
+resolve_relative_date() {
+    local expr="$1"
+    python3 -c "
+from datetime import date, timedelta
+import re, sys
+s = sys.argv[1].strip()
+# Absolute date passthrough (YYYY-MM-DD)
+if re.fullmatch(r'\d{4}-\d{2}-\d{2}', s):
+    print(s)
+# 'today' alone
+elif s.lower() == 'today':
+    print(date.today().isoformat())
+# 'today+N' or 'today + N' or 'today + N days'
+else:
+    m = re.fullmatch(r'today\s*\+\s*(\d+)(?:\s*days?)?', s, re.IGNORECASE)
+    if m:
+        print((date.today() + timedelta(days=int(m.group(1)))).isoformat())
+    else:
+        print(f'Invalid date expression: {s}', file=sys.stderr)
+        sys.exit(1)
+" "$expr"
+}
+
 server_ready() {
     local code
     code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${SERVER_PORT}/" || true)
