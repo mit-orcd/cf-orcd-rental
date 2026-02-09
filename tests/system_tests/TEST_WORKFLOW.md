@@ -95,6 +95,7 @@ All scripts source `common.sh` for:
 - `api_get`: authenticated API requests.
 - `pretty_json`: pretty-print output artifacts.
 - `yaml_list`: extract values from YAML (requires PyYAML).
+- `resolve_relative_date`: convert relative date expressions (`today+N`) to `YYYY-MM-DD`.
 
 `tests/setup/user_smoke_test.sh` is refactored to use these helpers to keep the code consistent.
 
@@ -192,7 +193,7 @@ reservations:
   - node_address: "node2433"
     project: "orcd_u0_p1"
     requesting_user: "orcd_u0"
-    start_date: "2026-03-02"
+    start_date: "today+7"
     num_blocks: 2
     rental_notes: "Owner-submitted reservation"
 ```
@@ -201,13 +202,14 @@ reservations:
 - `node_address`: GPU node instance address (must be rentable)
 - `project`: Project name (must have APPROVED cost allocation)
 - `requesting_user`: User submitting the request (must be owner, technical_admin, or member)
-- `start_date`: Reservation start date (always begins at 4:00 PM)
+- `start_date`: Relative date expression resolved at runtime by `resolve_relative_date` (from `lib/common.sh`). Supported formats: `"today+7"`, `"today + 7 days"`, `"today"`, or `"YYYY-MM-DD"` passthrough.
 - `num_blocks`: Duration in 12-hour blocks (default from `defaults.num_blocks`)
 - `rental_notes`: Optional notes from the requester
 
 **Constraints:**
 - No two reservations on the same `node_address` may overlap in time.
 - Reservations start at 4:00 PM and last `num_blocks * 12` hours (capped at 9:00 AM on the final day).
+- Relative dates ensure the config works regardless of when scripts are run.
 
 **Management commands:**
 - `coldfront create_node_rental <node> <project> <user> --start-date <date> --num-blocks <n> --status PENDING --force`
