@@ -120,6 +120,9 @@ reserv_count=0
 while IFS=$'\t' read -r node_address project username start_date num_blocks rental_notes; do
     [ -n "$node_address" ] || continue
 
+    # Resolve relative date expression (e.g. "today+7") to YYYY-MM-DD
+    start_date="$(resolve_relative_date "$start_date")"
+
     cmd=(create_node_rental "$node_address" "$project" "$username"
          --start-date "$start_date"
          --num-blocks "$num_blocks"
