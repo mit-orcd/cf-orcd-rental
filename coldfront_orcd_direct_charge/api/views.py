@@ -255,7 +255,7 @@ class UserSearchView(APIView):
 
 
 class InvoiceListView(APIView):
-    """List months with approved reservations and their invoice status.
+    """List months with billable activity and their invoice status.
 
     GET /api/invoice/
 
@@ -265,22 +265,63 @@ class InvoiceListView(APIView):
     - year, month, month_name
     - status (Draft, Finalized, or Not Started)
     - override_count
+
+    Months are included if they have approved reservations, active AMF
+    entries, or active QoS subscriptions.
     """
 
     permission_classes = [IsAuthenticated, HasManageBillingPermission]
 
     def get(self, request):
-        # Get all months with approved reservations
+        billable_months = set()
+
+        # Months with approved reservations
         approved_reservations = Reservation.objects.filter(
             status=Reservation.StatusChoices.APPROVED,
         ).select_related("project")
 
-        # Find unique year/month combinations
-        months_with_reservations = set()
         for res in approved_reservations:
             current = res.start_date
             while current <= res.end_date:
-                months_with_reservations.add((current.year, current.month))
+                billable_months.add((current.year, current.month))
+                if current.month == 12:
+                    current = date(current.year + 1, 1, 1)
+                else:
+                    current = date(current.year, current.month + 1, 1)
+
+        # Months with active AMF entries (basic or advanced with a billing project)
+        active_amf = UserMaintenanceStatus.objects.filter(
+            status__in=[
+                UserMaintenanceStatus.StatusChoices.BASIC,
+                UserMaintenanceStatus.StatusChoices.ADVANCED,
+            ],
+            billing_project__isnull=False,
+        )
+        for amf in active_amf:
+            # The AMF is billable from its created month onward until now
+            created_date = amf.created.date() if amf.created else None
+            if created_date:
+                current = date(created_date.year, created_date.month, 1)
+                today = date.today()
+                end_month = date(today.year, today.month, 1)
+                while current <= end_month:
+                    billable_months.add((current.year, current.month))
+                    if current.month == 12:
+                        current = date(current.year + 1, 1, 1)
+                    else:
+                        current = date(current.year, current.month + 1, 1)
+
+        # Months with active QoS subscriptions
+        active_qos = UserQoSSubscription.objects.filter(
+            is_active=True,
+            billing_project__isnull=False,
+        )
+        for qos in active_qos:
+            current = date(qos.start_date.year, qos.start_date.month, 1)
+            end_limit = qos.end_date or date.today()
+            end_month = date(end_limit.year, end_limit.month, 1)
+            while current <= end_month:
+                billable_months.add((current.year, current.month))
                 if current.month == 12:
                     current = date(current.year + 1, 1, 1)
                 else:
@@ -288,7 +329,7 @@ class InvoiceListView(APIView):
 
         # Build list of months with invoice status
         invoice_months = []
-        for year, month in sorted(months_with_reservations, reverse=True):
+        for year, month in sorted(billable_months, reverse=True):
             invoice_period = InvoicePeriod.objects.filter(year=year, month=month).first()
             override_count = 0
             if invoice_period:
@@ -322,10 +363,17 @@ class InvoiceReportView(APIView):
 
     Requires authentication and can_manage_billing permission.
 
-    Returns the same JSON structure as the web export endpoint.
+    Returns a combined report including reservations, account maintenance
+    fees (AMF), and QoS subscriptions, grouped by project.
     """
 
     permission_classes = [IsAuthenticated, HasManageBillingPermission]
+
+    # Map maintenance status to SKU code
+    STATUS_TO_SKU = {
+        "basic": "MAINT_STANDARD",
+        "advanced": "MAINT_ADVANCED",
+    }
 
     def get(self, request, year, month):
         # Validate month
@@ -342,7 +390,40 @@ class InvoiceReportView(APIView):
             defaults={"status": InvoicePeriod.StatusChoices.DRAFT},
         )
 
-        # Get all approved reservations that overlap with this month
+        # Build all three line-item types
+        reservation_lines = self._build_reservation_lines(year, month, invoice_period)
+        amf_lines = self._build_amf_lines(year, month)
+        qos_lines = self._build_qos_lines(year, month)
+
+        # Merge into project-grouped response
+        export_data = self._build_combined_response(
+            request, year, month, invoice_period,
+            reservation_lines, amf_lines, qos_lines,
+        )
+
+        # Log the API access
+        log_activity(
+            action="api.invoice_report",
+            category=ActivityLog.ActionCategory.API,
+            description=f"API: Invoice {calendar.month_name[month]} {year} retrieved",
+            request=request,
+            extra_data={
+                "year": year,
+                "month": month,
+                "total_reservations": len(reservation_lines),
+                "total_amf_entries": len(amf_lines),
+                "total_qos_entries": len(qos_lines),
+            },
+        )
+
+        return Response(export_data)
+
+    # =====================================================================
+    # Reservation line-item builder (existing logic, extracted)
+    # =====================================================================
+
+    def _build_reservation_lines(self, year, month, invoice_period):
+        """Build reservation billing line items for the given month."""
         month_start = date(year, month, 1)
         if month == 12:
             month_end = date(year + 1, 1, 1) - timedelta(days=1)
@@ -353,29 +434,23 @@ class InvoiceReportView(APIView):
             status=Reservation.StatusChoices.APPROVED,
         ).select_related("project", "project__pi", "node_instance")
 
-        # Filter to reservations that overlap with this month
-        reservations = []
-        for res in all_reservations:
-            if res.start_date <= month_end and res.end_date >= month_start:
-                reservations.append(res)
+        reservations = [
+            res for res in all_reservations
+            if res.start_date <= month_end and res.end_date >= month_start
+        ]
 
-        # Get overrides for this period
         overrides = {
             o.reservation_id: o
             for o in invoice_period.overrides.select_related("created_by")
         }
 
-        # Calculate billing details for each reservation
-        invoice_lines = []
+        lines = []
         for res in reservations:
             override = overrides.get(res.pk)
-
-            # Get SKU for this reservation
             sku = get_sku_for_reservation(res)
 
-            # If excluded via override, mark it
             if override and override.override_type == InvoiceLineOverride.OverrideTypeChoices.EXCLUDE:
-                invoice_lines.append({
+                lines.append({
                     "reservation": res,
                     "excluded": True,
                     "override": override,
@@ -385,22 +460,19 @@ class InvoiceReportView(APIView):
                 })
                 continue
 
-            # Calculate hours for this month
             hours_data = self._calculate_hours_for_month(res, year, month)
 
-            # Check for hours override
             if override and override.override_type == InvoiceLineOverride.OverrideTypeChoices.HOURS:
                 hours_in_month = override.override_value.get("hours", hours_data["hours"])
             else:
                 hours_in_month = hours_data["hours"]
 
-            # Calculate cost breakdown using snapshots
             if override and override.override_type == InvoiceLineOverride.OverrideTypeChoices.COST_SPLIT:
                 cost_breakdown = override.override_value.get("cost_breakdown", [])
             else:
                 cost_breakdown = self._calculate_cost_breakdown(res, year, month, hours_in_month)
 
-            invoice_lines.append({
+            lines.append({
                 "reservation": res,
                 "excluded": False,
                 "override": override,
@@ -409,29 +481,188 @@ class InvoiceReportView(APIView):
                 "sku": sku,
             })
 
-        # Group by project
+        return lines
+
+    # =====================================================================
+    # AMF line-item builder
+    # =====================================================================
+
+    def _build_amf_lines(self, year, month):
+        """Build AMF billing line items for the given month.
+
+        Returns a list of dicts, each representing one user's maintenance
+        fee for the month.  Includes the ``activated_at`` timestamp from
+        ``UserMaintenanceStatus.created`` so callers can compute partial-
+        month fractions.
+        """
+        month_start = date(year, month, 1)
+        if month == 12:
+            next_month_start = date(year + 1, 1, 1)
+        else:
+            next_month_start = date(year, month + 1, 1)
+        month_end = next_month_start - timedelta(days=1)
+        days_in_month = (next_month_start - month_start).days
+
+        # Find users with active AMF whose created date is before the end of month
+        active_amf = UserMaintenanceStatus.objects.filter(
+            status__in=[
+                UserMaintenanceStatus.StatusChoices.BASIC,
+                UserMaintenanceStatus.StatusChoices.ADVANCED,
+            ],
+            billing_project__isnull=False,
+        ).select_related("user", "billing_project", "billing_project__pi")
+
+        # Pre-fetch SKUs for maintenance
+        sku_cache = {
+            sku.sku_code: sku
+            for sku in RentalSKU.objects.filter(
+                sku_code__in=list(self.STATUS_TO_SKU.values())
+            )
+        }
+
+        lines = []
+        for amf in active_amf:
+            activated_date = amf.created.date() if amf.created else month_start
+
+            # Skip if activated after this month ends
+            if activated_date > month_end:
+                continue
+
+            # Calculate billable days (partial month if activated mid-month)
+            effective_start = max(activated_date, month_start)
+            billable_days = (next_month_start - effective_start).days
+            fraction = round(billable_days / days_in_month, 6)
+
+            # Look up SKU and rate
+            sku_code = self.STATUS_TO_SKU.get(amf.status)
+            sku = sku_cache.get(sku_code)
+            rate_obj = sku.get_rate_for_date(month_start) if sku else None
+
+            # Cost object breakdown from billing project's snapshot
+            cost_breakdown = self._get_project_cost_breakdown(amf.billing_project, month_start)
+
+            lines.append({
+                "project": amf.billing_project,
+                "username": amf.user.username,
+                "status": amf.status,
+                "sku_code": sku_code,
+                "sku_name": sku.name if sku else None,
+                "rate": str(rate_obj.rate) if rate_obj else None,
+                "billing_unit": "MONTHLY",
+                "activated_at": amf.created.isoformat() if amf.created else None,
+                "days_in_month": days_in_month,
+                "billable_days": billable_days,
+                "fraction": fraction,
+                "cost_breakdown": cost_breakdown,
+            })
+
+        return lines
+
+    # =====================================================================
+    # QoS line-item builder
+    # =====================================================================
+
+    def _build_qos_lines(self, year, month):
+        """Build QoS subscription billing line items for the given month.
+
+        Returns a list of dicts, each representing one user's QoS
+        subscription for the month.  Includes ``start_date`` so callers
+        can compute partial-month fractions.
+        """
+        month_start = date(year, month, 1)
+        if month == 12:
+            next_month_start = date(year + 1, 1, 1)
+        else:
+            next_month_start = date(year, month + 1, 1)
+        month_end = next_month_start - timedelta(days=1)
+        days_in_month = (next_month_start - month_start).days
+
+        # Find QoS subscriptions active during this month
+        active_qos = UserQoSSubscription.objects.filter(
+            is_active=True,
+            billing_project__isnull=False,
+            start_date__lte=month_end,
+        ).filter(
+            Q(end_date__isnull=True) | Q(end_date__gte=month_start)
+        ).select_related("user", "sku", "billing_project", "billing_project__pi")
+
+        lines = []
+        for qos in active_qos:
+            # Calculate billable days (partial month for start/end mid-month)
+            effective_start = max(qos.start_date, month_start)
+            effective_end = min(qos.end_date, month_end) if qos.end_date else month_end
+            billable_days = (effective_end - effective_start).days + 1
+            fraction = round(billable_days / days_in_month, 6)
+
+            # Look up rate
+            rate_obj = qos.sku.get_rate_for_date(month_start) if qos.sku else None
+
+            # Cost object breakdown from billing project's snapshot
+            cost_breakdown = self._get_project_cost_breakdown(qos.billing_project, month_start)
+
+            lines.append({
+                "project": qos.billing_project,
+                "username": qos.user.username,
+                "sku_code": qos.sku.sku_code if qos.sku else None,
+                "sku_name": qos.sku.name if qos.sku else None,
+                "rate": str(rate_obj.rate) if rate_obj else None,
+                "billing_unit": "MONTHLY",
+                "start_date": qos.start_date.isoformat(),
+                "end_date": qos.end_date.isoformat() if qos.end_date else None,
+                "days_in_month": days_in_month,
+                "billable_days": billable_days,
+                "fraction": fraction,
+                "cost_breakdown": cost_breakdown,
+            })
+
+        return lines
+
+    # =====================================================================
+    # Combined response builder
+    # =====================================================================
+
+    def _build_combined_response(self, request, year, month, invoice_period,
+                                 reservation_lines, amf_lines, qos_lines):
+        """Merge reservation, AMF, and QoS lines into a project-grouped response."""
+        total_reservations = len(reservation_lines)
+        excluded_count = sum(1 for l in reservation_lines if l["excluded"])
+
+        # Seed projects dict from reservation lines
         projects = {}
-        for line in invoice_lines:
-            project = line["reservation"].project
-            if project.pk not in projects:
-                projects[project.pk] = {
-                    "project": project,
-                    "lines": [],
+
+        def _ensure_project(proj):
+            if proj.pk not in projects:
+                projects[proj.pk] = {
+                    "project": proj,
+                    "reservation_lines": [],
+                    "amf_lines": [],
+                    "qos_lines": [],
                     "total_hours": 0,
                     "cost_totals": {},
                 }
-            projects[project.pk]["lines"].append(line)
+
+        for line in reservation_lines:
+            proj = line["reservation"].project
+            _ensure_project(proj)
+            projects[proj.pk]["reservation_lines"].append(line)
             if not line["excluded"]:
-                projects[project.pk]["total_hours"] += line["hours_in_month"]
+                projects[proj.pk]["total_hours"] += line["hours_in_month"]
                 for co in line["cost_breakdown"]:
-                    if co["cost_object"] not in projects[project.pk]["cost_totals"]:
-                        projects[project.pk]["cost_totals"][co["cost_object"]] = 0
-                    projects[project.pk]["cost_totals"][co["cost_object"]] += co["hours"]
+                    if co["cost_object"] not in projects[proj.pk]["cost_totals"]:
+                        projects[proj.pk]["cost_totals"][co["cost_object"]] = 0
+                    projects[proj.pk]["cost_totals"][co["cost_object"]] += co["hours"]
+
+        for line in amf_lines:
+            proj = line["project"]
+            _ensure_project(proj)
+            projects[proj.pk]["amf_lines"].append(line)
+
+        for line in qos_lines:
+            proj = line["project"]
+            _ensure_project(proj)
+            projects[proj.pk]["qos_lines"].append(line)
 
         # Build export data
-        total_reservations = len(invoice_lines)
-        excluded_count = sum(1 for l in invoice_lines if l["excluded"])
-
         export_data = {
             "metadata": {
                 "year": year,
@@ -442,6 +673,8 @@ class InvoiceReportView(APIView):
                 "invoice_status": invoice_period.get_status_display(),
                 "total_reservations": total_reservations,
                 "excluded_count": excluded_count,
+                "total_amf_entries": len(amf_lines),
+                "total_qos_entries": len(qos_lines),
             },
             "projects": [],
         }
@@ -454,9 +687,12 @@ class InvoiceReportView(APIView):
                 "total_hours": proj_data["total_hours"],
                 "cost_totals": proj_data["cost_totals"],
                 "reservations": [],
+                "amf_entries": [],
+                "qos_entries": [],
             }
 
-            for line in proj_data["lines"]:
+            # Serialize reservation lines
+            for line in proj_data["reservation_lines"]:
                 res = line["reservation"]
                 override = line["override"]
                 sku = line.get("sku")
@@ -488,22 +724,46 @@ class InvoiceReportView(APIView):
 
                 project_export["reservations"].append(res_export)
 
+            # Serialize AMF lines (drop internal 'project' key)
+            for line in proj_data["amf_lines"]:
+                project_export["amf_entries"].append({
+                    k: v for k, v in line.items() if k != "project"
+                })
+
+            # Serialize QoS lines (drop internal 'project' key)
+            for line in proj_data["qos_lines"]:
+                project_export["qos_entries"].append({
+                    k: v for k, v in line.items() if k != "project"
+                })
+
             export_data["projects"].append(project_export)
 
-        # Log the API access
-        log_activity(
-            action="api.invoice_report",
-            category=ActivityLog.ActionCategory.API,
-            description=f"API: Invoice {calendar.month_name[month]} {year} retrieved",
-            request=request,
-            extra_data={
-                "year": year,
-                "month": month,
-                "total_reservations": total_reservations,
-            },
-        )
+        return export_data
 
-        return Response(export_data)
+    # =====================================================================
+    # Shared helpers
+    # =====================================================================
+
+    @staticmethod
+    def _get_project_cost_breakdown(project, reference_date):
+        """Get cost object percentage breakdown for a project.
+
+        Uses the active CostAllocationSnapshot for the given date.
+        Returns a list of ``{"cost_object": ..., "percentage": ...}`` dicts.
+        """
+        snapshot = CostAllocationSnapshot.get_active_snapshot_for_date(
+            project, reference_date
+        )
+        if not snapshot:
+            return [{"cost_object": "UNKNOWN", "percentage": 100.0}]
+
+        return [
+            {
+                "cost_object": co_snap.cost_object,
+                "percentage": float(co_snap.percentage),
+            }
+            for co_snap in snapshot.cost_objects.all()
+        ]
 
     def _calculate_hours_for_month(self, reservation, year, month):
         """Calculate how many hours of a reservation fall within a specific month."""
@@ -513,7 +773,6 @@ class InvoiceReportView(APIView):
         else:
             month_end = datetime.combine(date(year, month + 1, 1), time(0, 0))
 
-        # Clip reservation to month boundaries (all naive datetimes)
         effective_start = max(reservation.start_datetime, month_start)
         effective_end = min(reservation.end_datetime, month_end)
 
@@ -582,6 +841,122 @@ class InvoiceReportView(APIView):
 
         delta = effective_end - effective_start
         return delta.total_seconds() / 3600
+
+
+# =========================================================================
+# Focused invoice sub-endpoints
+# =========================================================================
+
+
+class InvoiceReservationsView(InvoiceReportView):
+    """Get reservation-only invoice report for a specific month.
+
+    GET /api/invoice/reservations/YYYY/MM/
+    """
+
+    def get(self, request, year, month):
+        if not 1 <= month <= 12:
+            return Response(
+                {"error": "Month must be between 1 and 12"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        invoice_period, _ = InvoicePeriod.objects.get_or_create(
+            year=year, month=month,
+            defaults={"status": InvoicePeriod.StatusChoices.DRAFT},
+        )
+
+        reservation_lines = self._build_reservation_lines(year, month, invoice_period)
+        export_data = self._build_combined_response(
+            request, year, month, invoice_period,
+            reservation_lines=reservation_lines,
+            amf_lines=[],
+            qos_lines=[],
+        )
+
+        log_activity(
+            action="api.invoice_reservations",
+            category=ActivityLog.ActionCategory.API,
+            description=f"API: Invoice reservations {calendar.month_name[month]} {year}",
+            request=request,
+            extra_data={"year": year, "month": month},
+        )
+
+        return Response(export_data)
+
+
+class InvoiceAMFView(InvoiceReportView):
+    """Get AMF-only invoice report for a specific month.
+
+    GET /api/invoice/amf/YYYY/MM/
+    """
+
+    def get(self, request, year, month):
+        if not 1 <= month <= 12:
+            return Response(
+                {"error": "Month must be between 1 and 12"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        invoice_period, _ = InvoicePeriod.objects.get_or_create(
+            year=year, month=month,
+            defaults={"status": InvoicePeriod.StatusChoices.DRAFT},
+        )
+
+        amf_lines = self._build_amf_lines(year, month)
+        export_data = self._build_combined_response(
+            request, year, month, invoice_period,
+            reservation_lines=[],
+            amf_lines=amf_lines,
+            qos_lines=[],
+        )
+
+        log_activity(
+            action="api.invoice_amf",
+            category=ActivityLog.ActionCategory.API,
+            description=f"API: Invoice AMF {calendar.month_name[month]} {year}",
+            request=request,
+            extra_data={"year": year, "month": month},
+        )
+
+        return Response(export_data)
+
+
+class InvoiceQoSView(InvoiceReportView):
+    """Get QoS-only invoice report for a specific month.
+
+    GET /api/invoice/qos/YYYY/MM/
+    """
+
+    def get(self, request, year, month):
+        if not 1 <= month <= 12:
+            return Response(
+                {"error": "Month must be between 1 and 12"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        invoice_period, _ = InvoicePeriod.objects.get_or_create(
+            year=year, month=month,
+            defaults={"status": InvoicePeriod.StatusChoices.DRAFT},
+        )
+
+        qos_lines = self._build_qos_lines(year, month)
+        export_data = self._build_combined_response(
+            request, year, month, invoice_period,
+            reservation_lines=[],
+            amf_lines=[],
+            qos_lines=qos_lines,
+        )
+
+        log_activity(
+            action="api.invoice_qos",
+            category=ActivityLog.ActionCategory.API,
+            description=f"API: Invoice QoS {calendar.month_name[month]} {year}",
+            request=request,
+            extra_data={"year": year, "month": month},
+        )
+
+        return Response(export_data)
 
 
 class HasActivityLogPermission(permissions.BasePermission):
