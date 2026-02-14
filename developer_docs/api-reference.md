@@ -41,8 +41,11 @@ The plugin provides a REST API built with [Django REST Framework](https://www.dj
 | `/nodes/api/maintenance-windows/` | GET, POST | List/create maintenance windows | `can_manage_rentals` |
 | `/nodes/api/maintenance-windows/<pk>/` | GET, PUT, PATCH, DELETE | Maintenance window detail/update/delete | `can_manage_rentals` |
 | `/nodes/api/user-search/` | GET | Search users for autocomplete | Authenticated |
-| `/nodes/api/invoice/` | GET | List months with reservations | `can_manage_billing` |
-| `/nodes/api/invoice/<year>/<month>/` | GET | Full invoice report | `can_manage_billing` |
+| `/nodes/api/invoice/` | GET | List months with billable activity | `can_manage_billing` |
+| `/nodes/api/invoice/<year>/<month>/` | GET | Full invoice report (reservations + AMF + QoS) | `can_manage_billing` |
+| `/nodes/api/invoice/reservations/<year>/<month>/` | GET | Reservation-only invoice report | `can_manage_billing` |
+| `/nodes/api/invoice/amf/<year>/<month>/` | GET | AMF-only invoice report | `can_manage_billing` |
+| `/nodes/api/invoice/qos/<year>/<month>/` | GET | QoS-only invoice report | `can_manage_billing` |
 | `/nodes/api/activity-log/` | GET | Query activity logs | Billing/Rental Manager |
 | `/nodes/api/maintenance-subscriptions/` | GET | List maintenance subscriptions | Manager: all, User: own |
 | `/nodes/api/qos-subscriptions/` | GET | List QoS subscriptions | Manager: all, User: own |
@@ -419,7 +422,7 @@ curl -H "Authorization: Token YOUR_TOKEN" \
 GET /nodes/api/invoice/
 ```
 
-Returns all months that have confirmed reservations, with invoice status.
+Returns all months that have billable activity (approved reservations, active AMF entries, or active QoS subscriptions), with invoice status.
 
 **Permission**: `can_manage_billing`
 
@@ -454,13 +457,13 @@ Returns all months that have confirmed reservations, with invoice status.
 
 ---
 
-#### Get Invoice Report
+#### Get Invoice Report (Combined)
 
 ```
 GET /nodes/api/invoice/<year>/<month>/
 ```
 
-Returns the full invoice report for a specific month.
+Returns the full invoice report for a specific month, including reservations, account maintenance fees (AMF), and QoS subscriptions, grouped by project.
 
 **Permission**: `can_manage_billing`
 
@@ -481,7 +484,9 @@ curl -H "Authorization: Token YOUR_TOKEN" \
         "generated_by": "admin",
         "invoice_status": "Draft",
         "total_reservations": 5,
-        "excluded_count": 1
+        "excluded_count": 1,
+        "total_amf_entries": 3,
+        "total_qos_entries": 1
     },
     "projects": [
         {
@@ -497,6 +502,8 @@ curl -H "Authorization: Token YOUR_TOKEN" \
                 {
                     "reservation_id": 6,
                     "node": "node2433",
+                    "sku_code": "NODE_H200x8",
+                    "sku_name": "H200x8 Node",
                     "start_date": "2025-12-15",
                     "start_datetime": "2025-12-15T16:00:00",
                     "end_date": "2025-12-18",
@@ -509,6 +516,42 @@ curl -H "Authorization: Token YOUR_TOKEN" \
                         {"cost_object": "CO-456", "hours": 32.5}
                     ]
                 }
+            ],
+            "amf_entries": [
+                {
+                    "username": "jsmith",
+                    "status": "basic",
+                    "sku_code": "MAINT_STANDARD",
+                    "sku_name": "Standard Account Maintenance Fee",
+                    "rate": "56.000000",
+                    "billing_unit": "MONTHLY",
+                    "activated_at": "2025-11-15T00:00:00+00:00",
+                    "days_in_month": 31,
+                    "billable_days": 31,
+                    "fraction": 1.0,
+                    "cost_breakdown": [
+                        {"cost_object": "CO-123", "percentage": 60.0},
+                        {"cost_object": "CO-456", "percentage": 40.0}
+                    ]
+                }
+            ],
+            "qos_entries": [
+                {
+                    "username": "jsmith",
+                    "sku_code": "QOS_PREMIUM",
+                    "sku_name": "Premium QoS Tier",
+                    "rate": "150.000000",
+                    "billing_unit": "MONTHLY",
+                    "start_date": "2025-11-01",
+                    "end_date": null,
+                    "days_in_month": 31,
+                    "billable_days": 31,
+                    "fraction": 1.0,
+                    "cost_breakdown": [
+                        {"cost_object": "CO-123", "percentage": 60.0},
+                        {"cost_object": "CO-456", "percentage": 40.0}
+                    ]
+                }
             ]
         }
     ]
@@ -517,11 +560,34 @@ curl -H "Authorization: Token YOUR_TOKEN" \
 
 **Response Structure**:
 - `metadata` - Report metadata and summary
+  - `total_reservations` - Count of reservation line items
+  - `excluded_count` - Count of excluded reservations
+  - `total_amf_entries` - Count of AMF line items
+  - `total_qos_entries` - Count of QoS line items
 - `projects[]` - Array of project data
   - `project_id`, `project_title`, `project_owner` - Project info
-  - `total_hours` - Sum of all non-excluded hours
-  - `cost_totals` - Hours by cost object
-  - `reservations[]` - Individual reservation details
+  - `total_hours` - Sum of all non-excluded reservation hours
+  - `cost_totals` - Hours by cost object (reservations only)
+  - `reservations[]` - Node rental line items
+  - `amf_entries[]` - Account maintenance fee line items
+  - `qos_entries[]` - QoS subscription line items
+
+**AMF Entry Fields**:
+- `username` - User with the maintenance subscription
+- `status` - Maintenance level (`basic` or `advanced`)
+- `sku_code` - SKU code (`MAINT_STANDARD` or `MAINT_ADVANCED`)
+- `rate` - Effective monthly rate for the SKU
+- `activated_at` - When the AMF was created (for partial-month billing)
+- `days_in_month`, `billable_days`, `fraction` - Pro-rata calculation
+- `cost_breakdown` - Cost object percentages from the billing project's snapshot
+
+**QoS Entry Fields**:
+- `username` - User with the QoS subscription
+- `sku_code`, `sku_name` - QoS SKU details
+- `rate` - Effective monthly rate for the SKU
+- `start_date`, `end_date` - Subscription period (for partial-month billing)
+- `days_in_month`, `billable_days`, `fraction` - Pro-rata calculation
+- `cost_breakdown` - Cost object percentages from the billing project's snapshot
 
 **Reservation Override Fields** (if override exists):
 ```json
@@ -536,6 +602,42 @@ curl -H "Authorization: Token YOUR_TOKEN" \
     }
 }
 ```
+
+---
+
+#### Get Invoice Report (Reservations Only)
+
+```
+GET /nodes/api/invoice/reservations/<year>/<month>/
+```
+
+Returns only the reservation billing data for a specific month. Same response structure as the combined endpoint but with empty `amf_entries` and `qos_entries` arrays.
+
+**Permission**: `can_manage_billing`
+
+---
+
+#### Get Invoice Report (AMF Only)
+
+```
+GET /nodes/api/invoice/amf/<year>/<month>/
+```
+
+Returns only the account maintenance fee billing data for a specific month. Same response structure as the combined endpoint but with empty `reservations` and `qos_entries` arrays.
+
+**Permission**: `can_manage_billing`
+
+---
+
+#### Get Invoice Report (QoS Only)
+
+```
+GET /nodes/api/invoice/qos/<year>/<month>/
+```
+
+Returns only the QoS subscription billing data for a specific month. Same response structure as the combined endpoint but with empty `reservations` and `amf_entries` arrays.
+
+**Permission**: `can_manage_billing`
 
 ---
 
@@ -991,6 +1093,9 @@ class HasActivityLogPermission(permissions.BasePermission):
 | `/nodes/api/user-search/` | Authenticated |
 | `/api/invoice/` | `can_manage_billing` |
 | `/api/invoice/<year>/<month>/` | `can_manage_billing` |
+| `/api/invoice/reservations/<year>/<month>/` | `can_manage_billing` |
+| `/api/invoice/amf/<year>/<month>/` | `can_manage_billing` |
+| `/api/invoice/qos/<year>/<month>/` | `can_manage_billing` |
 | `/api/activity-log/` | `can_manage_billing` OR `can_manage_rentals` OR Superuser |
 | `/api/maintenance-subscriptions/` | Authenticated (Manager: all, User: own) |
 | `/api/qos-subscriptions/` | Authenticated (Manager: all, User: own) |
@@ -1140,7 +1245,10 @@ All API access is logged to the ActivityLog with category `api`:
 | Action | Description |
 |--------|-------------|
 | `api.invoice_list` | Invoice list retrieved |
-| `api.invoice_report` | Specific month invoice retrieved |
+| `api.invoice_report` | Combined invoice report retrieved |
+| `api.invoice_reservations` | Reservation-only invoice report retrieved |
+| `api.invoice_amf` | AMF-only invoice report retrieved |
+| `api.invoice_qos` | QoS-only invoice report retrieved |
 | `api.activity_log` | Activity log queried |
 
 Reservation list queries are not logged individually (would create too much noise).

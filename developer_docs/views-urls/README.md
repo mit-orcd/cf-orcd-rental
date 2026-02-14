@@ -77,6 +77,10 @@ All plugin URLs are prefixed with `/nodes/` (configured in ColdFront's `urls.py`
 | | `/nodes/rates/current/<pk>/` | Public SKU detail |
 | **Activity Log** | `/nodes/activity-log/` | View activity log |
 | **Authentication** | `/nodes/user/login?opt=password` | Password login (when enabled) |
+| **Invoice API** | `/nodes/api/invoice/<year>/<month>/` | Combined invoice (reservations + AMF + QoS) |
+| | `/nodes/api/invoice/reservations/<year>/<month>/` | Reservation-only invoice |
+| | `/nodes/api/invoice/amf/<year>/<month>/` | AMF-only invoice |
+| | `/nodes/api/invoice/qos/<year>/<month>/` | QoS-only invoice |
 | **API** | `/nodes/api/...` | REST API endpoints |
 
 ---
