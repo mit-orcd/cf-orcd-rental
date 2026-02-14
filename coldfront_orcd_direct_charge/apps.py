@@ -54,8 +54,9 @@ class OrcdDirectChargeConfig(AppConfig):
         self._apply_runtime_config()
 
         # Apply auto features to existing users (deferred to avoid issues during migrations)
-        # Always ensure maintenance status exists for all users
+        # Always ensure maintenance status and account timestamps exist for all users
         self._ensure_maintenance_status_if_ready()
+        self._ensure_account_timestamps_if_ready()
 
         if settings.AUTO_PI_ENABLE or settings.AUTO_DEFAULT_PROJECT_ENABLE:
             self._apply_auto_features_if_ready()
@@ -170,6 +171,29 @@ class OrcdDirectChargeConfig(AppConfig):
                 user=user,
                 defaults={"status": UserMaintenanceStatus.StatusChoices.INACTIVE},
             )
+
+    def _ensure_account_timestamps_if_ready(self):
+        """Ensure all users have an account timestamp if database is ready."""
+        from django.db import connection
+
+        try:
+            table_names = connection.introspection.table_names()
+            if (
+                "auth_user" in table_names
+                and "coldfront_orcd_direct_charge_useraccounttimestamp" in table_names
+            ):
+                self._ensure_account_timestamps()
+        except Exception:
+            # Database might not be ready yet (e.g., during initial setup)
+            pass
+
+    def _ensure_account_timestamps(self):
+        """Ensure all users have a UserAccountTimestamp record."""
+        from django.contrib.auth.models import User
+        from coldfront_orcd_direct_charge.models import UserAccountTimestamp
+
+        for user in User.objects.all():
+            UserAccountTimestamp.objects.get_or_create(user=user)
 
     def _apply_auto_features_if_ready(self):
         """Apply auto features to existing users if database is ready."""

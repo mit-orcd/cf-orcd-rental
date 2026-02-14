@@ -9,6 +9,7 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 from django.db import models
+from django.utils import timezone
 from model_utils.models import TimeStampedModel
 
 logger = logging.getLogger(__name__)
@@ -504,6 +505,39 @@ class UserMaintenanceStatus(TimeStampedModel):
 
     def __str__(self):
         return f"{self.user.username}: {self.get_status_display()}"
+
+
+class UserAccountTimestamp(models.Model):
+    """Tracks the creation date and last-modified date for each user account.
+
+    Django's built-in ``User.date_joined`` serves as the canonical creation
+    timestamp.  This model adds a ``last_modified`` field that is automatically
+    updated whenever the associated ``User`` record is saved, and can also be
+    set to an explicit value via YAML configuration or the ``create_user``
+    management command.
+
+    Attributes:
+        user (User): The Django user this timestamp record belongs to.
+        last_modified (datetime): When the user account was last modified.
+    """
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="account_timestamp",
+        help_text="The user this timestamp record belongs to",
+    )
+    last_modified = models.DateTimeField(
+        default=timezone.now,
+        help_text="When the user account was last modified",
+    )
+
+    class Meta:
+        verbose_name = "User Account Timestamp"
+        verbose_name_plural = "User Account Timestamps"
+
+    def __str__(self):
+        return f"{self.user.username}: last_modified={self.last_modified.isoformat()}"
 
 
 class UserQoSSubscription(TimeStampedModel):

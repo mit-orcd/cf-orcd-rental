@@ -17,15 +17,19 @@ Examples:
     coldfront create_user jsmith --email jsmith@university.edu --with-token
     coldfront create_user jsmith --with-token --add-to-group rental
     coldfront create_user jsmith --no-password --with-token  # OIDC-only account
+    coldfront create_user jsmith --date-joined 2024-06-15
+    coldfront create_user jsmith --last-modified 2025-01-20T14:30:00
     coldfront create_user jsmith --dry-run
 """
 
 import os
 import secrets
 import string
+from datetime import datetime
 
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User, Group
+from django.utils import timezone
 
 
 # Map of group aliases to actual group names
@@ -83,6 +87,16 @@ class Command(BaseCommand):
             action="append",
             choices=list(GROUP_MAP.keys()),
             help="Add user to a manager group (can be specified multiple times)",
+        )
+        parser.add_argument(
+            "--date-joined",
+            type=str,
+            help="Override creation date (YYYY-MM-DD or ISO 8601 datetime)",
+        )
+        parser.add_argument(
+            "--last-modified",
+            type=str,
+            help="Override last-modified date (YYYY-MM-DD or ISO 8601 datetime)",
         )
         parser.add_argument(
             "--active",
@@ -152,6 +166,10 @@ class Command(BaseCommand):
         with_token = options["with_token"]
         groups_to_add = options.get("add_to_group") or []
 
+        # Parse optional date overrides
+        date_joined = self._parse_datetime(options.get("date_joined"), "date-joined")
+        last_modified = self._parse_datetime(options.get("last_modified"), "last-modified")
+
         # Check if user already exists
         user_exists = User.objects.filter(username=username).exists()
         if user_exists and not force:
@@ -171,6 +189,8 @@ class Command(BaseCommand):
                 with_token=with_token,
                 groups_to_add=groups_to_add,
                 no_password=no_password,
+                date_joined=date_joined,
+                last_modified=last_modified,
             )
             return
 
@@ -218,6 +238,27 @@ class Command(BaseCommand):
                         "Password disabled (OIDC/SSO-only authentication)"
                     ))
 
+        # Override date_joined if specified
+        if date_joined is not None:
+            User.objects.filter(pk=user.pk).update(date_joined=date_joined)
+            user.refresh_from_db()
+            if not quiet:
+                self.stdout.write(self.style.SUCCESS(
+                    f"Set date_joined to {date_joined.isoformat()}"
+                ))
+
+        # Override last_modified if specified
+        if last_modified is not None:
+            from coldfront_orcd_direct_charge.models import UserAccountTimestamp
+            UserAccountTimestamp.objects.update_or_create(
+                user=user,
+                defaults={"last_modified": last_modified},
+            )
+            if not quiet:
+                self.stdout.write(self.style.SUCCESS(
+                    f"Set last_modified to {last_modified.isoformat()}"
+                ))
+
         # Generate API token if requested
         if with_token:
             token = self._generate_token(user, quiet)
@@ -236,7 +277,8 @@ class Command(BaseCommand):
                 self.stdout.write(f"Password ({password_source}): {password}")
 
     def _print_dry_run(self, username, email, password_source, is_active,
-                       user_exists, with_token, groups_to_add, no_password=False):
+                       user_exists, with_token, groups_to_add, no_password=False,
+                       date_joined=None, last_modified=None):
         """Print the Django ORM commands that would be executed."""
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("[DRY-RUN] Would execute the following commands:"))
@@ -271,6 +313,21 @@ class Command(BaseCommand):
                 self.stdout.write(f"    is_active={is_active}")
                 self.stdout.write(")")
 
+        if date_joined is not None:
+            self.stdout.write("")
+            self.stdout.write("# Override date_joined")
+            self.stdout.write(
+                f"User.objects.filter(pk=user.pk).update(date_joined='{date_joined.isoformat()}')"
+            )
+
+        if last_modified is not None:
+            self.stdout.write("")
+            self.stdout.write("# Override last_modified")
+            self.stdout.write(
+                f"UserAccountTimestamp.objects.update_or_create("
+                f"user=user, defaults={{'last_modified': '{last_modified.isoformat()}'}})"
+            )
+
         if with_token:
             self.stdout.write("")
             self.stdout.write("# Generate API token")
@@ -286,6 +343,32 @@ class Command(BaseCommand):
 
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("[DRY-RUN] No changes made."))
+
+    @staticmethod
+    def _parse_datetime(value, flag_name):
+        """Parse a date or datetime string into a timezone-aware datetime.
+
+        Accepts ``YYYY-MM-DD`` (interpreted as midnight UTC) or any ISO 8601
+        datetime string.  Returns ``None`` when *value* is ``None`` or empty.
+        """
+        if not value:
+            return None
+        try:
+            # Try full ISO 8601 datetime first
+            dt = datetime.fromisoformat(value)
+        except ValueError:
+            try:
+                # Fall back to date-only (YYYY-MM-DD -> midnight)
+                dt = datetime.strptime(value, "%Y-%m-%d")
+            except ValueError:
+                raise ValueError(
+                    f"Invalid --{flag_name} value '{value}'. "
+                    "Use YYYY-MM-DD or ISO 8601 datetime format."
+                )
+        # Ensure timezone-aware
+        if dt.tzinfo is None:
+            dt = timezone.make_aware(dt)
+        return dt
 
     def _generate_token(self, user, quiet):
         """Generate an API token for the user."""

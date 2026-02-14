@@ -53,7 +53,7 @@ TOKENS_PRETTY="$MODULE_OUTPUT/api_tokens_pretty.json"
 
 echo -e "username\ttoken" > "$TOKENS_TSV"
 
-while IFS=$'\t' read -r username email password groups; do
+while IFS=$'\t' read -r username email password groups date_joined last_modified; do
     [ -n "$username" ] || continue
 
     cmd=(create_user "$username" --email "$email" --with-token --force)
@@ -66,6 +66,14 @@ while IFS=$'\t' read -r username email password groups; do
         for group in "${group_list[@]}"; do
             [ -n "$group" ] && cmd+=(--add-to-group "$group")
         done
+    fi
+
+    if [ -n "$date_joined" ]; then
+        cmd+=(--date-joined "$date_joined")
+    fi
+
+    if [ -n "$last_modified" ]; then
+        cmd+=(--last-modified "$last_modified")
     fi
 
     output="$(run_coldfront "$CREATE_LOG" "${cmd[@]}")"
@@ -90,6 +98,8 @@ def emit(user):
     email = user.get("email", "")
     password = user.get("password", default_password)
     groups = user.get("groups", [])
+    date_joined = str(user.get("date_joined", ""))
+    last_modified = str(user.get("last_modified", ""))
 
     if not email and default_domain:
         email = f"{username}@{default_domain}"
@@ -99,6 +109,8 @@ def emit(user):
         email,
         password or "",
         ",".join(groups),
+        date_joined,
+        last_modified,
     ])
     print(line)
 
@@ -149,13 +161,33 @@ django.setup()
 
 from django.contrib.auth.models import User
 
-users = User.objects.filter(username__startswith="orcd_").order_by("username").values(
-    "id", "username", "first_name", "last_name", "email", "is_active"
+users_qs = (
+    User.objects
+    .filter(username__startswith="orcd_")
+    .order_by("username")
+    .values(
+        "id", "username", "first_name", "last_name", "email",
+        "is_active", "date_joined",
+    )
 )
+
+# Merge last_modified from UserAccountTimestamp (if available)
+from coldfront_orcd_direct_charge.models import UserAccountTimestamp
+ts_map = {
+    ts.user_id: ts.last_modified
+    for ts in UserAccountTimestamp.objects.filter(user__username__startswith="orcd_")
+}
+
+result = []
+for u in users_qs:
+    u["date_joined"] = u["date_joined"].isoformat() if u["date_joined"] else None
+    last_mod = ts_map.get(u["id"])
+    u["last_modified"] = last_mod.isoformat() if last_mod else None
+    result.append(u)
 
 output_path = sys.argv[1]
 with open(output_path, "w", encoding="utf-8") as f:
-    json.dump(list(users), f)
+    json.dump(result, f)
 PY
 
     pretty_json "$ALL_USERS_JSON" "$ALL_USERS_PRETTY"

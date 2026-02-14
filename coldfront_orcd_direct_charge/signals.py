@@ -179,22 +179,26 @@ def sync_nodetype_to_sku(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=User)
 def auto_configure_user(sender, instance, created, **kwargs):
-    """Apply auto-PI, auto-default-project, and maintenance status to new users."""
-    if not created:
-        return
+    """Apply auto-PI, auto-default-project, maintenance status, and account timestamp to new users."""
+    if created:
+        # Always create maintenance status for new users
+        create_maintenance_status_for_user(instance)
 
-    # Always create maintenance status for new users
-    create_maintenance_status_for_user(instance)
+        # Always create account timestamp for new users
+        create_account_timestamp_for_user(instance)
 
-    # Auto-PI: set is_pi=True if enabled
-    if getattr(settings, "AUTO_PI_ENABLE", False):
-        if hasattr(instance, "userprofile"):
-            instance.userprofile.is_pi = True
-            instance.userprofile.save()
+        # Auto-PI: set is_pi=True if enabled
+        if getattr(settings, "AUTO_PI_ENABLE", False):
+            if hasattr(instance, "userprofile"):
+                instance.userprofile.is_pi = True
+                instance.userprofile.save()
 
-    # Auto Default Projects: create USERNAME_group
-    if getattr(settings, "AUTO_DEFAULT_PROJECT_ENABLE", False):
-        create_group_project_for_user(instance)
+        # Auto Default Projects: create USERNAME_group
+        if getattr(settings, "AUTO_DEFAULT_PROJECT_ENABLE", False):
+            create_group_project_for_user(instance)
+    else:
+        # Update last_modified timestamp on every user save
+        update_account_timestamp_for_user(instance)
 
 
 @receiver(post_save, sender=Project)
@@ -225,6 +229,33 @@ def create_maintenance_status_for_user(user):
     UserMaintenanceStatus.objects.get_or_create(
         user=user,
         defaults={"status": UserMaintenanceStatus.StatusChoices.INACTIVE},
+    )
+
+
+def create_account_timestamp_for_user(user):
+    """
+    Create UserAccountTimestamp for a user if it doesn't exist.
+
+    The ``last_modified`` field defaults to ``timezone.now``.
+    """
+    from coldfront_orcd_direct_charge.models import UserAccountTimestamp
+
+    UserAccountTimestamp.objects.get_or_create(user=user)
+
+
+def update_account_timestamp_for_user(user):
+    """
+    Update ``last_modified`` on the user's UserAccountTimestamp.
+
+    Called automatically via the ``post_save`` signal on ``User`` for
+    non-creation saves.  If no timestamp record exists yet it is created.
+    """
+    from django.utils import timezone as tz
+    from coldfront_orcd_direct_charge.models import UserAccountTimestamp
+
+    UserAccountTimestamp.objects.update_or_create(
+        user=user,
+        defaults={"last_modified": tz.now()},
     )
 
 
