@@ -1,24 +1,68 @@
 Created user 'orcd_rtm' (email: orcd_rtm@example.edu)
-Set date_joined to 2024-06-15T00:00:00-04:00
-Set last_modified to 2025-01-20T14:30:00-05:00
 Generated new API token for 'orcd_rtm'
 API Token: XXXX
 Added 'orcd_rtm' to 'Rate Manager' group
 
 User creation complete.
 Created user 'orcd_bim' (email: orcd_bim@example.edu)
-Set date_joined to 2024-06-15T00:00:00-04:00
-Set last_modified to 2025-01-20T14:30:00-05:00
 Generated new API token for 'orcd_bim'
 API Token: XXXX
 Added 'orcd_bim' to 'Billing Manager' group
 
 User creation complete.
 Created user 'orcd_rem' (email: orcd_rem@example.edu)
-Set date_joined to 2024-06-15T00:00:00-04:00
-Set last_modified to 2025-01-20T14:30:00-05:00
 Generated new API token for 'orcd_rem'
 API Token: XXXX
 Added 'orcd_rem' to 'Rental Manager' group
+
+User creation complete.
+Created user 'orcd_u0' (email: orcd_u0@example.edu)
+Generated new API token for 'orcd_u0'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u1' (email: orcd_u1@example.edu)
+Generated new API token for 'orcd_u1'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u2' (email: orcd_u2@example.edu)
+Generated new API token for 'orcd_u2'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u3' (email: orcd_u3@example.edu)
+Generated new API token for 'orcd_u3'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u4' (email: orcd_u4@example.edu)
+Generated new API token for 'orcd_u4'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u5' (email: orcd_u5@example.edu)
+Generated new API token for 'orcd_u5'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u6' (email: orcd_u6@example.edu)
+Generated new API token for 'orcd_u6'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u7' (email: orcd_u7@example.edu)
+Generated new API token for 'orcd_u7'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u8' (email: orcd_u8@example.edu)
+Generated new API token for 'orcd_u8'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u9' (email: orcd_u9@example.edu)
+Generated new API token for 'orcd_u9'
+API Token: XXXX
 
 User creation complete.
