@@ -53,10 +53,20 @@ AMF_LOG="$MODULE_OUTPUT/add_amf.log"
 amf_count=0
 python_cmd="$(get_python_cmd)"
 
-while IFS=$'\t' read -r username status project; do
+while IFS=$'\t' read -r username status project created_date modified_date; do
     [ -n "$username" ] || continue
 
-    run_coldfront "$AMF_LOG" set_user_amf "$username" "$status" --project "$project" --force >/dev/null
+    cmd=(set_user_amf "$username" "$status" --project "$project" --force)
+
+    if [ -n "$created_date" ]; then
+        cmd+=(--created "$created_date")
+    fi
+
+    if [ -n "$modified_date" ]; then
+        cmd+=(--modified "$modified_date")
+    fi
+
+    run_coldfront "$AMF_LOG" "${cmd[@]}" >/dev/null
 
     amf_count=$((amf_count + 1))
 
@@ -78,11 +88,15 @@ for entry in data.get("entries", []):
         continue
 
     status = entry.get("status", default_status)
+    created = str(entry.get("created", ""))
+    modified = str(entry.get("modified", ""))
 
     line = "\t".join([
         str(username),
         str(status),
         str(project),
+        created,
+        modified,
     ])
     print(line)
 PY
