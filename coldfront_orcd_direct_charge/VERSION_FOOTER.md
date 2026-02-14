@@ -1,3 +1,3 @@
-main
-5fe1cdd
-2026-02-14_10:06
+feature/cost-allocation-date-configurability
+d408c59
+2026-02-14_10:30

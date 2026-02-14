@@ -82,10 +82,28 @@ class ProjectCostAllocationImporter(BaseImporter):
             review_notes=fields.get("review_notes", ""),
         )
     
+    @staticmethod
+    def _restore_timestamps(instance: ProjectCostAllocation, fields: Dict[str, Any]):
+        """Restore created/modified timestamps using queryset.update().
+        
+        TimeStampedModel uses auto_now_add and auto_now which prevent
+        normal field assignment.  queryset.update() bypasses this.
+        """
+        update_fields = {}
+        created_dt = deserialize_datetime(fields.get("created"))
+        if created_dt is not None:
+            update_fields["created"] = created_dt
+        modified_dt = deserialize_datetime(fields.get("modified"))
+        if modified_dt is not None:
+            update_fields["modified"] = modified_dt
+        if update_fields:
+            ProjectCostAllocation.objects.filter(pk=instance.pk).update(**update_fields)
+
     def create_record(self, data: Dict[str, Any]) -> ProjectCostAllocation:
         """Create and save new ProjectCostAllocation."""
         instance = self.deserialize_record(data)
         instance.save()
+        self._restore_timestamps(instance, data.get("fields", {}))
         logger.debug(f"Created ProjectCostAllocation for: {instance.project.title}")
         return instance
     
@@ -108,6 +126,7 @@ class ProjectCostAllocationImporter(BaseImporter):
             existing.reviewed_at = reviewed_at
         
         existing.save()
+        self._restore_timestamps(existing, fields)
         logger.debug(f"Updated ProjectCostAllocation for: {existing.project.title}")
         return existing
 
@@ -148,10 +167,24 @@ class ProjectCostObjectImporter(BaseImporter):
             percentage=percentage,
         )
     
+    @staticmethod
+    def _restore_timestamps(instance: ProjectCostObject, fields: Dict[str, Any]):
+        """Restore created/modified timestamps using queryset.update()."""
+        update_fields = {}
+        created_dt = deserialize_datetime(fields.get("created"))
+        if created_dt is not None:
+            update_fields["created"] = created_dt
+        modified_dt = deserialize_datetime(fields.get("modified"))
+        if modified_dt is not None:
+            update_fields["modified"] = modified_dt
+        if update_fields:
+            ProjectCostObject.objects.filter(pk=instance.pk).update(**update_fields)
+
     def create_record(self, data: Dict[str, Any]) -> ProjectCostObject:
         """Create and save new ProjectCostObject."""
         instance = self.deserialize_record(data)
         instance.save()
+        self._restore_timestamps(instance, data.get("fields", {}))
         logger.debug(f"Created ProjectCostObject: {instance.cost_object}")
         return instance
     
@@ -168,6 +201,7 @@ class ProjectCostObjectImporter(BaseImporter):
             existing.percentage = percentage
         
         existing.save()
+        self._restore_timestamps(existing, fields)
         logger.debug(f"Updated ProjectCostObject: {existing.cost_object}")
         return existing
 

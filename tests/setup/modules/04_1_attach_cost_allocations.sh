@@ -51,7 +51,7 @@ ALLOC_LOG="$MODULE_OUTPUT/attach_cost_allocations.log"
 alloc_count=0
 python_cmd="$(get_python_cmd)"
 
-while IFS=$'\t' read -r project co_args submitted_by notes; do
+while IFS=$'\t' read -r project co_args submitted_by notes created_date modified_date; do
     [ -n "$project" ] || continue
 
     # Build the command array.  $co_args is space-separated CO:PCT pairs
@@ -66,6 +66,14 @@ while IFS=$'\t' read -r project co_args submitted_by notes; do
         cmd+=(--notes "Submitted by $submitted_by")
     elif [ -n "$notes" ]; then
         cmd+=(--notes "$notes")
+    fi
+
+    if [ -n "$created_date" ]; then
+        cmd+=(--created "$created_date")
+    fi
+
+    if [ -n "$modified_date" ]; then
+        cmd+=(--modified "$modified_date")
     fi
 
     run_coldfront "$ALLOC_LOG" "${cmd[@]}" >/dev/null
@@ -93,12 +101,16 @@ for entry in data.get("cost_allocations", []):
 
     submitted_by = entry.get("submitted_by", "")
     notes = entry.get("notes", "")
+    created = str(entry.get("created", ""))
+    modified = str(entry.get("modified", ""))
 
     line = "\t".join([
         project,
         co_args,
         submitted_by,
         notes,
+        created,
+        modified,
     ])
     print(line)
 PY
