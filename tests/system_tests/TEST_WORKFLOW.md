@@ -248,7 +248,7 @@ schedules:
 
 ### Invoices (`invoices.yaml`)
 
-Drives the invoice generation workflow (module 09). Uses the **REST API** rather than management commands, since invoices are computed on-the-fly from reservations.
+Drives the invoice generation workflow (module 09). Uses the **REST API** rather than management commands, since invoices are computed on-the-fly.
 
 ```yaml
 version: "1.0"
@@ -266,7 +266,13 @@ invoice_periods:
 - `billing_user`: Username whose API token authenticates the requests (must have `can_manage_billing` permission)
 - `invoice_periods`: Relative month expressions resolved at runtime. Supported: `"today"`, `"today - N months"`, `"today + N months"`
 
-**API endpoint:** `GET /nodes/api/invoice/YYYY/MM/` returns full invoice JSON (reservations, hours, cost breakdowns, maintenance deductions, overrides). The script saves raw and pretty-printed JSON to the output directory.
+**API endpoints:**
+- `GET /nodes/api/invoice/YYYY/MM/` - Combined report: reservations, AMF, and QoS per project
+- `GET /nodes/api/invoice/reservations/YYYY/MM/` - Reservation-only report
+- `GET /nodes/api/invoice/amf/YYYY/MM/` - Account maintenance fee-only report
+- `GET /nodes/api/invoice/qos/YYYY/MM/` - QoS subscription-only report
+
+The combined endpoint returns full invoice JSON including node rental hours, cost breakdowns, maintenance deductions, overrides, AMF entries with `activated_at` for partial-month billing, and QoS entries with `start_date`/`end_date` for partial-month billing. The script saves raw and pretty-printed JSON to the output directory.
 
 **Output files:** `output/09_invoices/invoice_YYYY_MM.json` and `invoice_YYYY_MM_pretty.json` for each month.
 

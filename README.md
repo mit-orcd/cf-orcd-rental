@@ -196,6 +196,10 @@ DEBUG=True coldfront runserver
 | `/nodes/api/rentals/<pk>/` | Get single reservation detail |
 | `/nodes/api/maintenance-windows/` | Maintenance window CRUD (requires `can_manage_rentals`) |
 | `/nodes/api/maintenance-windows/<pk>/` | Single maintenance window detail/update/delete |
+| `/nodes/api/invoice/<year>/<month>/` | Combined invoice report: reservations, AMF, QoS (requires `can_manage_billing`) |
+| `/nodes/api/invoice/reservations/<year>/<month>/` | Reservation-only invoice report |
+| `/nodes/api/invoice/amf/<year>/<month>/` | AMF-only invoice report |
+| `/nodes/api/invoice/qos/<year>/<month>/` | QoS-only invoice report |
 
 ---
 

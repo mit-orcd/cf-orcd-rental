@@ -10,7 +10,7 @@ This document describes views for invoice management. These views require `can_m
 **Name**: `coldfront_orcd_direct_charge:invoice-preparation`  
 **Template**: `coldfront_orcd_direct_charge/invoice_preparation.html`
 
-Month selector showing all months with reservations.
+Month selector showing all months with billable activity (approved reservations, active AMF entries, or active QoS subscriptions).
 
 **Context Variables**:
 - `invoice_months` - List of dicts with year, month, month_name, status, override_count
@@ -23,7 +23,7 @@ Month selector showing all months with reservations.
 **Name**: `coldfront_orcd_direct_charge:invoice-detail`  
 **Template**: `coldfront_orcd_direct_charge/invoice_detail.html`
 
-Detailed invoice report for a specific month.
+Detailed invoice report for a specific month. Includes reservations, account maintenance fees (AMF), and QoS subscriptions.
 
 **Query Parameters**:
 - `owner` - Filter by project owner username
@@ -32,8 +32,8 @@ Detailed invoice report for a specific month.
 **Context Variables**:
 - `year`, `month`, `month_name` - Period info
 - `invoice_period` - InvoicePeriod instance
-- `projects` - List of project data with reservations and cost breakdowns
-- `total_reservations`, `excluded_count` - Counts
+- `projects` - List of project data with reservations, AMF entries, QoS entries, and cost breakdowns
+- `total_reservations`, `excluded_count` - Reservation counts
 - `owners` - Distinct owner usernames for filter dropdown
 - `owner_filter`, `title_filter` - Current filter values
 

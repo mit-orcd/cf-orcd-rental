@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### February 2026
+
+#### Added - Invoice AMF & QoS Billing
+- **Invoice API enhanced** to include Account Maintenance Fees (AMF) and QoS subscriptions alongside reservations
+- Combined endpoint `GET /nodes/api/invoice/YYYY/MM/` now returns `reservations`, `amf_entries`, and `qos_entries` per project
+- AMF entries include `activated_at` (from `UserMaintenanceStatus.created`) for partial-month pro-rata billing
+- QoS entries include `start_date` / `end_date` for partial-month pro-rata billing
+- Each entry includes `days_in_month`, `billable_days`, `fraction`, effective `rate`, and `cost_breakdown`
+- **Three new focused sub-endpoints**:
+  - `GET /nodes/api/invoice/reservations/YYYY/MM/` - Reservation-only report
+  - `GET /nodes/api/invoice/amf/YYYY/MM/` - AMF-only report
+  - `GET /nodes/api/invoice/qos/YYYY/MM/` - QoS-only report
+- `InvoiceListView` updated to include months with AMF or QoS activity (not just reservations)
+- New activity log actions: `api.invoice_reservations`, `api.invoice_amf`, `api.invoice_qos`
+
 ### January 4, 2026
 
 #### Added - Current Rates Public Page (`573b72d`)

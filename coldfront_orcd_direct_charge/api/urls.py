@@ -17,6 +17,9 @@ urlpatterns = router.urls + [
     # Invoice API endpoints
     path("invoice/", views.InvoiceListView.as_view(), name="invoice-list"),
     path("invoice/<int:year>/<int:month>/", views.InvoiceReportView.as_view(), name="invoice-report"),
+    path("invoice/reservations/<int:year>/<int:month>/", views.InvoiceReservationsView.as_view(), name="invoice-reservations"),
+    path("invoice/amf/<int:year>/<int:month>/", views.InvoiceAMFView.as_view(), name="invoice-amf"),
+    path("invoice/qos/<int:year>/<int:month>/", views.InvoiceQoSView.as_view(), name="invoice-qos"),
     # Activity log API endpoint
     path("activity-log/", views.ActivityLogAPIView.as_view(), name="api-activity-log"),
     # Subscription API endpoints
