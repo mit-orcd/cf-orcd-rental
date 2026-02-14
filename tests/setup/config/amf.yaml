@@ -23,6 +23,12 @@ version: "1.0"
 # This module uses `coldfront set_user_amf <username> <status> --project
 # <project> --force` for each entry.
 #
+# Optional date fields per entry:
+#   created  - Record creation date (YYYY-MM-DD or ISO 8601 datetime).
+#              Defaults to the current time if omitted.
+#   modified - Last modification date (YYYY-MM-DD or ISO 8601 datetime).
+#              Defaults to the current time if omitted.
+#
 # The 3 manager accounts (orcd_rtm, orcd_bim, orcd_rem) are excluded
 # because they are system/admin roles, not regular users.
 #
@@ -43,10 +49,13 @@ entries:
   - username: "orcd_u0"
     status: "basic"
     project: "orcd_u0_p1"          # owner -> eligible
+    created: "2024-11-15"
+    modified: "2025-02-01T09:00:00"
 
   - username: "orcd_u2"
     status: "basic"
     project: "orcd_u2_p1"          # owner -> eligible
+    created: "2024-11-15"
 
   - username: "orcd_u4"
     status: "basic"

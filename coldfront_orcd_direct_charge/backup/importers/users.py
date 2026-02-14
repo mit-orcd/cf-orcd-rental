@@ -85,10 +85,28 @@ class UserMaintenanceStatusImporter(BaseImporter):
             billing_project=billing_project,
         )
     
+    @staticmethod
+    def _restore_timestamps(instance: UserMaintenanceStatus, fields: Dict[str, Any]):
+        """Restore created/modified timestamps using queryset.update().
+        
+        TimeStampedModel uses auto_now_add and auto_now which prevent
+        normal field assignment.  queryset.update() bypasses this.
+        """
+        update_fields = {}
+        created_dt = deserialize_datetime(fields.get("created"))
+        if created_dt is not None:
+            update_fields["created"] = created_dt
+        modified_dt = deserialize_datetime(fields.get("modified"))
+        if modified_dt is not None:
+            update_fields["modified"] = modified_dt
+        if update_fields:
+            UserMaintenanceStatus.objects.filter(pk=instance.pk).update(**update_fields)
+
     def create_record(self, data: Dict[str, Any]) -> UserMaintenanceStatus:
         """Create and save new UserMaintenanceStatus."""
         instance = self.deserialize_record(data)
         instance.save()
+        self._restore_timestamps(instance, data.get("fields", {}))
         logger.debug(f"Created UserMaintenanceStatus for: {instance.user.username}")
         return instance
     
@@ -107,6 +125,7 @@ class UserMaintenanceStatusImporter(BaseImporter):
             existing.billing_project = None
         
         existing.save()
+        self._restore_timestamps(existing, fields)
         logger.debug(f"Updated UserMaintenanceStatus for: {existing.user.username}")
         return existing
 

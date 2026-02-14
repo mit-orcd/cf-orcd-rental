@@ -34,10 +34,17 @@ Examples:
 
     # Preview changes without applying
     coldfront set_user_amf jsmith advanced --project jsmith_group --dry-run
+
+    # Override timestamps
+    coldfront set_user_amf jsmith basic --project jsmith_group --created 2024-11-15
+    coldfront set_user_amf jsmith basic --project jsmith_group --modified 2025-02-01T09:00:00
 """
+
+from datetime import datetime
 
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from coldfront.core.project.models import Project
 
@@ -75,6 +82,16 @@ class Command(BaseCommand):
             ),
         )
         parser.add_argument(
+            "--created",
+            type=str,
+            help="Override creation date (YYYY-MM-DD or ISO 8601 datetime)",
+        )
+        parser.add_argument(
+            "--modified",
+            type=str,
+            help="Override last-modified date (YYYY-MM-DD or ISO 8601 datetime)",
+        )
+        parser.add_argument(
             "--force",
             action="store_true",
             help="Update existing maintenance configuration instead of reporting error",
@@ -97,6 +114,10 @@ class Command(BaseCommand):
         force = options["force"]
         dry_run = options["dry_run"]
         quiet = options["quiet"]
+
+        # Parse optional date overrides
+        created_dt = self._parse_datetime(options.get("created"), "created")
+        modified_dt = self._parse_datetime(options.get("modified"), "modified")
 
         # Look up the user
         user = self._find_user(username)
@@ -157,6 +178,8 @@ class Command(BaseCommand):
                 status=status,
                 project=project,
                 existing_status=existing_status,
+                created_dt=created_dt,
+                modified_dt=modified_dt,
             )
             return
 
@@ -167,6 +190,8 @@ class Command(BaseCommand):
             project=project,
             existing_status=existing_status,
             quiet=quiet,
+            created_dt=created_dt,
+            modified_dt=modified_dt,
         )
 
         # Summary
@@ -177,6 +202,29 @@ class Command(BaseCommand):
             self.stdout.write(f"  Status: {status}")
             if project:
                 self.stdout.write(f"  Billing project: {project.title}")
+
+    @staticmethod
+    def _parse_datetime(value, flag_name):
+        """Parse a date or datetime string into a timezone-aware datetime.
+
+        Accepts ``YYYY-MM-DD`` (interpreted as midnight UTC) or any ISO 8601
+        datetime string.  Returns ``None`` when *value* is ``None`` or empty.
+        """
+        if not value:
+            return None
+        try:
+            dt = datetime.fromisoformat(value)
+        except ValueError:
+            try:
+                dt = datetime.strptime(value, "%Y-%m-%d")
+            except ValueError:
+                raise ValueError(
+                    f"Invalid --{flag_name} value '{value}'. "
+                    "Use YYYY-MM-DD or ISO 8601 datetime format."
+                )
+        if dt.tzinfo is None:
+            dt = timezone.make_aware(dt)
+        return dt
 
     def _find_user(self, username):
         """Find a user by username.
@@ -243,7 +291,8 @@ class Command(BaseCommand):
         except UserMaintenanceStatus.DoesNotExist:
             return None
 
-    def _print_dry_run(self, user, status, project, existing_status):
+    def _print_dry_run(self, user, status, project, existing_status,
+                       created_dt=None, modified_dt=None):
         """Print the Django ORM commands that would be executed."""
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("[DRY-RUN] Would execute the following commands:"))
@@ -265,10 +314,23 @@ class Command(BaseCommand):
             self.stdout.write(f"    billing_project={project_repr},")
             self.stdout.write(")")
 
+        if created_dt is not None or modified_dt is not None:
+            self.stdout.write("")
+            self.stdout.write("# Override timestamps (bypass auto_now)")
+            parts = []
+            if created_dt is not None:
+                parts.append(f"created='{created_dt.isoformat()}'")
+            if modified_dt is not None:
+                parts.append(f"modified='{modified_dt.isoformat()}'")
+            self.stdout.write(
+                f"UserMaintenanceStatus.objects.filter(pk=ms.pk).update({', '.join(parts)})"
+            )
+
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("[DRY-RUN] No changes made."))
 
-    def _set_maintenance_status(self, user, status, project, existing_status, quiet):
+    def _set_maintenance_status(self, user, status, project, existing_status, quiet,
+                               created_dt=None, modified_dt=None):
         """Set the maintenance status for a user.
 
         Args:
@@ -277,6 +339,8 @@ class Command(BaseCommand):
             project: Project instance or None
             existing_status: Existing UserMaintenanceStatus or None
             quiet: Suppress output if True
+            created_dt: Optional datetime override for created timestamp
+            modified_dt: Optional datetime override for modified timestamp
         """
         if existing_status:
             # Update existing record
@@ -295,9 +359,11 @@ class Command(BaseCommand):
                     f"Updated maintenance status for '{user.username}' "
                     f"(was: {old_status}, project: {old_project})"
                 ))
+
+            record = existing_status
         else:
             # Create new record
-            UserMaintenanceStatus.objects.create(
+            record = UserMaintenanceStatus.objects.create(
                 user=user,
                 status=status,
                 billing_project=project,
@@ -306,3 +372,17 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(
                     f"Created maintenance status for '{user.username}'"
                 ))
+
+        # Override timestamps if specified (uses queryset.update to bypass auto_now)
+        update_fields = {}
+        if created_dt is not None:
+            update_fields["created"] = created_dt
+        if modified_dt is not None:
+            update_fields["modified"] = modified_dt
+        if update_fields:
+            UserMaintenanceStatus.objects.filter(pk=record.pk).update(**update_fields)
+            if not quiet:
+                for field_name, value in update_fields.items():
+                    self.stdout.write(self.style.SUCCESS(
+                        f"Set {field_name} to {value.isoformat()}"
+                    ))
