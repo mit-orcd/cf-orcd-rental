@@ -32,13 +32,26 @@ class UserExporter(BaseExporter):
     def get_queryset(self):
         """Return all users ordered by username."""
         from django.contrib.auth.models import User
-        return User.objects.prefetch_related("groups").order_by("username")
+        return (
+            User.objects
+            .prefetch_related("groups")
+            .select_related("account_timestamp")
+            .order_by("username")
+        )
     
     def serialize_record(self, instance) -> Dict[str, Any]:
         """Serialize User to dict.
         
         Note: Password is intentionally excluded for security.
         """
+        # Fetch last_modified from UserAccountTimestamp (if available)
+        account_ts = getattr(instance, "account_timestamp", None)
+        last_modified = (
+            serialize_datetime(account_ts.last_modified)
+            if account_ts is not None
+            else None
+        )
+
         return {
             "natural_key": (instance.username,),
             "fields": {
@@ -51,6 +64,7 @@ class UserExporter(BaseExporter):
                 "is_superuser": instance.is_superuser,
                 "date_joined": serialize_datetime(instance.date_joined),
                 "last_login": serialize_datetime(instance.last_login),
+                "last_modified": last_modified,
                 # Groups are exported separately, but include names for reference
                 "group_names": [g.name for g in instance.groups.all()],
             }

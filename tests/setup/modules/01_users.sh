@@ -101,7 +101,7 @@ echo -e "username\ttoken" > "$TOKENS_TSV"
 first_username=""
 first_token=""
 
-while IFS=$'\t' read -r username email password groups; do
+while IFS=$'\t' read -r username email password groups date_joined last_modified; do
     [ -n "$username" ] || continue
 
     if [ "$DRY_RUN" = "true" ]; then
@@ -119,6 +119,14 @@ while IFS=$'\t' read -r username email password groups; do
         for group in "${group_list[@]}"; do
             [ -n "$group" ] && cmd+=(--add-to-group "$group")
         done
+    fi
+
+    if [ -n "$date_joined" ]; then
+        cmd+=(--date-joined "$date_joined")
+    fi
+
+    if [ -n "$last_modified" ]; then
+        cmd+=(--last-modified "$last_modified")
     fi
 
     output="$(coldfront "${cmd[@]}" 2>&1)"
@@ -148,6 +156,8 @@ def emit(user):
     email = user.get("email", "")
     password = user.get("password", default_password)
     groups = user.get("groups", [])
+    date_joined = str(user.get("date_joined", ""))
+    last_modified = str(user.get("last_modified", ""))
 
     if not email and default_domain:
         email = f"{username}@{default_domain}"
@@ -157,6 +167,8 @@ def emit(user):
         email,
         password or "",
         ",".join(groups),
+        date_joined,
+        last_modified,
     ])
     print(line)
 

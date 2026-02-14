@@ -55,8 +55,26 @@ class UserImporter(BaseImporter):
             is_staff=fields.get("is_staff", False),
             is_superuser=fields.get("is_superuser", False),
         )
+        # Restore date_joined if present in export data
+        date_joined = deserialize_datetime(fields.get("date_joined"))
+        if date_joined is not None:
+            user.date_joined = date_joined
         user.set_unusable_password()
         return user
+    
+    def _restore_account_timestamp(self, user, fields: Dict[str, Any]):
+        """Restore last_modified into UserAccountTimestamp if present."""
+        last_modified = deserialize_datetime(fields.get("last_modified"))
+        if last_modified is not None:
+            try:
+                from coldfront_orcd_direct_charge.models import UserAccountTimestamp
+                from django.contrib.auth.models import User as _User
+                UserAccountTimestamp.objects.update_or_create(
+                    user=user,
+                    defaults={"last_modified": last_modified},
+                )
+            except Exception:
+                pass  # table may not exist yet during early import
     
     def create_or_update(
         self, 
@@ -79,13 +97,25 @@ class UserImporter(BaseImporter):
             existing.is_active = fields.get("is_active", existing.is_active)
             existing.is_staff = fields.get("is_staff", existing.is_staff)
             existing.is_superuser = fields.get("is_superuser", existing.is_superuser)
+            # Restore date_joined if present
+            date_joined = deserialize_datetime(fields.get("date_joined"))
+            if date_joined is not None:
+                existing.date_joined = date_joined
             existing.save()
+            self._restore_account_timestamp(existing, fields)
             return existing
         else:
             if mode == "update-only":
                 return None
             user = self.deserialize_record(data)
             user.save()
+            # Use queryset update to set date_joined without triggering
+            # the post_save signal (which would overwrite last_modified)
+            date_joined = deserialize_datetime(fields.get("date_joined"))
+            if date_joined is not None:
+                User.objects.filter(pk=user.pk).update(date_joined=date_joined)
+                user.refresh_from_db()
+            self._restore_account_timestamp(user, fields)
             return user
     
     def create_record(self, data: Dict[str, Any]) -> Any:

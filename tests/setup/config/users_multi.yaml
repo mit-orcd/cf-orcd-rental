@@ -3,6 +3,12 @@ version: "1.0"
 # Multi-user test configuration
 # Creates 13 users: 3 managers with privileged roles + 10 regular users
 # All users are created with PI status (can create and own projects)
+#
+# Optional date fields per user:
+#   date_joined   - Account creation date (YYYY-MM-DD or ISO 8601 datetime).
+#                   Defaults to the current time if omitted.
+#   last_modified - Last modification date (YYYY-MM-DD or ISO 8601 datetime).
+#                   Defaults to the current time if omitted.
 
 defaults:
   email_domain: "example.edu"
@@ -14,54 +20,70 @@ users:
     first_name: Rate
     last_name: Manager
     groups: [rate]
+    date_joined: "2024-06-15"
+    last_modified: "2025-01-20T14:30:00"
 
   - username: orcd_bim
     first_name: Billing
     last_name: Manager
     groups: [billing]
+    date_joined: "2024-06-15"
+    last_modified: "2025-01-20T14:30:00"
 
   - username: orcd_rem
     first_name: Rental
     last_name: Manager
     groups: [rental]
+    date_joined: "2024-06-15"
+    last_modified: "2025-01-20T14:30:00"
 
   # Regular user accounts (orcd_u0 through orcd_u9)
   - username: orcd_u0
     first_name: User
     last_name: Zero
+    date_joined: "2024-09-01"
 
   - username: orcd_u1
     first_name: User
     last_name: One
+    date_joined: "2024-09-01"
 
   - username: orcd_u2
     first_name: User
     last_name: Two
+    date_joined: "2024-09-01"
 
   - username: orcd_u3
     first_name: User
     last_name: Three
+    date_joined: "2024-09-01"
 
   - username: orcd_u4
     first_name: User
     last_name: Four
+    date_joined: "2024-09-01"
 
   - username: orcd_u5
     first_name: User
     last_name: Five
+    date_joined: "2024-09-01"
 
   - username: orcd_u6
     first_name: User
     last_name: Six
+    date_joined: "2024-09-01"
 
   - username: orcd_u7
     first_name: User
     last_name: Seven
+    date_joined: "2024-09-01"
 
   - username: orcd_u8
     first_name: User
     last_name: Eight
+    date_joined: "2024-09-01"
 
   - username: orcd_u9
     first_name: User
     last_name: Nine
+    date_joined: "2024-09-01"
