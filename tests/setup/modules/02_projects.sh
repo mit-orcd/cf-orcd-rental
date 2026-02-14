@@ -33,10 +33,20 @@ log_step "Creating projects from YAML"
 CREATE_LOG="$MODULE_OUTPUT/create_projects.log"
 python_cmd="$(get_python_cmd)"
 
-while IFS=$'\t' read -r name owner; do
+while IFS=$'\t' read -r name owner created_date modified_date; do
     [ -n "$name" ] || continue
 
-    run_coldfront "$CREATE_LOG" create_orcd_project "$owner" --project-name "$name" --force >/dev/null
+    cmd=(create_orcd_project "$owner" --project-name "$name" --force)
+
+    if [ -n "$created_date" ]; then
+        cmd+=(--created "$created_date")
+    fi
+
+    if [ -n "$modified_date" ]; then
+        cmd+=(--modified "$modified_date")
+    fi
+
+    run_coldfront "$CREATE_LOG" "${cmd[@]}" >/dev/null
 
 done < <($python_cmd - "$PROJECTS_CONFIG" << 'PY'
 import sys
@@ -48,7 +58,9 @@ with open(sys.argv[1], "r", encoding="utf-8") as f:
 for proj in projects.get("projects", []):
     name = proj.get("name", "")
     owner = proj.get("owner", "")
-    print(f"{name}\t{owner}")
+    created = str(proj.get("created", ""))
+    modified = str(proj.get("modified", ""))
+    print(f"{name}\t{owner}\t{created}\t{modified}")
 PY
 )
 

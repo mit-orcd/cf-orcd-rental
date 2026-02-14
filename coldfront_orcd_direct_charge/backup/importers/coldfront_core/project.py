@@ -189,6 +189,25 @@ class ProjectImporter(BaseImporter):
         except ImportError:
             return None
     
+    @staticmethod
+    def _restore_timestamps(project, fields: Dict[str, Any]):
+        """Restore created/modified timestamps using queryset.update().
+        
+        TimeStampedModel uses auto_now_add and auto_now which prevent
+        normal field assignment.  queryset.update() bypasses this.
+        """
+        from coldfront.core.project.models import Project
+
+        update_fields = {}
+        created_dt = deserialize_datetime(fields.get("created"))
+        if created_dt is not None:
+            update_fields["created"] = created_dt
+        modified_dt = deserialize_datetime(fields.get("modified"))
+        if modified_dt is not None:
+            update_fields["modified"] = modified_dt
+        if update_fields:
+            Project.objects.filter(pk=project.pk).update(**update_fields)
+    
     def create_or_update(
         self, 
         data: Dict[str, Any], 
@@ -225,6 +244,7 @@ class ProjectImporter(BaseImporter):
                         pass
                 
                 existing.save()
+                self._restore_timestamps(existing, fields)
                 return existing
             else:
                 if mode == "update-only":
@@ -232,6 +252,7 @@ class ProjectImporter(BaseImporter):
                 instance = self.deserialize_record(data)
                 if instance:
                     instance.save()
+                    self._restore_timestamps(instance, fields)
                 return instance
         except ImportError:
             return None

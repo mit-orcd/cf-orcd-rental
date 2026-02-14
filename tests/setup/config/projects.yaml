@@ -3,54 +3,81 @@ version: "1.0"
 # Project configuration for multi-user test setup
 # Each orcd_uNN user gets two projects: orcd_uNN_p1 and orcd_uNN_p2
 # Members are NOT assigned here -- use 03_members for role assignments
+#
+# Optional date fields per project:
+#   created  - Project creation date (YYYY-MM-DD or ISO 8601 datetime).
+#              Defaults to the current time if omitted.
+#   modified - Last modification date (YYYY-MM-DD or ISO 8601 datetime).
+#              Defaults to the current time if omitted.
 
 projects:
   - name: orcd_u0_p1
     owner: orcd_u0
+    created: "2024-10-01"
+    modified: "2025-01-15T10:00:00"
   - name: orcd_u0_p2
     owner: orcd_u0
+    created: "2024-10-01"
 
   - name: orcd_u1_p1
     owner: orcd_u1
+    created: "2024-10-01"
   - name: orcd_u1_p2
     owner: orcd_u1
+    created: "2024-10-01"
 
   - name: orcd_u2_p1
     owner: orcd_u2
+    created: "2024-10-01"
   - name: orcd_u2_p2
     owner: orcd_u2
+    created: "2024-10-01"
 
   - name: orcd_u3_p1
     owner: orcd_u3
+    created: "2024-10-01"
   - name: orcd_u3_p2
     owner: orcd_u3
+    created: "2024-10-01"
 
   - name: orcd_u4_p1
     owner: orcd_u4
+    created: "2024-10-01"
   - name: orcd_u4_p2
     owner: orcd_u4
+    created: "2024-10-01"
 
   - name: orcd_u5_p1
     owner: orcd_u5
+    created: "2024-10-01"
   - name: orcd_u5_p2
     owner: orcd_u5
+    created: "2024-10-01"
 
   - name: orcd_u6_p1
     owner: orcd_u6
+    created: "2024-10-01"
   - name: orcd_u6_p2
     owner: orcd_u6
+    created: "2024-10-01"
 
   - name: orcd_u7_p1
     owner: orcd_u7
+    created: "2024-10-01"
   - name: orcd_u7_p2
     owner: orcd_u7
+    created: "2024-10-01"
 
   - name: orcd_u8_p1
     owner: orcd_u8
+    created: "2024-10-01"
   - name: orcd_u8_p2
     owner: orcd_u8
+    created: "2024-10-01"
 
   - name: orcd_u9_p1
     owner: orcd_u9
+    created: "2024-10-01"
   - name: orcd_u9_p2
     owner: orcd_u9
+    created: "2024-10-01"
