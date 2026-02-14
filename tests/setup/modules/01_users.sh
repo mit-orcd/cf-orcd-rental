@@ -12,11 +12,7 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
-CONFIG_FILE="$SETUP_DIR/config/test_config.yaml"
-OUTPUT_DIR_OVERRIDE=""
-DRY_RUN="false"
-
-usage() {
+module_usage() {
     cat << 'EOF'
 Usage: 01_users.sh [options]
   --config <path>      Path to test_config.yaml
@@ -25,65 +21,14 @@ Usage: 01_users.sh [options]
 EOF
 }
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --config)
-            CONFIG_FILE="$2"
-            shift 2
-            ;;
-        --output-dir)
-            OUTPUT_DIR_OVERRIDE="$2"
-            shift 2
-            ;;
-        --dry-run)
-            DRY_RUN="true"
-            shift 1
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        *)
-            die "Unknown option: $1"
-            ;;
-    esac
-done
+parse_module_args "$@"
+init_module "01_users"
 
-ensure_yaml_support
-
-if [ -n "$OUTPUT_DIR_OVERRIDE" ]; then
-    OUTPUT_DIR="$OUTPUT_DIR_OVERRIDE"
-fi
-
-MODULE_OUTPUT="$OUTPUT_DIR/01_users"
-mkdir -p "$MODULE_OUTPUT"
-
-USERS_CONFIG="$(python3 - "$CONFIG_FILE" << 'PY'
-import sys
-import yaml
-
-with open(sys.argv[1], "r", encoding="utf-8") as f:
-    data = yaml.safe_load(f) or {}
-
-includes = data.get("includes", {})
-print(includes.get("users", ""))
-PY
-)"
-
-if [ -z "$USERS_CONFIG" ]; then
-    die "users config path not found in test_config.yaml includes.users"
-fi
-
-if [ ! -f "$SETUP_DIR/config/$USERS_CONFIG" ]; then
-    die "Users config not found: $SETUP_DIR/config/$USERS_CONFIG"
-fi
-
-USERS_CONFIG="$SETUP_DIR/config/$USERS_CONFIG"
-
-ensure_env
-activate_env
+USERS_CONFIG="$(resolve_include "$CONFIG_FILE" "users" "Users")"
 
 log_step "Creating users from YAML"
+
+python_cmd="$(get_python_cmd)"
 
 # Ensure manager groups exist
 if [ "$DRY_RUN" != "true" ]; then
@@ -103,11 +48,6 @@ first_token=""
 
 while IFS=$'\t' read -r username email password groups date_joined last_modified; do
     [ -n "$username" ] || continue
-
-    if [ "$DRY_RUN" = "true" ]; then
-        echo "[DRY-RUN] create_user $username ($email)" >> "$CREATE_LOG"
-        continue
-    fi
 
     cmd=(create_user "$username" --email "$email" --with-token --force)
     if [ -n "$password" ]; then
@@ -129,8 +69,7 @@ while IFS=$'\t' read -r username email password groups date_joined last_modified
         cmd+=(--last-modified "$last_modified")
     fi
 
-    output="$(coldfront "${cmd[@]}" 2>&1)"
-    printf "%s\n" "$output" >> "$CREATE_LOG"
+    output="$(run_coldfront "$CREATE_LOG" "${cmd[@]}")"
 
     token="$(printf "%s\n" "$output" | extract_api_token)"
     if [ -n "$token" ]; then
@@ -140,7 +79,7 @@ while IFS=$'\t' read -r username email password groups date_joined last_modified
             first_username="$username"
         fi
     fi
-done < <(python3 - "$USERS_CONFIG" << 'PY'
+done < <($python_cmd - "$USERS_CONFIG" << 'PY'
 import sys
 import yaml
 
@@ -179,7 +118,7 @@ PY
 )
 
 if [ "$DRY_RUN" != "true" ]; then
-    python3 - "$TOKENS_TSV" "$TOKENS_JSON" << 'PY'
+    $python_cmd - "$TOKENS_TSV" "$TOKENS_JSON" << 'PY'
 import json
 import sys
 

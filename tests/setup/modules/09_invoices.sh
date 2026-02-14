@@ -28,11 +28,7 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
-CONFIG_FILE="$SETUP_DIR/config/test_config.yaml"
-OUTPUT_DIR_OVERRIDE=""
-DRY_RUN="false"
-
-usage() {
+module_usage() {
     cat << 'EOF'
 Usage: 09_invoices.sh [options]
   --config <path>      Path to test_config.yaml
@@ -41,77 +37,18 @@ Usage: 09_invoices.sh [options]
 EOF
 }
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --config)
-            CONFIG_FILE="$2"
-            shift 2
-            ;;
-        --output-dir)
-            OUTPUT_DIR_OVERRIDE="$2"
-            shift 2
-            ;;
-        --dry-run)
-            DRY_RUN="true"
-            shift 1
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        *)
-            die "Unknown option: $1"
-            ;;
-    esac
-done
+parse_module_args "$@"
+init_module "09_invoices"
 
-ensure_yaml_support
-
-if [ -n "$OUTPUT_DIR_OVERRIDE" ]; then
-    OUTPUT_DIR="$OUTPUT_DIR_OVERRIDE"
-fi
-
-MODULE_OUTPUT="$OUTPUT_DIR/09_invoices"
-mkdir -p "$MODULE_OUTPUT"
-
-# ---------------------------------------------------------------------------
-# Set up environment (must happen before YAML parsing so python3 has PyYAML)
-# ---------------------------------------------------------------------------
-
-ensure_env
-activate_env
-
-# ---------------------------------------------------------------------------
-# Resolve the invoices config path from test_config.yaml includes
-# ---------------------------------------------------------------------------
-
-INV_CONFIG="$(python3 - "$CONFIG_FILE" << 'PY'
-import sys
-import yaml
-
-with open(sys.argv[1], "r", encoding="utf-8") as f:
-    data = yaml.safe_load(f) or {}
-
-includes = data.get("includes", {})
-print(includes.get("invoices", ""))
-PY
-)"
-
-if [ -z "$INV_CONFIG" ]; then
-    die "invoices config path not found in test_config.yaml includes section"
-fi
-
-if [ ! -f "$SETUP_DIR/config/$INV_CONFIG" ]; then
-    die "Invoices config not found: $SETUP_DIR/config/$INV_CONFIG"
-fi
-
-INV_CONFIG="$SETUP_DIR/config/$INV_CONFIG"
+INV_CONFIG="$(resolve_include "$CONFIG_FILE" "invoices" "Invoices")"
 
 # ---------------------------------------------------------------------------
 # Read billing user from YAML config
 # ---------------------------------------------------------------------------
 
-BILLING_USER="$(python3 - "$INV_CONFIG" << 'PY'
+python_cmd="$(get_python_cmd)"
+
+BILLING_USER="$($python_cmd - "$INV_CONFIG" << 'PY'
 import sys
 import yaml
 
@@ -181,7 +118,7 @@ while IFS=$'\t' read -r year month label; do
 
     inv_count=$((inv_count + 1))
 
-done < <(python3 - "$INV_CONFIG" << 'PYMONTHS'
+done < <($python_cmd - "$INV_CONFIG" << 'PYMONTHS'
 """
 Resolve relative month expressions to (year, month, label) TSV.
 
@@ -190,6 +127,7 @@ Supported formats:
   "today - 2 months"   -> 2 months before current
   "today + 1 month"    -> 1 month after current
 """
+import calendar
 import re
 import sys
 from datetime import date
@@ -226,7 +164,6 @@ for expr in data.get("invoice_periods", []):
         month = (total_months % 12) + 1
 
     # Human-readable label for logging
-    import calendar
     label = f"{calendar.month_name[month]} {year}"
 
     print(f"{year}\t{month}\t{label}")

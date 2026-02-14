@@ -29,11 +29,7 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
-CONFIG_FILE="$SETUP_DIR/config/test_config.yaml"
-OUTPUT_DIR_OVERRIDE=""
-DRY_RUN="false"
-
-usage() {
+module_usage() {
     cat << 'EOF'
 Usage: 07_1_create_reservations.sh [options]
   --config <path>      Path to test_config.yaml
@@ -42,71 +38,10 @@ Usage: 07_1_create_reservations.sh [options]
 EOF
 }
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --config)
-            CONFIG_FILE="$2"
-            shift 2
-            ;;
-        --output-dir)
-            OUTPUT_DIR_OVERRIDE="$2"
-            shift 2
-            ;;
-        --dry-run)
-            DRY_RUN="true"
-            shift 1
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        *)
-            die "Unknown option: $1"
-            ;;
-    esac
-done
+parse_module_args "$@"
+init_module "07_1_create_reservations"
 
-ensure_yaml_support
-
-if [ -n "$OUTPUT_DIR_OVERRIDE" ]; then
-    OUTPUT_DIR="$OUTPUT_DIR_OVERRIDE"
-fi
-
-MODULE_OUTPUT="$OUTPUT_DIR/07_1_create_reservations"
-mkdir -p "$MODULE_OUTPUT"
-
-# ---------------------------------------------------------------------------
-# Resolve the reservations config path from test_config.yaml includes
-# ---------------------------------------------------------------------------
-
-RESERV_CONFIG="$(python3 - "$CONFIG_FILE" << 'PY'
-import sys
-import yaml
-
-with open(sys.argv[1], "r", encoding="utf-8") as f:
-    data = yaml.safe_load(f) or {}
-
-includes = data.get("includes", {})
-print(includes.get("reservations", ""))
-PY
-)"
-
-if [ -z "$RESERV_CONFIG" ]; then
-    die "reservations config path not found in test_config.yaml includes section"
-fi
-
-if [ ! -f "$SETUP_DIR/config/$RESERV_CONFIG" ]; then
-    die "Reservations config not found: $SETUP_DIR/config/$RESERV_CONFIG"
-fi
-
-RESERV_CONFIG="$SETUP_DIR/config/$RESERV_CONFIG"
-
-# ---------------------------------------------------------------------------
-# Set up environment
-# ---------------------------------------------------------------------------
-
-ensure_env
-activate_env
+RESERV_CONFIG="$(resolve_include "$CONFIG_FILE" "reservations" "Reservations")"
 
 # ---------------------------------------------------------------------------
 # Main loop: parse YAML, call create_node_rental for each entry
@@ -116,6 +51,7 @@ log_step "Creating reservations as PENDING"
 
 RESERV_LOG="$MODULE_OUTPUT/create_reservations.log"
 reserv_count=0
+python_cmd="$(get_python_cmd)"
 
 while IFS=$'\t' read -r node_address project username start_date num_blocks rental_notes; do
     [ -n "$node_address" ] || continue
@@ -131,16 +67,11 @@ while IFS=$'\t' read -r node_address project username start_date num_blocks rent
 
     [ -n "$rental_notes" ] && cmd+=(--rental-notes "$rental_notes")
 
-    if [ "$DRY_RUN" = "true" ]; then
-        echo "[DRY-RUN] coldfront ${cmd[*]}" >> "$RESERV_LOG"
-    else
-        output="$(coldfront "${cmd[@]}" 2>&1)"
-        printf "%s\n" "$output" >> "$RESERV_LOG"
-    fi
+    run_coldfront "$RESERV_LOG" "${cmd[@]}" >/dev/null
 
     reserv_count=$((reserv_count + 1))
 
-done < <(python3 - "$RESERV_CONFIG" << 'PY'
+done < <($python_cmd - "$RESERV_CONFIG" << 'PY'
 import sys
 import yaml
 
