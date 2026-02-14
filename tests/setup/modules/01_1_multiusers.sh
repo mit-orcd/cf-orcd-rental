@@ -16,11 +16,10 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
+# Default config is users_multi.yaml (not test_config.yaml)
 CONFIG_FILE="$SETUP_DIR/config/users_multi.yaml"
-OUTPUT_DIR_OVERRIDE=""
-DRY_RUN="false"
 
-usage() {
+module_usage() {
     cat << 'EOF'
 Usage: 01_1_multiusers.sh [options]
   --config <path>      Path to users_multi.yaml (default: config/users_multi.yaml)
@@ -29,47 +28,16 @@ Usage: 01_1_multiusers.sh [options]
 EOF
 }
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --config)
-            CONFIG_FILE="$2"
-            shift 2
-            ;;
-        --output-dir)
-            OUTPUT_DIR_OVERRIDE="$2"
-            shift 2
-            ;;
-        --dry-run)
-            DRY_RUN="true"
-            shift 1
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        *)
-            die "Unknown option: $1"
-            ;;
-    esac
-done
-
-ensure_yaml_support
-
-if [ -n "$OUTPUT_DIR_OVERRIDE" ]; then
-    OUTPUT_DIR="$OUTPUT_DIR_OVERRIDE"
-fi
-
-MODULE_OUTPUT="$OUTPUT_DIR/01_1_multiusers"
-mkdir -p "$MODULE_OUTPUT"
+parse_module_args "$@"
+init_module "01_1_multiusers"
 
 if [ ! -f "$CONFIG_FILE" ]; then
     die "Config file not found: $CONFIG_FILE"
 fi
 
-ensure_env
-activate_env
-
 log_step "Creating users from $CONFIG_FILE"
+
+python_cmd="$(get_python_cmd)"
 
 # Ensure manager groups exist
 if [ "$DRY_RUN" != "true" ]; then
@@ -88,11 +56,6 @@ echo -e "username\ttoken" > "$TOKENS_TSV"
 while IFS=$'\t' read -r username email password groups; do
     [ -n "$username" ] || continue
 
-    if [ "$DRY_RUN" = "true" ]; then
-        echo "[DRY-RUN] create_user $username ($email)" >> "$CREATE_LOG"
-        continue
-    fi
-
     cmd=(create_user "$username" --email "$email" --with-token --force)
     if [ -n "$password" ]; then
         cmd+=(--password "$password")
@@ -105,14 +68,13 @@ while IFS=$'\t' read -r username email password groups; do
         done
     fi
 
-    output="$(coldfront "${cmd[@]}" 2>&1)"
-    printf "%s\n" "$output" >> "$CREATE_LOG"
+    output="$(run_coldfront "$CREATE_LOG" "${cmd[@]}")"
 
     token="$(printf "%s\n" "$output" | extract_api_token)"
     if [ -n "$token" ]; then
         echo -e "${username}\t${token}" >> "$TOKENS_TSV"
     fi
-done < <(python3 - "$CONFIG_FILE" << 'PY'
+done < <($python_cmd - "$CONFIG_FILE" << 'PY'
 import sys
 import yaml
 
@@ -147,7 +109,7 @@ PY
 
 # Convert tokens TSV to JSON
 if [ "$DRY_RUN" != "true" ]; then
-    python3 - "$TOKENS_TSV" "$TOKENS_JSON" << 'PY'
+    $python_cmd - "$TOKENS_TSV" "$TOKENS_JSON" << 'PY'
 import json
 import sys
 
@@ -176,7 +138,7 @@ ALL_USERS_JSON="$MODULE_OUTPUT/all_users.json"
 ALL_USERS_PRETTY="$MODULE_OUTPUT/all_users_pretty.json"
 
 if [ "$DRY_RUN" != "true" ]; then
-    python3 - "$ALL_USERS_JSON" << 'PY'
+    $python_cmd - "$ALL_USERS_JSON" << 'PY'
 import json
 import sys
 import os
@@ -196,12 +158,7 @@ with open(output_path, "w", encoding="utf-8") as f:
     json.dump(list(users), f)
 PY
 
-    # Pretty-print with jq if available, otherwise use Python
-    if command -v jq >/dev/null 2>&1; then
-        jq '.' "$ALL_USERS_JSON" > "$ALL_USERS_PRETTY"
-    else
-        pretty_json "$ALL_USERS_JSON" "$ALL_USERS_PRETTY"
-    fi
+    pretty_json "$ALL_USERS_JSON" "$ALL_USERS_PRETTY"
 
     # Display the user list
     echo ""
@@ -215,7 +172,7 @@ fi
 # Summary
 # =============================================================================
 
-user_count=$(python3 - "$CONFIG_FILE" << 'PY'
+user_count=$($python_cmd - "$CONFIG_FILE" << 'PY'
 import sys
 import yaml
 with open(sys.argv[1], "r", encoding="utf-8") as f:

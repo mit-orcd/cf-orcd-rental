@@ -23,11 +23,7 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
-CONFIG_FILE="$SETUP_DIR/config/test_config.yaml"
-OUTPUT_DIR_OVERRIDE=""
-DRY_RUN="false"
-
-usage() {
+module_usage() {
     cat << 'EOF'
 Usage: 05_rates.sh [options]
   --config <path>      Path to test_config.yaml
@@ -36,71 +32,10 @@ Usage: 05_rates.sh [options]
 EOF
 }
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --config)
-            CONFIG_FILE="$2"
-            shift 2
-            ;;
-        --output-dir)
-            OUTPUT_DIR_OVERRIDE="$2"
-            shift 2
-            ;;
-        --dry-run)
-            DRY_RUN="true"
-            shift 1
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        *)
-            die "Unknown option: $1"
-            ;;
-    esac
-done
+parse_module_args "$@"
+init_module "05_rates"
 
-ensure_yaml_support
-
-if [ -n "$OUTPUT_DIR_OVERRIDE" ]; then
-    OUTPUT_DIR="$OUTPUT_DIR_OVERRIDE"
-fi
-
-MODULE_OUTPUT="$OUTPUT_DIR/05_rates"
-mkdir -p "$MODULE_OUTPUT"
-
-# ---------------------------------------------------------------------------
-# Resolve the rates config path from test_config.yaml includes
-# ---------------------------------------------------------------------------
-
-RATES_CONFIG="$(python3 - "$CONFIG_FILE" << 'PY'
-import sys
-import yaml
-
-with open(sys.argv[1], "r", encoding="utf-8") as f:
-    data = yaml.safe_load(f) or {}
-
-includes = data.get("includes", {})
-print(includes.get("rates", ""))
-PY
-)"
-
-if [ -z "$RATES_CONFIG" ]; then
-    die "rates config path not found in test_config.yaml includes section"
-fi
-
-if [ ! -f "$SETUP_DIR/config/$RATES_CONFIG" ]; then
-    die "Rates config not found: $SETUP_DIR/config/$RATES_CONFIG"
-fi
-
-RATES_CONFIG="$SETUP_DIR/config/$RATES_CONFIG"
-
-# ---------------------------------------------------------------------------
-# Set up environment
-# ---------------------------------------------------------------------------
-
-ensure_env
-activate_env
+RATES_CONFIG="$(resolve_include "$CONFIG_FILE" "rates" "Rates")"
 
 # ---------------------------------------------------------------------------
 # Main loop: parse YAML, call set_sku_rate for each entry
@@ -110,9 +45,13 @@ log_step "Setting SKU rates from YAML"
 
 RATE_LOG="$MODULE_OUTPUT/set_rates.log"
 rate_count=0
+python_cmd="$(get_python_cmd)"
 
 while IFS=$'\t' read -r sku_code rate effective_date set_by notes visibility; do
     [ -n "$sku_code" ] || continue
+
+    # Resolve relative date expression (e.g. "today", "today+7") to YYYY-MM-DD
+    [ -n "$effective_date" ] && effective_date="$(resolve_relative_date "$effective_date")"
 
     cmd=(set_sku_rate "$sku_code" "$rate" --force)
 
@@ -121,18 +60,12 @@ while IFS=$'\t' read -r sku_code rate effective_date set_by notes visibility; do
     [ -n "$notes" ]          && cmd+=(--notes "$notes")
     [ -n "$visibility" ]     && cmd+=(--visibility "$visibility")
 
-    if [ "$DRY_RUN" = "true" ]; then
-        echo "[DRY-RUN] coldfront ${cmd[*]}" >> "$RATE_LOG"
-    else
-        output="$(coldfront "${cmd[@]}" 2>&1)"
-        printf "%s\n" "$output" >> "$RATE_LOG"
-    fi
+    run_coldfront "$RATE_LOG" "${cmd[@]}" >/dev/null
 
     rate_count=$((rate_count + 1))
 
-done < <(python3 - "$RATES_CONFIG" << 'PY'
+done < <($python_cmd - "$RATES_CONFIG" << 'PY'
 import sys
-from datetime import date
 import yaml
 
 with open(sys.argv[1], "r", encoding="utf-8") as f:
@@ -144,20 +77,14 @@ default_effective_date = str(defaults.get("effective_date", ""))
 default_set_by = defaults.get("set_by", "")
 default_notes = defaults.get("notes", "")
 
-def resolve_date(value):
-    """Resolve date value: 'today' becomes current date, otherwise pass through."""
-    s = str(value).strip().lower()
-    if s == "today":
-        return str(date.today())
-    return str(value)
-
 for entry in data.get("rates", []):
     sku_code = entry.get("sku_code", "")
     rate = str(entry.get("rate", ""))
     if not sku_code or not rate:
         continue
 
-    effective_date = resolve_date(entry.get("effective_date", default_effective_date))
+    # Emit the raw date expression -- bash-side resolve_relative_date handles resolution
+    effective_date = str(entry.get("effective_date", default_effective_date))
     set_by = entry.get("set_by", default_set_by)
     notes = entry.get("notes", default_notes)
 

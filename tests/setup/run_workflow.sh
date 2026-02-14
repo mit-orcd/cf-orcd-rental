@@ -69,7 +69,8 @@ if [ -n "$OUTPUT_DIR_OVERRIDE" ]; then
     export OUTPUT_DIR
 fi
 
-BASE_URL="$(python3 - "$CONFIG_FILE" << 'PY'
+python_cmd="$(get_python_cmd)"
+BASE_URL="$($python_cmd - "$CONFIG_FILE" << 'PY'
 import sys
 import yaml
 

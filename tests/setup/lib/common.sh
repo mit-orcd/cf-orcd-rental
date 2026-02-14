@@ -111,7 +111,9 @@ PY
 # Uses Python for portability (macOS date -v vs Linux date -d).
 resolve_relative_date() {
     local expr="$1"
-    python3 -c "
+    local python_cmd
+    python_cmd="$(get_python_cmd)"
+    $python_cmd -c "
 from datetime import date, timedelta
 import re, sys
 s = sys.argv[1].strip()
@@ -224,4 +226,98 @@ pretty_json() {
     local python_cmd
     python_cmd="$(get_python_cmd)"
     $python_cmd -m json.tool "$raw" > "$pretty"
+}
+
+# ---------------------------------------------------------------------------
+# Module helpers -- shared boilerplate for modules/ scripts
+# ---------------------------------------------------------------------------
+
+# Parse standard module CLI arguments.
+# Sets globals: CONFIG_FILE, DRY_RUN, OUTPUT_DIR (if --output-dir given).
+#
+# Each module script must define a module_usage() function before calling
+# this so that -h|--help works.  If the module needs a non-default config
+# file, set CONFIG_FILE before calling parse_module_args.
+#
+# Usage: parse_module_args "$@"
+parse_module_args() {
+    CONFIG_FILE="${CONFIG_FILE:-$SETUP_DIR/config/test_config.yaml}"
+    DRY_RUN="false"
+    local output_dir_override=""
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --config)      CONFIG_FILE="$2"; shift 2 ;;
+            --output-dir)  output_dir_override="$2"; shift 2 ;;
+            --dry-run)     DRY_RUN="true"; shift ;;
+            -h|--help)     module_usage; exit 0 ;;
+            *)             die "Unknown option: $1" ;;
+        esac
+    done
+
+    [ -n "$output_dir_override" ] && OUTPUT_DIR="$output_dir_override"
+    return 0
+}
+
+# Set up module output directory and activate the ColdFront environment.
+# Usage: init_module "05_rates"
+# Sets: MODULE_OUTPUT
+init_module() {
+    local module_name="$1"
+    ensure_yaml_support
+    MODULE_OUTPUT="$OUTPUT_DIR/$module_name"
+    mkdir -p "$MODULE_OUTPUT"
+    ensure_env
+    activate_env
+}
+
+# Resolve an include path from test_config.yaml and validate it exists.
+# Returns the absolute path to the resolved config file on stdout.
+# Usage: RATES_CONFIG="$(resolve_include "$CONFIG_FILE" "rates" "Rates")"
+resolve_include() {
+    local config_file="$1"
+    local key="$2"
+    local label="$3"
+    local python_cmd
+    python_cmd="$(get_python_cmd)"
+
+    local rel_path
+    rel_path="$($python_cmd - "$config_file" "$key" << 'PY'
+import sys, yaml
+with open(sys.argv[1], "r", encoding="utf-8") as f:
+    data = yaml.safe_load(f) or {}
+print(data.get("includes", {}).get(sys.argv[2], ""))
+PY
+    )"
+
+    if [ -z "$rel_path" ]; then
+        die "$key config path not found in test_config.yaml includes section"
+    fi
+
+    local full_path="$SETUP_DIR/config/$rel_path"
+    if [ ! -f "$full_path" ]; then
+        die "$label config not found: $full_path"
+    fi
+
+    echo "$full_path"
+}
+
+# Run a coldfront management command, or log it in dry-run mode.
+# Captures output to the specified log file.  In non-dry-run mode the
+# command output is also printed to stdout so callers can capture it.
+#
+# Usage: output="$(run_coldfront "$LOG_FILE" "${cmd[@]}")"
+run_coldfront() {
+    local log_file="$1"
+    shift
+
+    if [ "$DRY_RUN" = "true" ]; then
+        echo "[DRY-RUN] coldfront $*" >> "$log_file"
+        return 0
+    fi
+
+    local output
+    output="$(coldfront "$@" 2>&1)"
+    printf "%s\n" "$output" >> "$log_file"
+    echo "$output"
 }

@@ -29,11 +29,7 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
-CONFIG_FILE="$SETUP_DIR/config/test_config.yaml"
-OUTPUT_DIR_OVERRIDE=""
-DRY_RUN="false"
-
-usage() {
+module_usage() {
     cat << 'EOF'
 Usage: 03_members.sh [options]
   --config <path>      Path to test_config.yaml
@@ -42,71 +38,10 @@ Usage: 03_members.sh [options]
 EOF
 }
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --config)
-            CONFIG_FILE="$2"
-            shift 2
-            ;;
-        --output-dir)
-            OUTPUT_DIR_OVERRIDE="$2"
-            shift 2
-            ;;
-        --dry-run)
-            DRY_RUN="true"
-            shift 1
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        *)
-            die "Unknown option: $1"
-            ;;
-    esac
-done
+parse_module_args "$@"
+init_module "03_members"
 
-ensure_yaml_support
-
-if [ -n "$OUTPUT_DIR_OVERRIDE" ]; then
-    OUTPUT_DIR="$OUTPUT_DIR_OVERRIDE"
-fi
-
-MODULE_OUTPUT="$OUTPUT_DIR/03_members"
-mkdir -p "$MODULE_OUTPUT"
-
-# ---------------------------------------------------------------------------
-# Resolve the members config path from test_config.yaml includes
-# ---------------------------------------------------------------------------
-
-MEMBERS_CONFIG="$(python3 - "$CONFIG_FILE" << 'PY'
-import sys
-import yaml
-
-with open(sys.argv[1], "r", encoding="utf-8") as f:
-    data = yaml.safe_load(f) or {}
-
-includes = data.get("includes", {})
-print(includes.get("members", ""))
-PY
-)"
-
-if [ -z "$MEMBERS_CONFIG" ]; then
-    die "members config path not found in test_config.yaml includes section"
-fi
-
-if [ ! -f "$SETUP_DIR/config/$MEMBERS_CONFIG" ]; then
-    die "Members config not found: $SETUP_DIR/config/$MEMBERS_CONFIG"
-fi
-
-MEMBERS_CONFIG="$SETUP_DIR/config/$MEMBERS_CONFIG"
-
-# ---------------------------------------------------------------------------
-# Set up environment
-# ---------------------------------------------------------------------------
-
-ensure_env
-activate_env
+MEMBERS_CONFIG="$(resolve_include "$CONFIG_FILE" "members" "Members")"
 
 # ---------------------------------------------------------------------------
 # Main loop: parse YAML, call add_user_to_project for each entry
@@ -116,22 +51,16 @@ log_step "Adding project members from YAML"
 
 MEMBER_LOG="$MODULE_OUTPUT/add_members.log"
 member_count=0
+python_cmd="$(get_python_cmd)"
 
 while IFS=$'\t' read -r username project role; do
     [ -n "$username" ] || continue
 
-    cmd=(add_user_to_project "$username" "$project" --role "$role" --force)
-
-    if [ "$DRY_RUN" = "true" ]; then
-        echo "[DRY-RUN] coldfront ${cmd[*]}" >> "$MEMBER_LOG"
-    else
-        output="$(coldfront "${cmd[@]}" 2>&1)"
-        printf "%s\n" "$output" >> "$MEMBER_LOG"
-    fi
+    run_coldfront "$MEMBER_LOG" add_user_to_project "$username" "$project" --role "$role" --force >/dev/null
 
     member_count=$((member_count + 1))
 
-done < <(python3 - "$MEMBERS_CONFIG" << 'PY'
+done < <($python_cmd - "$MEMBERS_CONFIG" << 'PY'
 import sys
 import yaml
 
