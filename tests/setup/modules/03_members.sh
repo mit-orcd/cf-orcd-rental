@@ -53,10 +53,20 @@ MEMBER_LOG="$MODULE_OUTPUT/add_members.log"
 member_count=0
 python_cmd="$(get_python_cmd)"
 
-while IFS=$'\t' read -r username project role; do
+while IFS=$'\t' read -r username project role created_date modified_date; do
     [ -n "$username" ] || continue
 
-    run_coldfront "$MEMBER_LOG" add_user_to_project "$username" "$project" --role "$role" --force >/dev/null
+    cmd=(add_user_to_project "$username" "$project" --role "$role" --force)
+
+    if [ -n "$created_date" ]; then
+        cmd+=(--created "$created_date")
+    fi
+
+    if [ -n "$modified_date" ]; then
+        cmd+=(--modified "$modified_date")
+    fi
+
+    run_coldfront "$MEMBER_LOG" "${cmd[@]}" >/dev/null
 
     member_count=$((member_count + 1))
 
@@ -71,11 +81,13 @@ for entry in data.get("members", []):
     username = entry.get("username", "")
     project = entry.get("project", "")
     role = entry.get("role", "")
+    created = str(entry.get("created", ""))
+    modified = str(entry.get("modified", ""))
 
     if not username or not project or not role:
         continue
 
-    line = "\t".join([username, project, role])
+    line = "\t".join([username, project, role, created, modified])
     print(line)
 PY
 )

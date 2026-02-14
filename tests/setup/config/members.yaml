@@ -22,6 +22,12 @@ version: "1.0"
 #   coldfront add_user_to_project <username> <project> --role <role>
 # for every entry below.
 #
+# Optional date fields per member entry:
+#   created  - Role creation date (YYYY-MM-DD or ISO 8601 datetime).
+#              Defaults to the current time if omitted.
+#   modified - Last modification date (YYYY-MM-DD or ISO 8601 datetime).
+#              Defaults to the current time if omitted.
+#
 # Depends on:
 #   - users_multi.yaml  (creates the user accounts)
 #   - projects.yaml     (creates the projects referenced here)
@@ -34,31 +40,40 @@ members:
   - project: orcd_u0_p1
     username: orcd_u1
     role: financial_admin
+    created: "2024-10-15"
+    modified: "2025-02-01T09:00:00"
   - project: orcd_u0_p1
     username: orcd_u2
     role: technical_admin
+    created: "2024-10-15"
   - project: orcd_u0_p1
     username: orcd_u3
     role: member
+    created: "2024-10-15"
   # orcd_u0_p1: multi-role -- u1 also a member
   - project: orcd_u0_p1
     username: orcd_u1
     role: member
+    created: "2024-10-15"
 
   # orcd_u0_p2: base roles
   - project: orcd_u0_p2
     username: orcd_u4
     role: financial_admin
+    created: "2024-10-15"
   - project: orcd_u0_p2
     username: orcd_u5
     role: technical_admin
+    created: "2024-10-15"
   - project: orcd_u0_p2
     username: orcd_u6
     role: member
+    created: "2024-10-15"
   # orcd_u0_p2: multi-role -- u5 also a member
   - project: orcd_u0_p2
     username: orcd_u5
     role: member
+    created: "2024-10-15"
 
   # ── User 1 projects (owner: orcd_u1) ───────────────────────────────
   - project: orcd_u1_p1
