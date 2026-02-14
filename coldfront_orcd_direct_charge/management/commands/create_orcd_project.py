@@ -13,11 +13,16 @@ Examples:
     coldfront create_orcd_project jsmith --project-name "Research Lab"
     coldfront create_orcd_project jsmith --add-member auser:financial_admin
     coldfront create_orcd_project jsmith --add-member buser:technical_admin --add-member cuser:member
+    coldfront create_orcd_project jsmith --created 2024-07-01
+    coldfront create_orcd_project jsmith --modified 2025-01-15T10:00:00
     coldfront create_orcd_project jsmith --dry-run
 """
 
+from datetime import datetime
+
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from coldfront.core.project.models import (
     Project,
@@ -106,6 +111,16 @@ class Command(BaseCommand):
             ),
         )
         parser.add_argument(
+            "--created",
+            type=str,
+            help="Override creation date (YYYY-MM-DD or ISO 8601 datetime)",
+        )
+        parser.add_argument(
+            "--modified",
+            type=str,
+            help="Override last-modified date (YYYY-MM-DD or ISO 8601 datetime)",
+        )
+        parser.add_argument(
             "--force",
             action="store_true",
             help="Update existing project instead of reporting error",
@@ -167,6 +182,10 @@ class Command(BaseCommand):
                 ))
                 return
 
+        # Parse optional date overrides
+        created_dt = self._parse_datetime(options.get("created"), "created")
+        modified_dt = self._parse_datetime(options.get("modified"), "modified")
+
         # Check if project already exists
         project_exists = Project.objects.filter(title=title, pi=owner).exists()
         if project_exists and not force:
@@ -185,6 +204,8 @@ class Command(BaseCommand):
                 status_name=status_name,
                 project_exists=project_exists,
                 members_to_add=members_to_add,
+                created_dt=created_dt,
+                modified_dt=modified_dt,
             )
             return
 
@@ -229,6 +250,20 @@ class Command(BaseCommand):
                     f"Created project '{title}' with owner '{username}'"
                 ))
 
+        # Override timestamps if specified (uses queryset.update to bypass auto_now)
+        update_fields = {}
+        if created_dt is not None:
+            update_fields["created"] = created_dt
+        if modified_dt is not None:
+            update_fields["modified"] = modified_dt
+        if update_fields:
+            Project.objects.filter(pk=project.pk).update(**update_fields)
+            if not quiet:
+                for field_name, value in update_fields.items():
+                    self.stdout.write(self.style.SUCCESS(
+                        f"Set {field_name} to {value.isoformat()}"
+                    ))
+
         # Add members with ORCD roles
         for member_username, role_choice in members_to_add:
             member_user = member_users[member_username]
@@ -245,7 +280,8 @@ class Command(BaseCommand):
                 self.stdout.write(f"  Members added: {len(members_to_add)}")
 
     def _print_dry_run(self, username, title, description, status_name,
-                       project_exists, members_to_add):
+                       project_exists, members_to_add,
+                       created_dt=None, modified_dt=None):
         """Print the Django ORM commands that would be executed."""
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("[DRY-RUN] Would execute the following commands:"))
@@ -274,6 +310,18 @@ class Command(BaseCommand):
             self.stdout.write("    status=ProjectUserStatusChoice.objects.get(name='Active'),")
             self.stdout.write(")")
 
+        if created_dt is not None or modified_dt is not None:
+            self.stdout.write("")
+            self.stdout.write("# Override timestamps (bypass auto_now)")
+            parts = []
+            if created_dt is not None:
+                parts.append(f"created='{created_dt.isoformat()}'")
+            if modified_dt is not None:
+                parts.append(f"modified='{modified_dt.isoformat()}'")
+            self.stdout.write(
+                f"Project.objects.filter(pk=project.pk).update({', '.join(parts)})"
+            )
+
         for member_username, role_choice in members_to_add:
             self.stdout.write("")
             self.stdout.write(f"# Add member with ORCD role")
@@ -285,6 +333,29 @@ class Command(BaseCommand):
 
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("[DRY-RUN] No changes made."))
+
+    @staticmethod
+    def _parse_datetime(value, flag_name):
+        """Parse a date or datetime string into a timezone-aware datetime.
+
+        Accepts ``YYYY-MM-DD`` (interpreted as midnight UTC) or any ISO 8601
+        datetime string.  Returns ``None`` when *value* is ``None`` or empty.
+        """
+        if not value:
+            return None
+        try:
+            dt = datetime.fromisoformat(value)
+        except ValueError:
+            try:
+                dt = datetime.strptime(value, "%Y-%m-%d")
+            except ValueError:
+                raise ValueError(
+                    f"Invalid --{flag_name} value '{value}'. "
+                    "Use YYYY-MM-DD or ISO 8601 datetime format."
+                )
+        if dt.tzinfo is None:
+            dt = timezone.make_aware(dt)
+        return dt
 
     def _add_member(self, project, user, role_choice, quiet):
         """Add a member with an ORCD role to the project."""
