@@ -31,9 +31,14 @@ Examples:
 
     # Preview changes
     coldfront set_project_cost_allocation jsmith_group ABC-123:50 DEF-456:50 --dry-run
+
+    # Override timestamps
+    coldfront set_project_cost_allocation jsmith_group ABC-123:100 --created 2024-11-01
+    coldfront set_project_cost_allocation jsmith_group ABC-123:100 --modified 2025-01-20T10:00:00
 """
 
 import re
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth.models import User
@@ -160,6 +165,16 @@ class Command(BaseCommand):
             help="Optional notes from the reviewer about the approval decision",
         )
         parser.add_argument(
+            "--created",
+            type=str,
+            help="Override creation date (YYYY-MM-DD or ISO 8601 datetime)",
+        )
+        parser.add_argument(
+            "--modified",
+            type=str,
+            help="Override last-modified date (YYYY-MM-DD or ISO 8601 datetime)",
+        )
+        parser.add_argument(
             "--force",
             action="store_true",
             help="Replace existing cost allocation instead of reporting error",
@@ -235,6 +250,10 @@ class Command(BaseCommand):
             ))
             return
 
+        # Parse optional date overrides
+        created_dt = self._parse_datetime(options.get("created"), "created")
+        modified_dt = self._parse_datetime(options.get("modified"), "modified")
+
         # Check if allocation already exists
         allocation_exists = ProjectCostAllocation.objects.filter(project=project).exists()
         if allocation_exists and not force:
@@ -254,6 +273,8 @@ class Command(BaseCommand):
                 reviewer=reviewer,
                 review_notes=review_notes,
                 allocation_exists=allocation_exists,
+                created_dt=created_dt,
+                modified_dt=modified_dt,
             )
             return
 
@@ -267,6 +288,8 @@ class Command(BaseCommand):
             review_notes=review_notes,
             allocation_exists=allocation_exists,
             quiet=quiet,
+            created_dt=created_dt,
+            modified_dt=modified_dt,
         )
 
         # Summary
@@ -373,7 +396,8 @@ class Command(BaseCommand):
         return user
 
     def _print_dry_run(self, project, parsed_allocations, notes, status,
-                       reviewer, review_notes, allocation_exists):
+                       reviewer, review_notes, allocation_exists,
+                       created_dt=None, modified_dt=None):
         """Print the Django ORM commands that would be executed."""
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("[DRY-RUN] Would execute the following commands:"))
@@ -415,11 +439,51 @@ class Command(BaseCommand):
             self.stdout.write(f"    percentage=Decimal('{percentage}'),")
             self.stdout.write(")")
 
+        if created_dt is not None or modified_dt is not None:
+            self.stdout.write("")
+            self.stdout.write("# Override timestamps (bypass auto_now)")
+            parts = []
+            if created_dt is not None:
+                parts.append(f"created='{created_dt.isoformat()}'")
+            if modified_dt is not None:
+                parts.append(f"modified='{modified_dt.isoformat()}'")
+            update_str = ", ".join(parts)
+            self.stdout.write(
+                f"ProjectCostAllocation.objects.filter(pk=allocation.pk).update({update_str})"
+            )
+            self.stdout.write(
+                f"ProjectCostObject.objects.filter(allocation=allocation).update({update_str})"
+            )
+
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("[DRY-RUN] No changes made."))
 
+    @staticmethod
+    def _parse_datetime(value, flag_name):
+        """Parse a date or datetime string into a timezone-aware datetime.
+
+        Accepts ``YYYY-MM-DD`` (interpreted as midnight UTC) or any ISO 8601
+        datetime string.  Returns ``None`` when *value* is ``None`` or empty.
+        """
+        if not value:
+            return None
+        try:
+            dt = datetime.fromisoformat(value)
+        except ValueError:
+            try:
+                dt = datetime.strptime(value, "%Y-%m-%d")
+            except ValueError:
+                raise ValueError(
+                    f"Invalid --{flag_name} value '{value}'. "
+                    "Use YYYY-MM-DD or ISO 8601 datetime format."
+                )
+        if dt.tzinfo is None:
+            dt = timezone.make_aware(dt)
+        return dt
+
     def _set_cost_allocation(self, project, parsed_allocations, notes, status,
-                             reviewer, review_notes, allocation_exists, quiet):
+                             reviewer, review_notes, allocation_exists, quiet,
+                             created_dt=None, modified_dt=None):
         """Set the cost allocation for a project.
 
         Args:
@@ -431,6 +495,8 @@ class Command(BaseCommand):
             review_notes: Notes from the reviewer
             allocation_exists: Whether an allocation already exists
             quiet: Suppress output if True
+            created_dt: Optional datetime override for created timestamp
+            modified_dt: Optional datetime override for modified timestamp
         """
         # Set reviewed_at to now if reviewer is provided
         reviewed_at = timezone.now() if reviewer else None
@@ -481,3 +547,18 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(
                     f"  Added cost object '{cost_object}' at {percentage}%"
                 ))
+
+        # Override timestamps if specified (uses queryset.update to bypass auto_now)
+        update_fields = {}
+        if created_dt is not None:
+            update_fields["created"] = created_dt
+        if modified_dt is not None:
+            update_fields["modified"] = modified_dt
+        if update_fields:
+            ProjectCostAllocation.objects.filter(pk=allocation.pk).update(**update_fields)
+            ProjectCostObject.objects.filter(allocation=allocation).update(**update_fields)
+            if not quiet:
+                for field_name, value in update_fields.items():
+                    self.stdout.write(self.style.SUCCESS(
+                        f"Set {field_name} to {value.isoformat()}"
+                    ))
