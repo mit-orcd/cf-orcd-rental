@@ -16,6 +16,7 @@ from django.contrib.auth.models import User
 
 from ..base import BaseImporter
 from ..registry import ImporterRegistry
+from ..utils import deserialize_datetime
 from ...models import UserMaintenanceStatus, ProjectMemberRole
 
 logger = logging.getLogger(__name__)
@@ -160,10 +161,28 @@ class ProjectMemberRoleImporter(BaseImporter):
             role=fields.get("role"),
         )
     
+    @staticmethod
+    def _restore_timestamps(instance: ProjectMemberRole, fields: Dict[str, Any]):
+        """Restore created/modified timestamps using queryset.update().
+        
+        TimeStampedModel uses auto_now_add and auto_now which prevent
+        normal field assignment.  queryset.update() bypasses this.
+        """
+        update_fields = {}
+        created_dt = deserialize_datetime(fields.get("created"))
+        if created_dt is not None:
+            update_fields["created"] = created_dt
+        modified_dt = deserialize_datetime(fields.get("modified"))
+        if modified_dt is not None:
+            update_fields["modified"] = modified_dt
+        if update_fields:
+            ProjectMemberRole.objects.filter(pk=instance.pk).update(**update_fields)
+
     def create_record(self, data: Dict[str, Any]) -> ProjectMemberRole:
         """Create and save new ProjectMemberRole."""
         instance = self.deserialize_record(data)
         instance.save()
+        self._restore_timestamps(instance, data.get("fields", {}))
         logger.debug(
             f"Created ProjectMemberRole: {instance.user.username} "
             f"as {instance.role} in {instance.project.title}"
@@ -176,7 +195,8 @@ class ProjectMemberRoleImporter(BaseImporter):
         """Update existing ProjectMemberRole.
         
         Note: Role changes are not supported since role is part of the key.
+        Timestamps are still restored from export data if present.
         """
-        # Role is part of unique constraint, so nothing to update
+        self._restore_timestamps(existing, data.get("fields", {}))
         logger.debug(f"ProjectMemberRole unchanged: {existing}")
         return existing

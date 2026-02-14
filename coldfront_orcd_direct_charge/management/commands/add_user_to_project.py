@@ -32,10 +32,17 @@ Examples:
 
     # Update existing role (requires --force)
     coldfront add_user_to_project jsmith research_lab --role technical_admin --force
+
+    # Override timestamps
+    coldfront add_user_to_project jsmith research_lab --role member --created 2024-10-15
+    coldfront add_user_to_project jsmith research_lab --role member --modified 2025-02-01T09:00:00
 """
+
+from datetime import datetime
 
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from coldfront.core.project.models import (
     Project,
@@ -80,6 +87,18 @@ class Command(BaseCommand):
             help="ORCD role to assign: financial_admin, technical_admin, or member",
         )
 
+        # Optional date overrides
+        parser.add_argument(
+            "--created",
+            type=str,
+            help="Override creation date (YYYY-MM-DD or ISO 8601 datetime)",
+        )
+        parser.add_argument(
+            "--modified",
+            type=str,
+            help="Override last-modified date (YYYY-MM-DD or ISO 8601 datetime)",
+        )
+
         # Optional flags
         parser.add_argument(
             "--force",
@@ -120,6 +139,10 @@ class Command(BaseCommand):
         # Get the role choice
         role_choice = VALID_ROLES[role_name]
 
+        # Parse optional date overrides
+        created_dt = self._parse_datetime(options.get("created"), "created")
+        modified_dt = self._parse_datetime(options.get("modified"), "modified")
+
         # Check if user is the project owner (PI)
         if project.pi == user:
             self.stdout.write(self.style.ERROR(
@@ -157,6 +180,8 @@ class Command(BaseCommand):
                 role_choice=role_choice,
                 existing_role=existing_role,
                 other_roles=other_roles,
+                created_dt=created_dt,
+                modified_dt=modified_dt,
             )
             return
 
@@ -179,6 +204,24 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(
                     f"Added role '{role_display}' for user '{username}' in project '{project.title}'"
                 ))
+
+        # Override timestamps if specified (uses queryset.update to bypass auto_now)
+        # Determine the role record to update (either newly created or existing)
+        role_record = existing_role or ProjectMemberRole.objects.filter(
+            project=project, user=user, role=role_choice,
+        ).first()
+        if role_record and (created_dt is not None or modified_dt is not None):
+            update_fields = {}
+            if created_dt is not None:
+                update_fields["created"] = created_dt
+            if modified_dt is not None:
+                update_fields["modified"] = modified_dt
+            ProjectMemberRole.objects.filter(pk=role_record.pk).update(**update_fields)
+            if not quiet:
+                for field_name, value in update_fields.items():
+                    self.stdout.write(self.style.SUCCESS(
+                        f"Set {field_name} to {value.isoformat()}"
+                    ))
 
         # Ensure user has a ProjectUser record (ColdFront requirement)
         project_user, created = ProjectUser.objects.get_or_create(
@@ -215,6 +258,29 @@ class Command(BaseCommand):
                 ]
                 self.stdout.write(f"  All roles: {', '.join(role_displays)}")
 
+    @staticmethod
+    def _parse_datetime(value, flag_name):
+        """Parse a date or datetime string into a timezone-aware datetime.
+
+        Accepts ``YYYY-MM-DD`` (interpreted as midnight UTC) or any ISO 8601
+        datetime string.  Returns ``None`` when *value* is ``None`` or empty.
+        """
+        if not value:
+            return None
+        try:
+            dt = datetime.fromisoformat(value)
+        except ValueError:
+            try:
+                dt = datetime.strptime(value, "%Y-%m-%d")
+            except ValueError:
+                raise ValueError(
+                    f"Invalid --{flag_name} value '{value}'. "
+                    "Use YYYY-MM-DD or ISO 8601 datetime format."
+                )
+        if dt.tzinfo is None:
+            dt = timezone.make_aware(dt)
+        return dt
+
     def _find_project(self, identifier):
         """Find a project by name or ID.
 
@@ -244,7 +310,8 @@ class Command(BaseCommand):
             return None
 
     def _print_dry_run(self, username, project, role_name, role_choice,
-                       existing_role, other_roles):
+                       existing_role, other_roles,
+                       created_dt=None, modified_dt=None):
         """Print the Django ORM commands that would be executed."""
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("[DRY-RUN] Would execute the following commands:"))
@@ -260,6 +327,18 @@ class Command(BaseCommand):
             self.stdout.write(f"    user=<User: {username}>,")
             self.stdout.write(f"    role='{role_choice}',  # {role_name}")
             self.stdout.write(")")
+
+        if created_dt is not None or modified_dt is not None:
+            self.stdout.write("")
+            self.stdout.write("# Override timestamps (bypass auto_now)")
+            parts = []
+            if created_dt is not None:
+                parts.append(f"created='{created_dt.isoformat()}'")
+            if modified_dt is not None:
+                parts.append(f"modified='{modified_dt.isoformat()}'")
+            self.stdout.write(
+                f"ProjectMemberRole.objects.filter(pk=role.pk).update({', '.join(parts)})"
+            )
 
         self.stdout.write("")
         self.stdout.write("# Ensure ColdFront ProjectUser record exists")
