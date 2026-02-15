@@ -298,12 +298,14 @@ class InvoiceListView(APIView):
             billing_project__isnull=False,
         )
         for amf in active_amf:
-            # The AMF is billable from its created month onward until now
+            # The AMF is billable from its created month up to the earlier
+            # of end_date or today
             created_date = amf.created.date() if amf.created else None
             if created_date:
                 current = date(created_date.year, created_date.month, 1)
                 today = date.today()
-                end_month = date(today.year, today.month, 1)
+                cap_date = min(amf.end_date, today) if amf.end_date else today
+                end_month = date(cap_date.year, cap_date.month, 1)
                 while current <= end_month:
                     billable_months.add((current.year, current.month))
                     if current.month == 12:
@@ -528,9 +530,18 @@ class InvoiceReportView(APIView):
             if activated_date > month_end:
                 continue
 
-            # Calculate billable days (partial month if activated mid-month)
+            # Skip if subscription ended before this month starts
+            if amf.end_date < month_start:
+                continue
+
+            # Effective end: the earlier of next_month_start or end_date + 1 day
+            # (end_date is inclusive, so billing includes that day)
+            effective_end = min(next_month_start, amf.end_date + timedelta(days=1))
+
+            # Calculate billable days (partial month if activated mid-month
+            # or if subscription ends mid-month)
             effective_start = max(activated_date, month_start)
-            billable_days = (next_month_start - effective_start).days
+            billable_days = (effective_end - effective_start).days
             fraction = round(billable_days / days_in_month, 6)
 
             # Look up SKU and rate
@@ -550,6 +561,7 @@ class InvoiceReportView(APIView):
                 "rate": str(rate_obj.rate) if rate_obj else None,
                 "billing_unit": "MONTHLY",
                 "activated_at": amf.created.isoformat() if amf.created else None,
+                "end_date": amf.end_date.isoformat(),
                 "days_in_month": days_in_month,
                 "billable_days": billable_days,
                 "fraction": fraction,

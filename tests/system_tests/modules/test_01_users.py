@@ -157,6 +157,46 @@ class TestAccountMaintenanceFee(BaseSystemTest, unittest.TestCase):
             f"Expected error about requiring project, got: {error_output}"
         )
 
+    def test_set_amf_with_end_date(self):
+        """Set user AMF with an explicit end date."""
+        username = "amftest_end"
+        project_name = f"{username}_group"
+
+        # Create user and project
+        self.run_command(f"create_user {username} --email {username}@example.com --force")
+        self.run_command(f"create_orcd_project {username} --force")
+
+        code, out, err = self.run_command(
+            f"set_user_amf {username} basic --project {project_name} "
+            f"--end-date 2026-12-31 --force"
+        )
+        self.assertEqual(code, 0, f"Command failed with stderr: {err}")
+
+        # Verify end_date was set
+        from coldfront_orcd_direct_charge.models import UserMaintenanceStatus
+        from datetime import date
+        status = UserMaintenanceStatus.objects.get(user__username=username)
+        self.assertEqual(status.end_date, date(2026, 12, 31))
+
+    def test_set_amf_default_end_date(self):
+        """Verify default end_date is 2100-01-01 when --end-date is not provided."""
+        username = "amftest_dflt"
+        project_name = f"{username}_group"
+
+        # Create user and project
+        self.run_command(f"create_user {username} --email {username}@example.com --force")
+        self.run_command(f"create_orcd_project {username} --force")
+
+        code, out, err = self.run_command(
+            f"set_user_amf {username} basic --project {project_name} --force"
+        )
+        self.assertEqual(code, 0, f"Command failed with stderr: {err}")
+
+        # Verify default end_date
+        from coldfront_orcd_direct_charge.models import UserMaintenanceStatus, AMF_DEFAULT_END_DATE
+        status = UserMaintenanceStatus.objects.get(user__username=username)
+        self.assertEqual(status.end_date, AMF_DEFAULT_END_DATE)
+
 
 @pytest.mark.django_db(transaction=True)
 class TestBulkUserCreation(BaseSystemTest, unittest.TestCase):

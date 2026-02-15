@@ -644,6 +644,7 @@ def log_maintenance_status_change(sender, instance, created, **kwargs):
             target=instance,
             extra_data={
                 "status": instance.status,
+                "end_date": instance.end_date.isoformat() if instance.end_date else None,
             },
         )
     else:
@@ -657,6 +658,7 @@ def log_maintenance_status_change(sender, instance, created, **kwargs):
             extra_data={
                 "status": instance.status,
                 "billing_project": billing_project,
+                "end_date": instance.end_date.isoformat() if instance.end_date else None,
             },
         )
 

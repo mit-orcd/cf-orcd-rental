@@ -38,6 +38,7 @@ from coldfront_orcd_direct_charge.forms import (
     ReservationDeclineForm,
 )
 from coldfront_orcd_direct_charge.models import (
+    AMF_DEFAULT_END_DATE,
     GpuNodeInstance,
     MaintenanceWindow,
     Reservation,
@@ -614,6 +615,7 @@ def update_maintenance_status(request):
 
     new_status = request.POST.get("status")
     project_id = request.POST.get("project_id")
+    end_date_str = request.POST.get("end_date", "").strip()
 
     # Validate the status value
     valid_statuses = [choice[0] for choice in UserMaintenanceStatus.StatusChoices.choices]
@@ -622,6 +624,17 @@ def update_maintenance_status(request):
             {"success": False, "error": "Invalid status value"},
             status=400,
         )
+
+    # Parse optional end_date
+    end_date = AMF_DEFAULT_END_DATE
+    if new_status != UserMaintenanceStatus.StatusChoices.INACTIVE and end_date_str:
+        try:
+            end_date = date.fromisoformat(end_date_str)
+        except ValueError:
+            return JsonResponse(
+                {"success": False, "error": "Invalid end date format. Use YYYY-MM-DD."},
+                status=400,
+            )
 
     # For basic/advanced, require a billing project
     billing_project = None
@@ -661,9 +674,10 @@ def update_maintenance_status(request):
         defaults={"status": UserMaintenanceStatus.StatusChoices.INACTIVE},
     )
 
-    # Update the status and billing project
+    # Update the status, billing project, and end date
     maintenance_status.status = new_status
     maintenance_status.billing_project = billing_project
+    maintenance_status.end_date = end_date
     maintenance_status.save()
 
     # Build the display value
@@ -675,6 +689,7 @@ def update_maintenance_status(request):
         "display": display_value,
         "project_id": billing_project.pk if billing_project else None,
         "project_title": billing_project.title if billing_project else None,
+        "end_date": end_date.isoformat() if end_date else None,
     })
 
 

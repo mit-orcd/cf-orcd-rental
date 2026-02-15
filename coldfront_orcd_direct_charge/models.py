@@ -459,6 +459,10 @@ class MaintenanceWindow(TimeStampedModel):
                 })
 
 
+AMF_DEFAULT_END_DATE = date(2100, 1, 1)
+"""Default end date for AMF subscriptions (effectively indefinite)."""
+
+
 class UserMaintenanceStatus(TimeStampedModel):
     """Tracks the account maintenance status for each user.
 
@@ -471,6 +475,7 @@ class UserMaintenanceStatus(TimeStampedModel):
         user (User): The Django user this status belongs to
         status (str): The current maintenance status
         billing_project (Project): Project to charge maintenance fees to (required for basic/advanced)
+        end_date (date): Date after which AMF billing stops (defaults to 2100-01-01)
     """
 
     class StatusChoices(models.TextChoices):
@@ -497,6 +502,13 @@ class UserMaintenanceStatus(TimeStampedModel):
         blank=True,
         related_name="maintenance_fee_users",
         help_text="Project to which maintenance fees are charged (required for basic/advanced)",
+    )
+    end_date = models.DateField(
+        default=AMF_DEFAULT_END_DATE,
+        help_text=(
+            "Date after which AMF billing stops. "
+            "Defaults to 2100-01-01 (effectively indefinite)."
+        ),
     )
 
     class Meta:

@@ -154,8 +154,11 @@ class MaintenanceSubscriptionSerializer(serializers.ModelSerializer):
         return "maintenance"
 
     def get_is_active(self, obj):
-        """Return whether the maintenance subscription is active."""
-        return obj.status != "inactive"
+        """Return whether the maintenance subscription is currently active."""
+        if obj.status == "inactive":
+            return False
+        from datetime import date
+        return obj.end_date >= date.today() if obj.end_date else True
 
     def get_sku_code(self, obj):
         """Return the SKU code for the maintenance status."""
@@ -171,8 +174,8 @@ class MaintenanceSubscriptionSerializer(serializers.ModelSerializer):
         return obj.created.date().isoformat() if obj.created else None
 
     def get_end_date(self, obj):
-        """Return the end date (always null for maintenance subscriptions)."""
-        return None
+        """Return the end date of the maintenance subscription."""
+        return obj.end_date.isoformat() if obj.end_date else None
 
     def get_current_rate(self, obj):
         """Return the current rate for the maintenance SKU."""
