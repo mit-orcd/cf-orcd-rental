@@ -22,123 +22,63 @@ API Token: XXXX
 Added 'orcd_rem' to 'Rental Manager' group
 
 User creation complete.
-usage: coldfront create_user [-h] [--email EMAIL]
-                             [--password PASSWORD | --no-password]
-                             [--with-token]
-                             [--add-to-group {rental,billing,rate}]
-                             [--date-joined DATE_JOINED]
-                             [--last-modified LAST_MODIFIED] [--active]
-                             [--inactive] [--dry-run] [--quiet] [--force]
-                             [--version] [-v {0,1,2,3}] [--settings SETTINGS]
-                             [--pythonpath PYTHONPATH] [--traceback]
-                             [--no-color] [--force-color] [--skip-checks]
-                             username
-coldfront create_user: error: argument --add-to-group: invalid choice: '2024-09-01' (choose from 'rental', 'billing', 'rate')
-usage: coldfront create_user [-h] [--email EMAIL]
-                             [--password PASSWORD | --no-password]
-                             [--with-token]
-                             [--add-to-group {rental,billing,rate}]
-                             [--date-joined DATE_JOINED]
-                             [--last-modified LAST_MODIFIED] [--active]
-                             [--inactive] [--dry-run] [--quiet] [--force]
-                             [--version] [-v {0,1,2,3}] [--settings SETTINGS]
-                             [--pythonpath PYTHONPATH] [--traceback]
-                             [--no-color] [--force-color] [--skip-checks]
-                             username
-coldfront create_user: error: argument --add-to-group: invalid choice: '2024-09-01' (choose from 'rental', 'billing', 'rate')
-usage: coldfront create_user [-h] [--email EMAIL]
-                             [--password PASSWORD | --no-password]
-                             [--with-token]
-                             [--add-to-group {rental,billing,rate}]
-                             [--date-joined DATE_JOINED]
-                             [--last-modified LAST_MODIFIED] [--active]
-                             [--inactive] [--dry-run] [--quiet] [--force]
-                             [--version] [-v {0,1,2,3}] [--settings SETTINGS]
-                             [--pythonpath PYTHONPATH] [--traceback]
-                             [--no-color] [--force-color] [--skip-checks]
-                             username
-coldfront create_user: error: argument --add-to-group: invalid choice: '2024-09-01' (choose from 'rental', 'billing', 'rate')
-usage: coldfront create_user [-h] [--email EMAIL]
-                             [--password PASSWORD | --no-password]
-                             [--with-token]
-                             [--add-to-group {rental,billing,rate}]
-                             [--date-joined DATE_JOINED]
-                             [--last-modified LAST_MODIFIED] [--active]
-                             [--inactive] [--dry-run] [--quiet] [--force]
-                             [--version] [-v {0,1,2,3}] [--settings SETTINGS]
-                             [--pythonpath PYTHONPATH] [--traceback]
-                             [--no-color] [--force-color] [--skip-checks]
-                             username
-coldfront create_user: error: argument --add-to-group: invalid choice: '2024-09-01' (choose from 'rental', 'billing', 'rate')
-usage: coldfront create_user [-h] [--email EMAIL]
-                             [--password PASSWORD | --no-password]
-                             [--with-token]
-                             [--add-to-group {rental,billing,rate}]
-                             [--date-joined DATE_JOINED]
-                             [--last-modified LAST_MODIFIED] [--active]
-                             [--inactive] [--dry-run] [--quiet] [--force]
-                             [--version] [-v {0,1,2,3}] [--settings SETTINGS]
-                             [--pythonpath PYTHONPATH] [--traceback]
-                             [--no-color] [--force-color] [--skip-checks]
-                             username
-coldfront create_user: error: argument --add-to-group: invalid choice: '2024-09-01' (choose from 'rental', 'billing', 'rate')
-usage: coldfront create_user [-h] [--email EMAIL]
-                             [--password PASSWORD | --no-password]
-                             [--with-token]
-                             [--add-to-group {rental,billing,rate}]
-                             [--date-joined DATE_JOINED]
-                             [--last-modified LAST_MODIFIED] [--active]
-                             [--inactive] [--dry-run] [--quiet] [--force]
-                             [--version] [-v {0,1,2,3}] [--settings SETTINGS]
-                             [--pythonpath PYTHONPATH] [--traceback]
-                             [--no-color] [--force-color] [--skip-checks]
-                             username
-coldfront create_user: error: argument --add-to-group: invalid choice: '2024-09-01' (choose from 'rental', 'billing', 'rate')
-usage: coldfront create_user [-h] [--email EMAIL]
-                             [--password PASSWORD | --no-password]
-                             [--with-token]
-                             [--add-to-group {rental,billing,rate}]
-                             [--date-joined DATE_JOINED]
-                             [--last-modified LAST_MODIFIED] [--active]
-                             [--inactive] [--dry-run] [--quiet] [--force]
-                             [--version] [-v {0,1,2,3}] [--settings SETTINGS]
-                             [--pythonpath PYTHONPATH] [--traceback]
-                             [--no-color] [--force-color] [--skip-checks]
-                             username
-coldfront create_user: error: argument --add-to-group: invalid choice: '2024-09-01' (choose from 'rental', 'billing', 'rate')
-usage: coldfront create_user [-h] [--email EMAIL]
-                             [--password PASSWORD | --no-password]
-                             [--with-token]
-                             [--add-to-group {rental,billing,rate}]
-                             [--date-joined DATE_JOINED]
-                             [--last-modified LAST_MODIFIED] [--active]
-                             [--inactive] [--dry-run] [--quiet] [--force]
-                             [--version] [-v {0,1,2,3}] [--settings SETTINGS]
-                             [--pythonpath PYTHONPATH] [--traceback]
-                             [--no-color] [--force-color] [--skip-checks]
-                             username
-coldfront create_user: error: argument --add-to-group: invalid choice: '2024-09-01' (choose from 'rental', 'billing', 'rate')
-usage: coldfront create_user [-h] [--email EMAIL]
-                             [--password PASSWORD | --no-password]
-                             [--with-token]
-                             [--add-to-group {rental,billing,rate}]
-                             [--date-joined DATE_JOINED]
-                             [--last-modified LAST_MODIFIED] [--active]
-                             [--inactive] [--dry-run] [--quiet] [--force]
-                             [--version] [-v {0,1,2,3}] [--settings SETTINGS]
-                             [--pythonpath PYTHONPATH] [--traceback]
-                             [--no-color] [--force-color] [--skip-checks]
-                             username
-coldfront create_user: error: argument --add-to-group: invalid choice: '2024-09-01' (choose from 'rental', 'billing', 'rate')
-usage: coldfront create_user [-h] [--email EMAIL]
-                             [--password PASSWORD | --no-password]
-                             [--with-token]
-                             [--add-to-group {rental,billing,rate}]
-                             [--date-joined DATE_JOINED]
-                             [--last-modified LAST_MODIFIED] [--active]
-                             [--inactive] [--dry-run] [--quiet] [--force]
-                             [--version] [-v {0,1,2,3}] [--settings SETTINGS]
-                             [--pythonpath PYTHONPATH] [--traceback]
-                             [--no-color] [--force-color] [--skip-checks]
-                             username
-coldfront create_user: error: argument --add-to-group: invalid choice: '2024-09-01' (choose from 'rental', 'billing', 'rate')
+Created user 'orcd_u0' (email: orcd_u0@example.edu)
+Set date_joined to 2024-09-01T00:00:00-04:00
+Generated new API token for 'orcd_u0'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u1' (email: orcd_u1@example.edu)
+Set date_joined to 2024-09-01T00:00:00-04:00
+Generated new API token for 'orcd_u1'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u2' (email: orcd_u2@example.edu)
+Set date_joined to 2024-09-01T00:00:00-04:00
+Generated new API token for 'orcd_u2'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u3' (email: orcd_u3@example.edu)
+Set date_joined to 2024-09-01T00:00:00-04:00
+Generated new API token for 'orcd_u3'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u4' (email: orcd_u4@example.edu)
+Set date_joined to 2024-09-01T00:00:00-04:00
+Generated new API token for 'orcd_u4'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u5' (email: orcd_u5@example.edu)
+Set date_joined to 2024-09-01T00:00:00-04:00
+Generated new API token for 'orcd_u5'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u6' (email: orcd_u6@example.edu)
+Set date_joined to 2024-09-01T00:00:00-04:00
+Generated new API token for 'orcd_u6'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u7' (email: orcd_u7@example.edu)
+Set date_joined to 2024-09-01T00:00:00-04:00
+Generated new API token for 'orcd_u7'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u8' (email: orcd_u8@example.edu)
+Set date_joined to 2024-09-01T00:00:00-04:00
+Generated new API token for 'orcd_u8'
+API Token: XXXX
+
+User creation complete.
+Created user 'orcd_u9' (email: orcd_u9@example.edu)
+Set date_joined to 2024-09-01T00:00:00-04:00
+Generated new API token for 'orcd_u9'
+API Token: XXXX
+
+User creation complete.
