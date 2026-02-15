@@ -33,9 +33,14 @@ from coldfront_orcd_direct_charge.models import (
     InvoicePeriod,
     InvoiceLineOverride,
     ActivityLog,
+    MaintenanceWindow,
     can_edit_cost_allocation,
     get_sku_for_reservation,
     log_activity,
+)
+from coldfront_orcd_direct_charge.utils.invoice_builders import (
+    build_amf_lines,
+    build_qos_lines,
 )
 
 logger = logging.getLogger(__name__)
@@ -509,6 +514,8 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVie
                 projects[project.pk] = {
                     "project": project,
                     "lines": [],
+                    "amf_entries": [],
+                    "qos_entries": [],
                     "total_hours": 0,
                     "cost_totals": {},
                 }
@@ -520,9 +527,43 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVie
                         projects[project.pk]["cost_totals"][co["cost_object"]] = 0
                     projects[project.pk]["cost_totals"][co["cost_object"]] += co["hours"]
 
+        # Build AMF and QoS line items using shared builders
+        amf_lines = build_amf_lines(year, month)
+        qos_lines = build_qos_lines(year, month)
+
+        # Merge AMF entries into the per-project grouping
+        for line in amf_lines:
+            proj = line["project"]
+            if proj.pk not in projects:
+                projects[proj.pk] = {
+                    "project": proj,
+                    "lines": [],
+                    "amf_entries": [],
+                    "qos_entries": [],
+                    "total_hours": 0,
+                    "cost_totals": {},
+                }
+            projects[proj.pk]["amf_entries"].append(line)
+
+        # Merge QoS entries into the per-project grouping
+        for line in qos_lines:
+            proj = line["project"]
+            if proj.pk not in projects:
+                projects[proj.pk] = {
+                    "project": proj,
+                    "lines": [],
+                    "amf_entries": [],
+                    "qos_entries": [],
+                    "total_hours": 0,
+                    "cost_totals": {},
+                }
+            projects[proj.pk]["qos_entries"].append(line)
+
         context["projects"] = list(projects.values())
         context["total_reservations"] = len(invoice_lines)
         context["excluded_count"] = sum(1 for l in invoice_lines if l["excluded"])
+        context["total_amf_entries"] = len(amf_lines)
+        context["total_qos_entries"] = len(qos_lines)
 
         return context
 
@@ -1172,6 +1213,8 @@ class InvoiceExportView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 "invoice_status": context["invoice_period"].get_status_display(),
                 "total_reservations": context["total_reservations"],
                 "excluded_count": context["excluded_count"],
+                "total_amf_entries": context.get("total_amf_entries", 0),
+                "total_qos_entries": context.get("total_qos_entries", 0),
             },
             "projects": [],
         }
@@ -1184,6 +1227,8 @@ class InvoiceExportView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 "total_hours": proj_data["total_hours"],
                 "cost_totals": proj_data["cost_totals"],
                 "reservations": [],
+                "amf_entries": [],
+                "qos_entries": [],
             }
 
             for line in proj_data["lines"]:
@@ -1227,6 +1272,18 @@ class InvoiceExportView(LoginRequiredMixin, PermissionRequiredMixin, View):
                     }
 
                 project_export["reservations"].append(res_export)
+
+            # AMF entries (drop internal 'project' key)
+            for line in proj_data.get("amf_entries", []):
+                project_export["amf_entries"].append({
+                    k: v for k, v in line.items() if k != "project"
+                })
+
+            # QoS entries (drop internal 'project' key)
+            for line in proj_data.get("qos_entries", []):
+                project_export["qos_entries"].append({
+                    k: v for k, v in line.items() if k != "project"
+                })
 
             export_data["projects"].append(project_export)
 

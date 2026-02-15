@@ -21,6 +21,12 @@ Invoice Report - {{ month_name }} {{ year }}
     {% if excluded_count > 0 %}
       ({{ excluded_count }} excluded)
     {% endif %}
+    {% if total_amf_entries %}
+      &middot; {{ total_amf_entries }} AMF entr{{ total_amf_entries|pluralize:"y,ies" }}
+    {% endif %}
+    {% if total_qos_entries %}
+      &middot; {{ total_qos_entries }} QoS entr{{ total_qos_entries|pluralize:"y,ies" }}
+    {% endif %}
   </p>
   <hr>
 </div>
@@ -209,6 +215,84 @@ Invoice Report - {{ month_name }} {{ year }}
       </tbody>
     </table>
   </div>
+  {% if proj.amf_entries %}
+  <div class="card-body p-0 border-top">
+    <h6 class="px-3 pt-3 mb-2 text-muted">
+      <i class="fas fa-user-shield"></i> Account Maintenance Fees
+    </h6>
+    <table class="table table-sm mb-0">
+      <thead class="thead-light">
+        <tr>
+          <th>User</th>
+          <th>Level</th>
+          <th>SKU</th>
+          <th>Rate</th>
+          <th>Fraction</th>
+          <th>Cost Object Breakdown</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for amf in proj.amf_entries %}
+        <tr>
+          <td>{{ amf.username }}</td>
+          <td><span class="badge badge-info">{{ amf.status }}</span></td>
+          <td>{{ amf.sku_code }}</td>
+          <td>${{ amf.rate }}/mo</td>
+          <td>
+            {{ amf.fraction }}
+            <br><small class="text-muted">{{ amf.billable_days }}/{{ amf.days_in_month }} days</small>
+          </td>
+          <td>
+            {% for co in amf.cost_breakdown %}
+              <span class="badge badge-light mr-1">{{ co.cost_object }}: {{ co.percentage }}%</span>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if proj.qos_entries %}
+  <div class="card-body p-0 border-top">
+    <h6 class="px-3 pt-3 mb-2 text-muted">
+      <i class="fas fa-tachometer-alt"></i> QoS Subscriptions
+    </h6>
+    <table class="table table-sm mb-0">
+      <thead class="thead-light">
+        <tr>
+          <th>User</th>
+          <th>SKU</th>
+          <th>Rate</th>
+          <th>Period</th>
+          <th>Fraction</th>
+          <th>Cost Object Breakdown</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for qos in proj.qos_entries %}
+        <tr>
+          <td>{{ qos.username }}</td>
+          <td>{{ qos.sku_code }}</td>
+          <td>${{ qos.rate }}/mo</td>
+          <td>{{ qos.start_date }} - {{ qos.end_date|default:"ongoing" }}</td>
+          <td>
+            {{ qos.fraction }}
+            <br><small class="text-muted">{{ qos.billable_days }}/{{ qos.days_in_month }} days</small>
+          </td>
+          <td>
+            {% for co in qos.cost_breakdown %}
+              <span class="badge badge-light mr-1">{{ co.cost_object }}: {{ co.percentage }}%</span>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
   <div class="card-footer">
     <strong>Cost Object Totals:</strong>
     {% for co, hours in proj.cost_totals.items %}
@@ -221,7 +305,7 @@ Invoice Report - {{ month_name }} {{ year }}
 {% empty %}
 <div class="alert alert-info">
   <i class="fas fa-info-circle"></i>
-  <strong>No completed reservations for this month.</strong>
+  <strong>No billable activity for this month.</strong>
 </div>
 {% endfor %}
 

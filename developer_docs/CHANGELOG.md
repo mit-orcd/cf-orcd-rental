@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### February 2026
 
+#### Fixed - Web Portal Invoice Now Includes AMF & QoS
+- **InvoiceDetailView** and **InvoiceExportView** now include Account Maintenance Fee (AMF) and QoS subscription data alongside reservations
+- Previously the web portal (`/nodes/billing/invoice/YYYY/MM/`) showed only reservations while the API (`/nodes/api/invoice/YYYY/MM/`) showed all three billing types
+- Billing logic extracted into shared `utils/invoice_builders.py` module so both the REST API and web portal use identical code -- eliminates prior duplication between `api/views.py` and `views/billing.py`
+- Invoice detail page template updated with AMF and QoS sub-tables per project
+- JSON export from the portal now includes `amf_entries`, `qos_entries`, `total_amf_entries`, and `total_qos_entries`
+
 #### Added - Invoice AMF & QoS Billing
 - **Invoice API enhanced** to include Account Maintenance Fees (AMF) and QoS subscriptions alongside reservations
 - Combined endpoint `GET /nodes/api/invoice/YYYY/MM/` now returns `reservations`, `amf_entries`, and `qos_entries` per project
