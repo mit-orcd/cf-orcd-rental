@@ -53,7 +53,7 @@ TOKENS_PRETTY="$MODULE_OUTPUT/api_tokens_pretty.json"
 
 echo -e "username\ttoken" > "$TOKENS_TSV"
 
-while IFS=$'\t' read -r username email password groups date_joined last_modified; do
+while IFS='|' read -r username email password groups date_joined last_modified; do
     [ -n "$username" ] || continue
 
     cmd=(create_user "$username" --email "$email" --with-token --force)
@@ -104,7 +104,7 @@ def emit(user):
     if not email and default_domain:
         email = f"{username}@{default_domain}"
 
-    line = "\t".join([
+    line = "|".join([
         username,
         email,
         password or "",
