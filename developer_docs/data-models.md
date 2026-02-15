@@ -260,9 +260,10 @@ researchers, even those not paying an account maintenance fee.
 |-------|------|-------------|
 | `id` | AutoField | Primary key |
 | `user` | OneToOneField(User) | The Django user |
-| `status` | CharField(16) | Maintenance level |
+| `status` | CharField(16) | Maintenance level (inactive, basic, advanced) |
 | `billing_project` | ForeignKey(Project) | Project for fee billing (nullable) |
-| `created` | DateTimeField | Auto-set on creation |
+| `end_date` | DateField | Nominal end date (default 2100-01-01 = indefinite) |
+| `created` | DateTimeField | Auto-set on creation (used as activation date) |
 | `modified` | DateTimeField | Auto-updated on save |
 
 **Status Choices**:
@@ -274,10 +275,51 @@ researchers, even those not paying an account maintenance fee.
 - `user.maintenance_status`
 - `billing_project.maintenance_fee_users`
 
+**Computed Properties**:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `activated_at` | date | Activation date (from `created` timestamp) |
+| `effective_billing_end` | date | Billing end rounded up to whole subscription month |
+| `is_billing_active` | bool | True if billable (active level, billing project, within billing period) |
+
 **Business Rules**:
 - `inactive` status requires no billing project
 - `basic`/`advanced` require a billing project
 - User must have eligible role in billing project (owner, technical_admin, member - NOT financial_admin)
+
+#### Whole-Month Billing
+
+AMF billing is always rounded up to **whole subscription months** anchored to the
+activation date (`created`). Subscription-month boundaries start on the activation
+day-of-month and repeat monthly.
+
+| Concept | Description |
+|---------|-------------|
+| `end_date` | The nominal end date (set by user or system) |
+| `effective_billing_end` | The last day of the subscription-month period containing `end_date` |
+
+**Example** (activated Jan 15):
+
+| Subscription month | Period |
+|--------------------|--------|
+| 1 | Jan 15 -- Feb 14 |
+| 2 | Feb 15 -- Mar 14 |
+| 3 | Mar 15 -- Apr 14 |
+
+If `end_date` = Mar 20, Mar 20 falls in month 3 (Mar 15 -- Apr 14), so
+`effective_billing_end` = Apr 14. Billing covers all three full months.
+
+#### State Transitions
+
+| From | To | Trigger | Behavior |
+|------|----|---------|----------|
+| inactive | basic/advanced | User subscribes | `status` set, `billing_project` set, `end_date` = 2100-01-01, `created` records activation |
+| basic/advanced | inactive (voluntary) | User selects "Inactive" | `end_date` set to today; `status` and `billing_project` **preserved** so billing continues through `effective_billing_end` |
+| basic/advanced | inactive (forced) | Signal: lost project access | `status` = inactive, `billing_project` = None; billing stops immediately |
+| basic | advanced | User changes level | `status` updated immediately; billing uses new rate from current calendar month |
+| advanced | basic | User changes level | `status` updated immediately; billing uses new rate from current calendar month |
+| basic/advanced (with end_date) | basic/advanced | User re-subscribes | `status` and `billing_project` updated, `end_date` reset to 2100-01-01 |
 
 ---
 
@@ -773,6 +815,12 @@ def can_view_activity_log(user) -> bool:
 | `0022_rentalsku_rentalrate` | RentalSKU, RentalRate models + initial SKU data |
 | `0023_alter_rentalrate_rate` | Adjust rate field precision |
 | `0024_rentalsku_metadata_visibility` | Add is_public, metadata to RentalSKU |
+| `0025_rename_basic_to_standard` | Rename basic SKU to standard |
+| `0026_userqossubscription` | QoS subscription model |
+| `0027_maintenancewindow` | Maintenance window model |
+| `0028_backfill_placeholder_rate_dates` | Backfill rate dates |
+| `0029_useraccounttimestamp` | User account timestamp model |
+| `0030_usermaintenancestatus_end_date` | Add end_date field to UserMaintenanceStatus |
 
 ---
 

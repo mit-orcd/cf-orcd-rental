@@ -197,6 +197,77 @@ class TestAccountMaintenanceFee(BaseSystemTest, unittest.TestCase):
         status = UserMaintenanceStatus.objects.get(user__username=username)
         self.assertEqual(status.end_date, AMF_DEFAULT_END_DATE)
 
+    def test_deactivation_preserves_status(self):
+        """Verify setting inactive from active keeps status and sets end_date."""
+        username = "amftest_deact"
+        project_name = f"{username}_group"
+
+        # Create user and project, then set to basic
+        self.run_command(f"create_user {username} --email {username}@example.com --force")
+        self.run_command(f"create_orcd_project {username} --force")
+        self.run_command(
+            f"set_user_amf {username} basic --project {project_name} --force"
+        )
+
+        # Now deactivate (set to inactive)
+        code, out, err = self.run_command(
+            f"set_user_amf {username} inactive --force"
+        )
+        self.assertEqual(code, 0, f"Command failed with stderr: {err}")
+
+        # Status should still be basic (not inactive), with end_date = today
+        from coldfront_orcd_direct_charge.models import UserMaintenanceStatus
+        from datetime import date
+        status = UserMaintenanceStatus.objects.get(user__username=username)
+        self.assertEqual(status.status, "basic")
+        self.assertEqual(status.end_date, date.today())
+        self.assertIsNotNone(status.billing_project)
+
+
+@pytest.mark.django_db(transaction=True)
+class TestEffectiveBillingEnd(unittest.TestCase):
+    """Test the compute_effective_billing_end helper function."""
+
+    def test_whole_month_from_start(self):
+        """End date on start date gives one whole month."""
+        from coldfront_orcd_direct_charge.models import compute_effective_billing_end
+        from datetime import date
+        # Activated Jan 15, end_date Jan 15 -> billed through Feb 14
+        result = compute_effective_billing_end(date(2026, 1, 15), date(2026, 1, 15))
+        self.assertEqual(result, date(2026, 2, 14))
+
+    def test_end_on_boundary(self):
+        """End date exactly on month boundary doesn't add an extra month."""
+        from coldfront_orcd_direct_charge.models import compute_effective_billing_end
+        from datetime import date
+        # Activated Jan 15, end_date Feb 14 -> exactly period 1 end
+        result = compute_effective_billing_end(date(2026, 1, 15), date(2026, 2, 14))
+        self.assertEqual(result, date(2026, 2, 14))
+
+    def test_end_one_day_into_next_period(self):
+        """End date one day into next period rounds up."""
+        from coldfront_orcd_direct_charge.models import compute_effective_billing_end
+        from datetime import date
+        # Activated Jan 15, end_date Feb 15 -> into period 2 -> through Mar 14
+        result = compute_effective_billing_end(date(2026, 1, 15), date(2026, 2, 15))
+        self.assertEqual(result, date(2026, 3, 14))
+
+    def test_mid_period_round_up(self):
+        """End date mid-period rounds up to period end."""
+        from coldfront_orcd_direct_charge.models import compute_effective_billing_end
+        from datetime import date
+        # Activated Jan 15, end_date Mar 20 -> period 3 (Mar 15 - Apr 14)
+        result = compute_effective_billing_end(date(2026, 1, 15), date(2026, 3, 20))
+        self.assertEqual(result, date(2026, 4, 14))
+
+    def test_month_end_clamping(self):
+        """Activation on Jan 31 clamps to Feb 28."""
+        from coldfront_orcd_direct_charge.models import compute_effective_billing_end
+        from datetime import date
+        # Activated Jan 31, end_date Feb 10 -> period 1 end is Feb 27 (28-1)
+        result = compute_effective_billing_end(date(2026, 1, 31), date(2026, 2, 10))
+        self.assertEqual(result, date(2026, 2, 27))
+
 
 @pytest.mark.django_db(transaction=True)
 class TestBulkUserCreation(BaseSystemTest, unittest.TestCase):

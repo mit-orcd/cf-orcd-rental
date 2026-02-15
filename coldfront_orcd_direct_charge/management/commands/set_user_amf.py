@@ -56,6 +56,7 @@ from coldfront_orcd_direct_charge.models import (
     AMF_DEFAULT_END_DATE,
     UserMaintenanceStatus,
     can_use_for_maintenance_fee,
+    compute_effective_billing_end,
     has_approved_cost_allocation,
 )
 
@@ -172,19 +173,61 @@ class Command(BaseCommand):
 
         # Check if user already has a non-default maintenance status
         existing_status = self._get_existing_status(user)
-        if existing_status and existing_status.status != UserMaintenanceStatus.StatusChoices.INACTIVE:
-            if not force:
-                current_project = (
-                    existing_status.billing_project.title
-                    if existing_status.billing_project else "none"
-                )
-                self.stdout.write(self.style.ERROR(
-                    f"User '{username}' already has maintenance status "
-                    f"'{existing_status.get_status_display()}' (project: {current_project}). "
-                    "Use --force to update."
-                ))
-                return
+        existing_is_active = (
+            existing_status is not None
+            and existing_status.status in (
+                UserMaintenanceStatus.StatusChoices.BASIC,
+                UserMaintenanceStatus.StatusChoices.ADVANCED,
+            )
+        )
 
+        if existing_is_active and not force:
+            current_project = (
+                existing_status.billing_project.title
+                if existing_status.billing_project else "none"
+            )
+            self.stdout.write(self.style.ERROR(
+                f"User '{username}' already has maintenance status "
+                f"'{existing_status.get_status_display()}' (project: {current_project}). "
+                "Use --force to update."
+            ))
+            return
+
+        # --- Voluntary deactivation (active -> inactive) ---
+        # Keep status & billing_project; set end_date so whole-month billing
+        # continues through effective_billing_end.
+        if status == "inactive" and existing_is_active:
+            deactivation_end = end_date if end_date else date_type.today()
+            if not dry_run:
+                existing_status.end_date = deactivation_end
+                existing_status.save()
+                eff_end = existing_status.effective_billing_end
+                if not quiet:
+                    self.stdout.write("")
+                    self.stdout.write(self.style.SUCCESS(
+                        f"Scheduled deactivation for '{username}'."
+                    ))
+                    self.stdout.write(f"  Current level: {existing_status.get_status_display()}")
+                    self.stdout.write(f"  End date: {deactivation_end.isoformat()}")
+                    self.stdout.write(
+                        f"  Effective billing end: "
+                        f"{eff_end.isoformat() if eff_end else 'unknown'}"
+                    )
+                    self.stdout.write(
+                        "  Billing continues at current level through "
+                        "effective billing end."
+                    )
+            else:
+                self.stdout.write("")
+                self.stdout.write(self.style.WARNING(
+                    "[DRY-RUN] Would schedule deactivation:"
+                ))
+                self.stdout.write(f"  maintenance_status.end_date = '{deactivation_end.isoformat()}'")
+                self.stdout.write("  maintenance_status.save()")
+                self.stdout.write(self.style.WARNING("[DRY-RUN] No changes made."))
+            return
+
+        # --- Activating or changing level ---
         # Dry-run mode: print commands that would be executed
         if dry_run:
             self._print_dry_run(
