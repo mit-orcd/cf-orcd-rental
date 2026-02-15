@@ -38,6 +38,7 @@ from coldfront_orcd_direct_charge.forms import (
     ReservationDeclineForm,
 )
 from coldfront_orcd_direct_charge.models import (
+    AMF_DEFAULT_END_DATE,
     GpuNodeInstance,
     MaintenanceWindow,
     Reservation,
@@ -46,6 +47,7 @@ from coldfront_orcd_direct_charge.models import (
     ActivityLog,
     ProjectMemberRole,
     can_use_for_maintenance_fee,
+    compute_effective_billing_end,
     has_approved_cost_allocation,
     log_activity,
 )
@@ -609,11 +611,22 @@ class ReservationDetailView(LoginRequiredMixin, DetailView):
 @login_required
 @require_POST
 def update_maintenance_status(request):
-    """Update the current user's account maintenance status via AJAX."""
+    """Update the current user's account maintenance status via AJAX.
+
+    When the user selects "Inactive" while currently on an active level
+    (basic/advanced), the status field is **not** changed to inactive.
+    Instead, ``end_date`` is set to today and the existing level and
+    billing project are preserved so that whole-month billing can
+    continue through the ``effective_billing_end``.
+
+    The ``status`` field is only set to ``inactive`` when the user was
+    already inactive (no-op) or for first-time setup.
+    """
     from coldfront.core.project.models import Project
 
     new_status = request.POST.get("status")
     project_id = request.POST.get("project_id")
+    end_date_str = request.POST.get("end_date", "").strip()
 
     # Validate the status value
     valid_statuses = [choice[0] for choice in UserMaintenanceStatus.StatusChoices.choices]
@@ -623,9 +636,55 @@ def update_maintenance_status(request):
             status=400,
         )
 
-    # For basic/advanced, require a billing project
-    billing_project = None
+    # Get or create the user's maintenance status
+    maintenance_status, _ = UserMaintenanceStatus.objects.get_or_create(
+        user=request.user,
+        defaults={"status": UserMaintenanceStatus.StatusChoices.INACTIVE},
+    )
+
+    current_is_active = maintenance_status.status in (
+        UserMaintenanceStatus.StatusChoices.BASIC,
+        UserMaintenanceStatus.StatusChoices.ADVANCED,
+    )
+
+    # --- Voluntary deactivation: active -> "inactive" ----------------------
+    # Keep status & billing_project; just set end_date so billing rounds up
+    # to the whole subscription month.
+    if new_status == UserMaintenanceStatus.StatusChoices.INACTIVE and current_is_active:
+        maintenance_status.end_date = date.today()
+        maintenance_status.save()
+
+        eff_end = maintenance_status.effective_billing_end
+        return JsonResponse({
+            "success": True,
+            "status": maintenance_status.status,
+            "display": maintenance_status.get_status_display(),
+            "project_id": (
+                maintenance_status.billing_project.pk
+                if maintenance_status.billing_project else None
+            ),
+            "project_title": (
+                maintenance_status.billing_project.title
+                if maintenance_status.billing_project else None
+            ),
+            "end_date": maintenance_status.end_date.isoformat(),
+            "effective_billing_end": eff_end.isoformat() if eff_end else None,
+            "deactivation_pending": True,
+        })
+
+    # --- Activating or changing level (basic/advanced) ---------------------
     if new_status != UserMaintenanceStatus.StatusChoices.INACTIVE:
+        # Parse optional end_date
+        end_date = AMF_DEFAULT_END_DATE
+        if end_date_str:
+            try:
+                end_date = date.fromisoformat(end_date_str)
+            except ValueError:
+                return JsonResponse(
+                    {"success": False, "error": "Invalid end date format. Use YYYY-MM-DD."},
+                    status=400,
+                )
+
         if not project_id:
             return JsonResponse(
                 {"success": False, "error": "Please select a project for fee billing"},
@@ -633,7 +692,6 @@ def update_maintenance_status(request):
             )
 
         # Validate that project exists and user can use it for maintenance fees
-        # (must be owner, technical admin, or member - NOT financial admin)
         try:
             billing_project = Project.objects.get(pk=project_id)
         except Project.DoesNotExist:
@@ -648,33 +706,37 @@ def update_maintenance_status(request):
                 status=400,
             )
 
-        # Check that project has an approved cost allocation
         if not has_approved_cost_allocation(billing_project):
             return JsonResponse(
                 {"success": False, "error": "This project does not have an approved cost allocation"},
                 status=400,
             )
 
-    # Get or create the user's maintenance status
-    maintenance_status, _ = UserMaintenanceStatus.objects.get_or_create(
-        user=request.user,
-        defaults={"status": UserMaintenanceStatus.StatusChoices.INACTIVE},
-    )
+        maintenance_status.status = new_status
+        maintenance_status.billing_project = billing_project
+        maintenance_status.end_date = end_date
+        maintenance_status.save()
 
-    # Update the status and billing project
-    maintenance_status.status = new_status
-    maintenance_status.billing_project = billing_project
-    maintenance_status.save()
+        eff_end = maintenance_status.effective_billing_end
+        return JsonResponse({
+            "success": True,
+            "status": new_status,
+            "display": maintenance_status.get_status_display(),
+            "project_id": billing_project.pk,
+            "project_title": billing_project.title,
+            "end_date": end_date.isoformat(),
+            "effective_billing_end": eff_end.isoformat() if eff_end else None,
+        })
 
-    # Build the display value
-    display_value = maintenance_status.get_status_display()
-
+    # --- Already inactive, selecting inactive again (no-op) ----------------
     return JsonResponse({
         "success": True,
-        "status": new_status,
-        "display": display_value,
-        "project_id": billing_project.pk if billing_project else None,
-        "project_title": billing_project.title if billing_project else None,
+        "status": maintenance_status.status,
+        "display": maintenance_status.get_status_display(),
+        "project_id": None,
+        "project_title": None,
+        "end_date": maintenance_status.end_date.isoformat(),
+        "effective_billing_end": None,
     })
 
 

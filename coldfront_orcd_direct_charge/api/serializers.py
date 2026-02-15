@@ -96,6 +96,7 @@ class MaintenanceSubscriptionSerializer(serializers.ModelSerializer):
     sku_name = serializers.SerializerMethodField()
     start_date = serializers.SerializerMethodField()
     end_date = serializers.SerializerMethodField()
+    effective_billing_end = serializers.SerializerMethodField()
     billing_project_id = serializers.IntegerField(
         source="billing_project.id", allow_null=True, read_only=True
     )
@@ -124,6 +125,7 @@ class MaintenanceSubscriptionSerializer(serializers.ModelSerializer):
             "sku_name",
             "start_date",
             "end_date",
+            "effective_billing_end",
             "billing_project_id",
             "billing_project_title",
             "current_rate",
@@ -154,8 +156,12 @@ class MaintenanceSubscriptionSerializer(serializers.ModelSerializer):
         return "maintenance"
 
     def get_is_active(self, obj):
-        """Return whether the maintenance subscription is active."""
-        return obj.status != "inactive"
+        """Return whether the maintenance subscription is currently billable.
+
+        Uses the ``is_billing_active`` model property which checks status,
+        billing project, and effective billing end date.
+        """
+        return obj.is_billing_active
 
     def get_sku_code(self, obj):
         """Return the SKU code for the maintenance status."""
@@ -171,8 +177,13 @@ class MaintenanceSubscriptionSerializer(serializers.ModelSerializer):
         return obj.created.date().isoformat() if obj.created else None
 
     def get_end_date(self, obj):
-        """Return the end date (always null for maintenance subscriptions)."""
-        return None
+        """Return the nominal end date of the maintenance subscription."""
+        return obj.end_date.isoformat() if obj.end_date else None
+
+    def get_effective_billing_end(self, obj):
+        """Return the effective billing end date (rounded to whole subscription month)."""
+        ebe = obj.effective_billing_end
+        return ebe.isoformat() if ebe else None
 
     def get_current_rate(self, obj):
         """Return the current rate for the maintenance SKU."""

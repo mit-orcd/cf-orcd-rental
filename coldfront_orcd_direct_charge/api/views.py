@@ -36,6 +36,7 @@ from coldfront_orcd_direct_charge.models import (
     UserMaintenanceStatus,
     UserQoSSubscription,
     can_view_activity_log,
+    compute_effective_billing_end,
     get_sku_for_reservation,
     log_activity,
 )
@@ -298,12 +299,15 @@ class InvoiceListView(APIView):
             billing_project__isnull=False,
         )
         for amf in active_amf:
-            # The AMF is billable from its created month onward until now
+            # The AMF is billable from its created month up to the earlier
+            # of effective_billing_end or today
             created_date = amf.created.date() if amf.created else None
             if created_date:
+                eff_billing_end = compute_effective_billing_end(created_date, amf.end_date)
                 current = date(created_date.year, created_date.month, 1)
                 today = date.today()
-                end_month = date(today.year, today.month, 1)
+                cap_date = min(eff_billing_end, today)
+                end_month = date(cap_date.year, cap_date.month, 1)
                 while current <= end_month:
                     billable_months.add((current.year, current.month))
                     if current.month == 12:
@@ -491,9 +495,13 @@ class InvoiceReportView(APIView):
         """Build AMF billing line items for the given month.
 
         Returns a list of dicts, each representing one user's maintenance
-        fee for the month.  Includes the ``activated_at`` timestamp from
-        ``UserMaintenanceStatus.created`` so callers can compute partial-
-        month fractions.
+        fee for the month.
+
+        AMF billing is always rounded up to whole subscription months
+        anchored to the activation date.  The ``effective_billing_end``
+        is the last day of the subscription-month period that contains
+        ``end_date``.  Billing for a calendar month uses the fraction of
+        that month that falls within ``[activated_at, effective_billing_end]``.
         """
         month_start = date(year, month, 1)
         if month == 12:
@@ -528,9 +536,20 @@ class InvoiceReportView(APIView):
             if activated_date > month_end:
                 continue
 
-            # Calculate billable days (partial month if activated mid-month)
+            # Compute effective billing end (whole-month rounding)
+            eff_billing_end = compute_effective_billing_end(activated_date, amf.end_date)
+
+            # Skip if effective billing already ended before this month starts
+            if eff_billing_end < month_start:
+                continue
+
+            # Cap to the calendar month using effective_billing_end
+            # (eff_billing_end is inclusive, so add 1 day for the half-open interval)
+            effective_end = min(next_month_start, eff_billing_end + timedelta(days=1))
+
+            # Calculate billable days
             effective_start = max(activated_date, month_start)
-            billable_days = (next_month_start - effective_start).days
+            billable_days = (effective_end - effective_start).days
             fraction = round(billable_days / days_in_month, 6)
 
             # Look up SKU and rate
@@ -550,6 +569,8 @@ class InvoiceReportView(APIView):
                 "rate": str(rate_obj.rate) if rate_obj else None,
                 "billing_unit": "MONTHLY",
                 "activated_at": amf.created.isoformat() if amf.created else None,
+                "end_date": amf.end_date.isoformat(),
+                "effective_billing_end": eff_billing_end.isoformat(),
                 "days_in_month": days_in_month,
                 "billable_days": billable_days,
                 "fraction": fraction,

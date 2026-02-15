@@ -459,6 +459,56 @@ class MaintenanceWindow(TimeStampedModel):
                 })
 
 
+AMF_DEFAULT_END_DATE = date(2100, 1, 1)
+"""Default end date for AMF subscriptions (effectively indefinite)."""
+
+
+def _add_months(start_date, months):
+    """Add *months* calendar months to *start_date*, clamping to end-of-month.
+
+    Examples::
+
+        _add_months(date(2026, 1, 15), 1)  # date(2026, 2, 15)
+        _add_months(date(2026, 1, 31), 1)  # date(2026, 2, 28)
+        _add_months(date(2026, 3, 31), 1)  # date(2026, 4, 30)
+    """
+    import calendar as _cal
+
+    month = start_date.month - 1 + months
+    year = start_date.year + month // 12
+    month = month % 12 + 1
+    day = min(start_date.day, _cal.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def compute_effective_billing_end(activated_at, end_date):
+    """Return the effective billing end date, rounded up to a whole subscription month.
+
+    AMF billing is always rounded up to whole months anchored to the
+    activation date.  If *end_date* falls within a subscription-month
+    period, billing extends through the end of that period.
+
+    The subscription-month periods starting from *activated_at* are::
+
+        Period 1: activated_at            .. _add_months(activated_at, 1) - 1 day
+        Period 2: _add_months(activated_at, 1) .. _add_months(activated_at, 2) - 1 day
+        ...
+
+    Returns the last day of the period that contains *end_date*.
+
+    Examples (activated_at = 2026-01-15)::
+
+        end_date 2026-01-15  ->  2026-02-14  (1 whole month)
+        end_date 2026-02-14  ->  2026-02-14  (exactly on boundary)
+        end_date 2026-02-15  ->  2026-03-14  (into next period)
+        end_date 2026-03-20  ->  2026-04-14  (mid-period round-up)
+    """
+    n = 0
+    while _add_months(activated_at, n) <= end_date:
+        n += 1
+    return _add_months(activated_at, n) - timedelta(days=1)
+
+
 class UserMaintenanceStatus(TimeStampedModel):
     """Tracks the account maintenance status for each user.
 
@@ -467,10 +517,17 @@ class UserMaintenanceStatus(TimeStampedModel):
     - basic: Basic maintenance level (requires billing project)
     - advanced: Advanced maintenance level (requires billing project)
 
+    When a user voluntarily deactivates (selects "Inactive"), their status
+    remains as basic/advanced with ``end_date`` set to the deactivation date.
+    Billing continues through ``effective_billing_end`` (rounded up to whole
+    subscription months).  The status field is only set to ``inactive`` for
+    new users (default) or forced deactivations (signal-triggered resets).
+
     Attributes:
         user (User): The Django user this status belongs to
-        status (str): The current maintenance status
-        billing_project (Project): Project to charge maintenance fees to (required for basic/advanced)
+        status (str): The current maintenance status / billing level
+        billing_project (Project): Project to charge maintenance fees to
+        end_date (date): Nominal end date for the subscription
     """
 
     class StatusChoices(models.TextChoices):
@@ -498,6 +555,13 @@ class UserMaintenanceStatus(TimeStampedModel):
         related_name="maintenance_fee_users",
         help_text="Project to which maintenance fees are charged (required for basic/advanced)",
     )
+    end_date = models.DateField(
+        default=AMF_DEFAULT_END_DATE,
+        help_text=(
+            "Date after which AMF billing stops (rounded up to whole "
+            "subscription month). Defaults to 2100-01-01 (effectively indefinite)."
+        ),
+    )
 
     class Meta:
         verbose_name = "User Maintenance Status"
@@ -505,6 +569,40 @@ class UserMaintenanceStatus(TimeStampedModel):
 
     def __str__(self):
         return f"{self.user.username}: {self.get_status_display()}"
+
+    @property
+    def activated_at(self):
+        """Return the activation date (from the ``created`` timestamp)."""
+        return self.created.date() if self.created else None
+
+    @property
+    def effective_billing_end(self):
+        """Return the effective billing end date, rounded up to whole months.
+
+        Returns ``None`` when activation date is unknown.  For the far-future
+        default ``end_date`` the result is also far-future (effectively
+        indefinite).
+        """
+        activated = self.activated_at
+        if activated is None:
+            return None
+        return compute_effective_billing_end(activated, self.end_date)
+
+    @property
+    def is_billing_active(self):
+        """Return whether this subscription is currently billable.
+
+        True when the status is basic/advanced, a billing project is set,
+        and the effective billing end has not yet passed.
+        """
+        if self.status == self.StatusChoices.INACTIVE:
+            return False
+        if not self.billing_project:
+            return False
+        ebe = self.effective_billing_end
+        if ebe is None:
+            return False
+        return ebe >= date.today()
 
 
 class UserAccountTimestamp(models.Model):

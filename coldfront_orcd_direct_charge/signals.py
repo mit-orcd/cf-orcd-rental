@@ -635,6 +635,7 @@ def log_maintenance_status_change(sender, instance, created, **kwargs):
     """Log maintenance status changes."""
     from coldfront_orcd_direct_charge.models import ActivityLog, log_activity
 
+    eff_end = instance.effective_billing_end
     if created:
         log_activity(
             action="maintenance.created",
@@ -644,6 +645,8 @@ def log_maintenance_status_change(sender, instance, created, **kwargs):
             target=instance,
             extra_data={
                 "status": instance.status,
+                "end_date": instance.end_date.isoformat() if instance.end_date else None,
+                "effective_billing_end": eff_end.isoformat() if eff_end else None,
             },
         )
     else:
@@ -657,6 +660,8 @@ def log_maintenance_status_change(sender, instance, created, **kwargs):
             extra_data={
                 "status": instance.status,
                 "billing_project": billing_project,
+                "end_date": instance.end_date.isoformat() if instance.end_date else None,
+                "effective_billing_end": eff_end.isoformat() if eff_end else None,
             },
         )
 

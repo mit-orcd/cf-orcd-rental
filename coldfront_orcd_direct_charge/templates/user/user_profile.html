@@ -61,7 +61,7 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
               <td>
                 <span id="maintenance-status-display">
                   {% if viewed_user.maintenance_status %}
-                    {{ viewed_user.maintenance_status.get_status_display }}{% if viewed_user.maintenance_status.billing_project %} (project charged: <a href="{% url 'project-detail' viewed_user.maintenance_status.billing_project.pk %}">{{ viewed_user.maintenance_status.billing_project.title }}</a>){% endif %}
+                    {{ viewed_user.maintenance_status.get_status_display }}{% if viewed_user.maintenance_status.billing_project %} (project charged: <a href="{% url 'project-detail' viewed_user.maintenance_status.billing_project.pk %}">{{ viewed_user.maintenance_status.billing_project.title }}</a>){% endif %}{% if viewed_user.maintenance_status.end_date and viewed_user.maintenance_status.end_date.year < 2100 %} <span class="text-muted">(billed through: {{ viewed_user.maintenance_status.effective_billing_end }})</span>{% endif %}
                   {% else %}
                     Inactive
                   {% endif %}
@@ -148,6 +148,14 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
               </small>
             {% endif %}
           </div>
+          <div class="form-group" id="endDateGroup" style="display: none;">
+            <label for="endDateInput">End Date <small class="text-muted">(optional)</small></label>
+            <input type="date" class="form-control" id="endDateInput" name="end_date"
+                   value="{% if viewed_user.maintenance_status.end_date and viewed_user.maintenance_status.end_date.year < 2100 %}{{ viewed_user.maintenance_status.end_date|date:'Y-m-d' }}{% endif %}">
+            <small class="form-text text-muted">
+              Leave blank for indefinite billing. Set a date to stop billing after that date.
+            </small>
+          </div>
         </form>
         <div id="maintenanceStatusAlert" class="alert" style="display: none;"></div>
       </div>
@@ -167,14 +175,17 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
 
   {% if user == viewed_user %}
   $(document).ready(function() {
-    // Function to toggle billing project visibility
+    // Function to toggle billing project and end date visibility
     function toggleBillingProject() {
       var status = $("#maintenanceStatusSelect").val();
       if (status === "inactive") {
         $("#billingProjectGroup").hide();
         $("#billingProjectSelect").val("");  // Clear selection
+        $("#endDateGroup").hide();
+        $("#endDateInput").val("");  // Clear end date
       } else {
         $("#billingProjectGroup").show();
+        $("#endDateGroup").show();
       }
     }
 
@@ -211,17 +222,31 @@ User Profile{% if not user == viewed_user %}: {{ viewed_user.username }}{% endif
         data: formData,
         success: function(response) {
           if (response.success) {
-            // Update the display value with HTML (includes link to project)
+            // Update the display value with HTML
             var displayHtml = response.display;
             if (response.project_id && response.project_title) {
               var projectUrl = "{% url 'project-detail' 0 %}".replace("0", response.project_id);
               displayHtml += ' (project charged: <a href="' + projectUrl + '">' + response.project_title + '</a>)';
             }
+            // Show effective billing end when subscription has a non-default end date
+            if (response.effective_billing_end && response.end_date && response.end_date.substring(0, 4) !== "2100") {
+              displayHtml += ' <span class="text-muted">(billed through: ' + response.effective_billing_end + ')</span>';
+            }
+            // Show deactivation message if applicable
+            if (response.deactivation_pending) {
+              $("#maintenanceStatusAlert")
+                .removeClass("alert-danger")
+                .addClass("alert-success")
+                .text("Subscription will end after billing period completes on " + response.effective_billing_end + ".")
+                .show();
+            } else {
+              $("#maintenanceStatusAlert").hide();
+            }
             $("#maintenance-status-display").html(displayHtml);
-            // Close the modal
-            $("#maintenanceStatusModal").modal("hide");
-            // Reset alert
-            $("#maintenanceStatusAlert").hide();
+            // Close the modal (with delay for deactivation to show message)
+            if (!response.deactivation_pending) {
+              $("#maintenanceStatusModal").modal("hide");
+            }
           } else {
             $("#maintenanceStatusAlert")
               .removeClass("alert-success")

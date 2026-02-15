@@ -38,8 +38,12 @@ Examples:
     # Override timestamps
     coldfront set_user_amf jsmith basic --project jsmith_group --created 2024-11-15
     coldfront set_user_amf jsmith basic --project jsmith_group --modified 2025-02-01T09:00:00
+
+    # Set an explicit end date for the subscription
+    coldfront set_user_amf jsmith basic --project jsmith_group --end-date 2026-12-31
 """
 
+from datetime import date as date_type
 from datetime import datetime
 
 from django.contrib.auth.models import User
@@ -49,8 +53,10 @@ from django.utils import timezone
 from coldfront.core.project.models import Project
 
 from coldfront_orcd_direct_charge.models import (
+    AMF_DEFAULT_END_DATE,
     UserMaintenanceStatus,
     can_use_for_maintenance_fee,
+    compute_effective_billing_end,
     has_approved_cost_allocation,
 )
 
@@ -92,6 +98,14 @@ class Command(BaseCommand):
             help="Override last-modified date (YYYY-MM-DD or ISO 8601 datetime)",
         )
         parser.add_argument(
+            "--end-date",
+            type=str,
+            help=(
+                "Subscription end date (YYYY-MM-DD). Billing stops after this "
+                "date. Defaults to 2100-01-01 (effectively indefinite)."
+            ),
+        )
+        parser.add_argument(
             "--force",
             action="store_true",
             help="Update existing maintenance configuration instead of reporting error",
@@ -118,6 +132,7 @@ class Command(BaseCommand):
         # Parse optional date overrides
         created_dt = self._parse_datetime(options.get("created"), "created")
         modified_dt = self._parse_datetime(options.get("modified"), "modified")
+        end_date = self._parse_date(options.get("end_date"), "end-date")
 
         # Look up the user
         user = self._find_user(username)
@@ -158,19 +173,61 @@ class Command(BaseCommand):
 
         # Check if user already has a non-default maintenance status
         existing_status = self._get_existing_status(user)
-        if existing_status and existing_status.status != UserMaintenanceStatus.StatusChoices.INACTIVE:
-            if not force:
-                current_project = (
-                    existing_status.billing_project.title
-                    if existing_status.billing_project else "none"
-                )
-                self.stdout.write(self.style.ERROR(
-                    f"User '{username}' already has maintenance status "
-                    f"'{existing_status.get_status_display()}' (project: {current_project}). "
-                    "Use --force to update."
-                ))
-                return
+        existing_is_active = (
+            existing_status is not None
+            and existing_status.status in (
+                UserMaintenanceStatus.StatusChoices.BASIC,
+                UserMaintenanceStatus.StatusChoices.ADVANCED,
+            )
+        )
 
+        if existing_is_active and not force:
+            current_project = (
+                existing_status.billing_project.title
+                if existing_status.billing_project else "none"
+            )
+            self.stdout.write(self.style.ERROR(
+                f"User '{username}' already has maintenance status "
+                f"'{existing_status.get_status_display()}' (project: {current_project}). "
+                "Use --force to update."
+            ))
+            return
+
+        # --- Voluntary deactivation (active -> inactive) ---
+        # Keep status & billing_project; set end_date so whole-month billing
+        # continues through effective_billing_end.
+        if status == "inactive" and existing_is_active:
+            deactivation_end = end_date if end_date else date_type.today()
+            if not dry_run:
+                existing_status.end_date = deactivation_end
+                existing_status.save()
+                eff_end = existing_status.effective_billing_end
+                if not quiet:
+                    self.stdout.write("")
+                    self.stdout.write(self.style.SUCCESS(
+                        f"Scheduled deactivation for '{username}'."
+                    ))
+                    self.stdout.write(f"  Current level: {existing_status.get_status_display()}")
+                    self.stdout.write(f"  End date: {deactivation_end.isoformat()}")
+                    self.stdout.write(
+                        f"  Effective billing end: "
+                        f"{eff_end.isoformat() if eff_end else 'unknown'}"
+                    )
+                    self.stdout.write(
+                        "  Billing continues at current level through "
+                        "effective billing end."
+                    )
+            else:
+                self.stdout.write("")
+                self.stdout.write(self.style.WARNING(
+                    "[DRY-RUN] Would schedule deactivation:"
+                ))
+                self.stdout.write(f"  maintenance_status.end_date = '{deactivation_end.isoformat()}'")
+                self.stdout.write("  maintenance_status.save()")
+                self.stdout.write(self.style.WARNING("[DRY-RUN] No changes made."))
+            return
+
+        # --- Activating or changing level ---
         # Dry-run mode: print commands that would be executed
         if dry_run:
             self._print_dry_run(
@@ -180,6 +237,7 @@ class Command(BaseCommand):
                 existing_status=existing_status,
                 created_dt=created_dt,
                 modified_dt=modified_dt,
+                end_date=end_date,
             )
             return
 
@@ -192,6 +250,7 @@ class Command(BaseCommand):
             quiet=quiet,
             created_dt=created_dt,
             modified_dt=modified_dt,
+            end_date=end_date,
         )
 
         # Summary
@@ -202,6 +261,8 @@ class Command(BaseCommand):
             self.stdout.write(f"  Status: {status}")
             if project:
                 self.stdout.write(f"  Billing project: {project.title}")
+            if end_date:
+                self.stdout.write(f"  End date: {end_date.isoformat()}")
 
     @staticmethod
     def _parse_datetime(value, flag_name):
@@ -225,6 +286,23 @@ class Command(BaseCommand):
         if dt.tzinfo is None:
             dt = timezone.make_aware(dt)
         return dt
+
+    @staticmethod
+    def _parse_date(value, flag_name):
+        """Parse a date string into a ``datetime.date``.
+
+        Accepts ``YYYY-MM-DD``.  Returns ``None`` when *value* is ``None``
+        or empty.
+        """
+        if not value:
+            return None
+        try:
+            return date_type.fromisoformat(value)
+        except ValueError:
+            raise ValueError(
+                f"Invalid --{flag_name} value '{value}'. "
+                "Use YYYY-MM-DD format."
+            )
 
     def _find_user(self, username):
         """Find a user by username.
@@ -292,19 +370,21 @@ class Command(BaseCommand):
             return None
 
     def _print_dry_run(self, user, status, project, existing_status,
-                       created_dt=None, modified_dt=None):
+                       created_dt=None, modified_dt=None, end_date=None):
         """Print the Django ORM commands that would be executed."""
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("[DRY-RUN] Would execute the following commands:"))
         self.stdout.write("")
 
         project_repr = f"<Project: {project.title}>" if project else "None"
+        end_date_repr = end_date.isoformat() if end_date else AMF_DEFAULT_END_DATE.isoformat()
 
         if existing_status:
             self.stdout.write("# Update existing maintenance status")
             self.stdout.write(f"maintenance_status = UserMaintenanceStatus.objects.get(user=<User: {user.username}>)")
             self.stdout.write(f"maintenance_status.status = '{status}'")
             self.stdout.write(f"maintenance_status.billing_project = {project_repr}")
+            self.stdout.write(f"maintenance_status.end_date = '{end_date_repr}'")
             self.stdout.write("maintenance_status.save()")
         else:
             self.stdout.write("# Create new maintenance status")
@@ -312,6 +392,7 @@ class Command(BaseCommand):
             self.stdout.write(f"    user=<User: {user.username}>,")
             self.stdout.write(f"    status='{status}',")
             self.stdout.write(f"    billing_project={project_repr},")
+            self.stdout.write(f"    end_date='{end_date_repr}',")
             self.stdout.write(")")
 
         if created_dt is not None or modified_dt is not None:
@@ -330,7 +411,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.WARNING("[DRY-RUN] No changes made."))
 
     def _set_maintenance_status(self, user, status, project, existing_status, quiet,
-                               created_dt=None, modified_dt=None):
+                               created_dt=None, modified_dt=None, end_date=None):
         """Set the maintenance status for a user.
 
         Args:
@@ -341,7 +422,10 @@ class Command(BaseCommand):
             quiet: Suppress output if True
             created_dt: Optional datetime override for created timestamp
             modified_dt: Optional datetime override for modified timestamp
+            end_date: Optional date for subscription end (defaults to AMF_DEFAULT_END_DATE)
         """
+        effective_end_date = end_date if end_date is not None else AMF_DEFAULT_END_DATE
+
         if existing_status:
             # Update existing record
             old_status = existing_status.get_status_display()
@@ -352,6 +436,7 @@ class Command(BaseCommand):
 
             existing_status.status = status
             existing_status.billing_project = project
+            existing_status.end_date = effective_end_date
             existing_status.save()
 
             if not quiet:
@@ -367,6 +452,7 @@ class Command(BaseCommand):
                 user=user,
                 status=status,
                 billing_project=project,
+                end_date=effective_end_date,
             )
             if not quiet:
                 self.stdout.write(self.style.SUCCESS(
