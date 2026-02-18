@@ -12,6 +12,9 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
+# Default config is users.yaml
+CONFIG_FILE="$SETUP_DIR/config/users.yaml"
+
 module_usage() {
     cat << 'EOF'
 Usage: 01_users.sh [options]
@@ -24,7 +27,10 @@ EOF
 parse_module_args "$@"
 init_module "01_users"
 
-USERS_CONFIG="$(resolve_include "$CONFIG_FILE" "users" "Users")"
+USERS_CONFIG=${CONFIG_FILE}
+if [ ! -f "$CONFIG_FILE" ]; then
+    die "Config file not found: $CONFIG_FILE"
+fi
 
 log_step "Creating users from YAML"
 

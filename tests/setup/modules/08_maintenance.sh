@@ -24,6 +24,9 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
+# Default config is maintenance.yaml
+CONFIG_FILE="$SETUP_DIR/config/maintenance.yaml"
+
 module_usage() {
     cat << 'EOF'
 Usage: 08_maintenance.sh [options]
@@ -36,7 +39,10 @@ EOF
 parse_module_args "$@"
 init_module "08_maintenance"
 
-MAINT_CONFIG="$(resolve_include "$CONFIG_FILE" "maintenance_windows" "Maintenance windows")"
+MAINT_CONFIG=${CONFIG_FILE}
+if [ ! -f "$CONFIG_FILE" ]; then
+    die "Config file not found: $CONFIG_FILE"
+fi
 
 # ---------------------------------------------------------------------------
 # Main loop: expand schedules to concrete windows, call create_maintenance_window

@@ -28,6 +28,9 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
+# Default config is users.yaml
+CONFIG_FILE="$SETUP_DIR/config/invoices.yaml"
+
 module_usage() {
     cat << 'EOF'
 Usage: 09_invoices.sh [options]
@@ -40,7 +43,11 @@ EOF
 parse_module_args "$@"
 init_module "09_invoices"
 
-INV_CONFIG="$(resolve_include "$CONFIG_FILE" "invoices" "Invoices")"
+INV_CONFIG=${CONFIG_FILE}
+if [ ! -f "$CONFIG_FILE" ]; then
+    die "Config file not found: $CONFIG_FILE"
+fi
+
 
 # ---------------------------------------------------------------------------
 # Read billing user from YAML config
