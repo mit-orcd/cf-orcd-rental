@@ -1,0 +1,69 @@
+version: "1.0"
+
+# Rate configuration for test setup.
+#
+# Sets actual rates on SKUs that were created with $0.01 placeholders
+# during migration 0022 and sync_node_skus.
+#
+# defaults.is_public controls SKU visibility on the Current Rates page.
+# Per-entry is_public overrides the default (e.g. configured SKUs are
+# made public while unconfigured SKUs remain hidden).
+#
+# defaults.effective_date can be any date including past dates, or the
+# special value "today" which resolves to the current date at runtime.
+# Using "today" ensures the new rate always takes precedence over any
+# placeholder rate created by migrations or sync_node_skus.
+#
+# This file is consumed by modules/05_rates.sh, which calls
+#   coldfront set_sku_rate <sku_code> <rate> [options]
+# for every entry below.
+#
+# Depends on:
+#   - users_multi.yaml  (creates orcd_rtm, the rate manager)
+
+defaults:
+  is_public: false
+  effective_date: "today"
+  set_by: "orcd_rtm"
+  notes: "Rate set during test setup"
+
+rates:
+  # ── Node rental rates (hourly) ─────────────────────────────────────
+  - sku_code: NODE_H200x8
+    rate: "8.00"
+    is_public: true
+    notes: "H200x8 GPU node rental rate"
+
+  - sku_code: NODE_L40Sx4
+    rate: "2.00"
+    is_public: true
+    notes: "L40Sx4 GPU node rental rate"
+
+  # ── Remaining node types (hidden, placeholder rate) ─────────────────
+  # These inherit is_public: false from defaults, hiding them from the
+  # Current Rates page.  Rate stays at $0.01 placeholder.
+  - sku_code: NODE_H200x4
+    rate: "0.01"
+  - sku_code: NODE_H200x2
+    rate: "0.01"
+  - sku_code: NODE_H200x1
+    rate: "0.01"
+  - sku_code: NODE_L40Sx2
+    rate: "0.01"
+  - sku_code: NODE_L40Sx1
+    rate: "0.01"
+  - sku_code: NODE_CPU_384G
+    rate: "0.01"
+  - sku_code: NODE_CPU_1500G
+    rate: "0.01"
+
+  # ── Account maintenance fees (monthly) ─────────────────────────────
+  - sku_code: MAINT_STANDARD
+    rate: "56.00"
+    is_public: true
+    notes: "Standard account maintenance fee"
+
+  - sku_code: MAINT_ADVANCED
+    rate: "126.00"
+    is_public: true
+    notes: "Advanced account maintenance fee"

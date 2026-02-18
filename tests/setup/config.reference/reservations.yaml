@@ -1,0 +1,99 @@
+version: "1.0"
+
+# Reservation configuration for multi-user test setup.
+#
+# This config drives a two-stage workflow:
+#   Stage 1 (07_1_create_reservations.sh):
+#     Creates reservations as PENDING, submitted by the user specified
+#     in `requesting_user` (project owner or technical admin).
+#   Stage 2 (07_2_confirm_reservations.sh):
+#     Approves all reservations as the rental manager specified in
+#     the `approval` section.
+#
+# Each entry specifies:
+#   - node_address:     GPU node instance to reserve (must be rentable)
+#   - project:          Project to bill the reservation to
+#   - requesting_user:  User submitting the request (must be owner,
+#                       technical_admin, or member of the project)
+#   - start_date:       Reservation start date, relative to today
+#                       (resolved at runtime by resolve_relative_date)
+#   - num_blocks:       Duration in 12-hour blocks (1 block = 12 hours)
+#   - rental_notes:     Optional notes from the requester
+#
+# START DATE FORMAT:
+#   Dates use the "today+N" format, where N is the number of days from
+#   today.  The resolve_relative_date function (in lib/common.sh)
+#   converts these to YYYY-MM-DD at runtime, so the config works
+#   regardless of when the scripts are run.
+#
+#   Supported formats: "today+7", "today + 7", "today + 7 days",
+#   "today" (today itself), or "YYYY-MM-DD" (absolute passthrough).
+#
+# IMPORTANT: No two reservations on the same node_address may overlap.
+# Reservations start at 4:00 PM on start_date and last num_blocks * 12
+# hours.  When scheduling multiple reservations on the same node, space
+# them far enough apart so the earlier one ends before the next begins.
+#
+# Timing reference (all start at 4:00 PM):
+#   1 block  =  12h -> ends  4:00 AM next day   (occupies ~0.5 day)
+#   2 blocks =  24h -> ends  4:00 PM next day   (occupies ~1 day)
+#   3 blocks =  36h -> ends  4:00 AM day+2      (occupies ~1.5 days)
+#   4 blocks =  48h -> ends  4:00 PM day+2      (occupies ~2 days)
+#   5 blocks =  60h -> ends  4:00 AM day+3      (occupies ~2.5 days)
+#   7 blocks =  84h -> ends  4:00 AM day+4      (occupies ~3.5 days)
+#  14 blocks = 168h -> ends  4:00 PM day+7      (occupies ~7 days)
+#
+# Node types used:
+#   H200x8 (rentable): node2433, node2434, node3000, node3001,
+#                       node3100, node3101, node3200, node3201
+#   L40Sx4 (rentable):  node1634, node2804, node3002, node3003,
+#                       node3004, node3005, node3006, node3007, ...
+#
+# Eligible requesting users per project (from members.yaml):
+#   orcd_uN_p1: owner = orcd_uN, tech_admin = orcd_u(N+2 mod 10)
+#   orcd_uN_p2: owner = orcd_uN, tech_admin = orcd_u(N+5 mod 10)
+#
+# Depends on:
+#   - users_multi.yaml       (creates user accounts including orcd_rem)
+#   - projects.yaml          (creates the projects referenced here)
+#   - members.yaml           (assigns technical admin roles)
+#   - cost_allocations.yaml  (projects must have APPROVED cost allocations)
+#   - amf.yaml               (users must have active maintenance status)
+
+defaults:
+  status: "PENDING"
+  num_blocks: 2
+
+approval:
+  processed_by: "orcd_rem"
+  manager_notes: "Approved during test setup"
+
+reservations:
+  # ════════════════════════════════════════════════════════════════════
+  # H200x8 NODES
+  # ════════════════════════════════════════════════════════════════════
+
+  # ── node2433 (H200x8) ──────────────────────────────────────────────
+  # Reservation A: today+7, 2 blocks (24h, ends ~day+8)
+  - node_address: "node2433"
+    project: "orcd_u0_p1"
+    requesting_user: "orcd_u0"          # project owner
+    start_date: "today+7"
+    end_date: "today+8"
+    rental_notes: "Owner-submitted H200 reservation"
+
+  # Reservation B: today+14, 1 block (12h, ends ~day+14)
+  - node_address: "node2433"
+    project: "orcd_u1_p1"
+    requesting_user: "orcd_u3"          # technical_admin
+    start_date: "today+14"
+    end_date: "today+15"
+    rental_notes: "Short single-block reservation by tech admin"
+
+  # Reservation C: today+21, 7 blocks (84h, ends ~day+24)
+  - node_address: "node2433"
+    project: "orcd_u2_p1"
+    requesting_user: "orcd_u2"          # project owner
+    start_date: "today+21"
+    end_data: "today+25"
+    rental_notes: "Multi-day H200 reservation"
