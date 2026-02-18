@@ -27,6 +27,9 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
+# Default config is cost_allocations.yaml
+CONFIG_FILE="$SETUP_DIR/config/cost_allocations.yaml"
+
 module_usage() {
     cat << 'EOF'
 Usage: 04_1_attach_cost_allocations.sh [options]
@@ -39,7 +42,11 @@ EOF
 parse_module_args "$@"
 init_module "04_1_attach_cost_allocations"
 
-ALLOC_CONFIG="$(resolve_include "$CONFIG_FILE" "cost_allocations" "Cost allocations")"
+ALLOC_CONFIG=${CONFIG_FILE}
+if [ ! -f "$CONFIG_FILE" ]; then
+    die "Config file not found: $CONFIG_FILE"
+fi
+
 
 # ---------------------------------------------------------------------------
 # Main loop: parse YAML, call set_project_cost_allocation for each entry

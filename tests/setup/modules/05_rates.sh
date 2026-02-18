@@ -23,6 +23,9 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
+# Default config is rates.yaml
+CONFIG_FILE="$SETUP_DIR/config/rates.yaml"
+
 module_usage() {
     cat << 'EOF'
 Usage: 05_rates.sh [options]
@@ -35,7 +38,11 @@ EOF
 parse_module_args "$@"
 init_module "05_rates"
 
-RATES_CONFIG="$(resolve_include "$CONFIG_FILE" "rates" "Rates")"
+RATES_CONFIG=${CONFIG_FILE}
+if [ ! -f "$CONFIG_FILE" ]; then
+    die "Config file not found: $CONFIG_FILE"
+fi
+
 
 # ---------------------------------------------------------------------------
 # Main loop: parse YAML, call set_sku_rate for each entry

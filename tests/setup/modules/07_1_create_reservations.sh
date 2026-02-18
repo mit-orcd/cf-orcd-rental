@@ -29,6 +29,9 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
+# Default config is reservations.yaml
+CONFIG_FILE="$SETUP_DIR/config/reservations.yaml"
+
 module_usage() {
     cat << 'EOF'
 Usage: 07_1_create_reservations.sh [options]
@@ -41,7 +44,11 @@ EOF
 parse_module_args "$@"
 init_module "07_1_create_reservations"
 
-RESERV_CONFIG="$(resolve_include "$CONFIG_FILE" "reservations" "Reservations")"
+RESERV_CONFIG=${CONFIG_FILE}
+if [ ! -f "$CONFIG_FILE" ]; then
+    die "Config file not found: $CONFIG_FILE"
+fi
+
 
 # ---------------------------------------------------------------------------
 # Main loop: parse YAML, call create_node_rental for each entry
@@ -53,15 +60,16 @@ RESERV_LOG="$MODULE_OUTPUT/create_reservations.log"
 reserv_count=0
 python_cmd="$(get_python_cmd)"
 
-while IFS=$'\t' read -r node_address project username start_date num_blocks rental_notes; do
+while IFS=$'\t' read -r node_address project username start_date end_date rental_notes; do
     [ -n "$node_address" ] || continue
 
     # Resolve relative date expression (e.g. "today+7") to YYYY-MM-DD
     start_date="$(resolve_relative_date "$start_date")"
+    end_date="$(resolve_relative_date "$end_date")"
 
     cmd=(create_node_rental "$node_address" "$project" "$username"
          --start-date "$start_date"
-         --num-blocks "$num_blocks"
+         --end-date "$end_date"
          --status PENDING
          --force)
 
@@ -79,18 +87,17 @@ with open(sys.argv[1], "r", encoding="utf-8") as f:
     data = yaml.safe_load(f) or {}
 
 defaults = data.get("defaults", {})
-default_num_blocks = defaults.get("num_blocks", 2)
 
 for entry in data.get("reservations", []):
     node_address = entry.get("node_address", "")
     project = entry.get("project", "")
     username = entry.get("requesting_user", "")
     start_date = entry.get("start_date", "")
+    end_date = entry.get("end_date", "")
 
-    if not all([node_address, project, username, start_date]):
+    if not all([node_address, project, username, start_date, end_date]):
         continue
 
-    num_blocks = entry.get("num_blocks", default_num_blocks)
     rental_notes = entry.get("rental_notes", "")
 
     line = "\t".join([
@@ -98,7 +105,7 @@ for entry in data.get("reservations", []):
         str(project),
         str(username),
         str(start_date),
-        str(num_blocks),
+        str(end_date),
         str(rental_notes),
     ])
     print(line)
