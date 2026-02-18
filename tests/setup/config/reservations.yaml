@@ -79,7 +79,7 @@ reservations:
     project: "orcd_u0_p1"
     requesting_user: "orcd_u0"          # project owner
     start_date: "today+7"
-    num_blocks: 2
+    end_date: "today+8"
     rental_notes: "Owner-submitted H200 reservation"
 
   # Reservation B: today+14, 1 block (12h, ends ~day+14)
@@ -87,7 +87,7 @@ reservations:
     project: "orcd_u1_p1"
     requesting_user: "orcd_u3"          # technical_admin
     start_date: "today+14"
-    num_blocks: 1
+    end_date: "today+15"
     rental_notes: "Short single-block reservation by tech admin"
 
   # Reservation C: today+21, 7 blocks (84h, ends ~day+24)
@@ -95,191 +95,5 @@ reservations:
     project: "orcd_u2_p1"
     requesting_user: "orcd_u2"          # project owner
     start_date: "today+21"
-    num_blocks: 7
+    end_data: "today+25"
     rental_notes: "Multi-day H200 reservation"
-
-  # ── node2434 (H200x8) ──────────────────────────────────────────────
-  # Reservation A: today+9, 3 blocks (36h, ends ~day+10)
-  - node_address: "node2434"
-    project: "orcd_u3_p1"
-    requesting_user: "orcd_u5"          # technical_admin
-    start_date: "today+9"
-    num_blocks: 3
-    rental_notes: "Tech admin 3-block reservation"
-
-  # Reservation B: today+28, 14 blocks (168h, ends ~day+35)
-  - node_address: "node2434"
-    project: "orcd_u4_p1"
-    requesting_user: "orcd_u4"          # project owner
-    start_date: "today+28"
-    num_blocks: 14
-    rental_notes: "Full-week H200 reservation"
-
-  # ── node3000 (H200x8) ──────────────────────────────────────────────
-  # Reservation A: today+10, 4 blocks (48h, ends ~day+12)
-  - node_address: "node3000"
-    project: "orcd_u5_p1"
-    requesting_user: "orcd_u7"          # technical_admin
-    start_date: "today+10"
-    num_blocks: 4
-    rental_notes: "Two-day H200 reservation by tech admin"
-
-  # Reservation B: today+17, 2 blocks (24h, ends ~day+18)
-  - node_address: "node3000"
-    project: "orcd_u6_p1"
-    requesting_user: "orcd_u6"          # project owner
-    start_date: "today+17"
-    num_blocks: 2
-    rental_notes: "Owner-submitted standard reservation"
-
-  # ── node3001 (H200x8) ──────────────────────────────────────────────
-  # Single reservation: today+15, 5 blocks (60h, ends ~day+17)
-  - node_address: "node3001"
-    project: "orcd_u7_p1"
-    requesting_user: "orcd_u9"          # technical_admin
-    start_date: "today+15"
-    num_blocks: 5
-    rental_notes: "5-block reservation spanning 2+ days"
-
-  # ── node3100 (H200x8) ──────────────────────────────────────────────
-  # Single reservation: today+35, 2 blocks (24h, ends ~day+36)
-  - node_address: "node3100"
-    project: "orcd_u8_p1"
-    requesting_user: "orcd_u0"          # technical_admin
-    start_date: "today+35"
-    num_blocks: 2
-    rental_notes: "Future H200 reservation"
-
-  # ── node3101 (H200x8) ──────────────────────────────────────────────
-  # Single reservation: today+40, 7 blocks (84h, ends ~day+43)
-  - node_address: "node3101"
-    project: "orcd_u9_p1"
-    requesting_user: "orcd_u1"          # technical_admin
-    start_date: "today+40"
-    num_blocks: 7
-    rental_notes: "Multi-day future reservation"
-
-  # ════════════════════════════════════════════════════════════════════
-  # L40Sx4 NODES
-  # ════════════════════════════════════════════════════════════════════
-
-  # ── node1634 (L40Sx4) ──────────────────────────────────────────────
-  # Reservation A: today+8, 2 blocks (24h, ends ~day+9)
-  - node_address: "node1634"
-    project: "orcd_u0_p2"
-    requesting_user: "orcd_u5"          # technical_admin
-    start_date: "today+8"
-    num_blocks: 2
-    rental_notes: "L40S reservation by tech admin"
-
-  # Reservation B: today+15, 3 blocks (36h, ends ~day+16)
-  - node_address: "node1634"
-    project: "orcd_u1_p2"
-    requesting_user: "orcd_u1"          # project owner
-    start_date: "today+15"
-    num_blocks: 3
-    rental_notes: "Owner-submitted L40S reservation"
-
-  # Reservation C: today+23, 1 block (12h, ends ~day+23)
-  - node_address: "node1634"
-    project: "orcd_u2_p2"
-    requesting_user: "orcd_u7"          # technical_admin
-    start_date: "today+23"
-    num_blocks: 1
-    rental_notes: "Quick single-block L40S"
-
-  # ── node2804 (L40Sx4) ──────────────────────────────────────────────
-  # Reservation A: today+11, 2 blocks (24h, ends ~day+12)
-  - node_address: "node2804"
-    project: "orcd_u3_p2"
-    requesting_user: "orcd_u3"          # project owner
-    start_date: "today+11"
-    num_blocks: 2
-    rental_notes: "Owner-submitted L40S reservation"
-
-  # Reservation B: today+25, 7 blocks (84h, ends ~day+28)
-  - node_address: "node2804"
-    project: "orcd_u4_p2"
-    requesting_user: "orcd_u9"          # technical_admin
-    start_date: "today+25"
-    num_blocks: 7
-    rental_notes: "Extended L40S reservation by tech admin"
-
-  # ── node3002 (L40Sx4) ──────────────────────────────────────────────
-  # Single reservation: today+16, 7 blocks (84h, ends ~day+19)
-  - node_address: "node3002"
-    project: "orcd_u5_p2"
-    requesting_user: "orcd_u0"          # technical_admin
-    start_date: "today+16"
-    num_blocks: 7
-    rental_notes: "Multi-day L40S reservation"
-
-  # ── node3003 (L40Sx4) ──────────────────────────────────────────────
-  # Reservation A: today+9, 1 block (12h, ends ~day+9)
-  - node_address: "node3003"
-    project: "orcd_u6_p2"
-    requesting_user: "orcd_u1"          # technical_admin
-    start_date: "today+9"
-    num_blocks: 1
-    rental_notes: "Single-block L40S by tech admin"
-
-  # Reservation B: today+14, 2 blocks (24h, ends ~day+15)
-  - node_address: "node3003"
-    project: "orcd_u7_p2"
-    requesting_user: "orcd_u7"          # project owner
-    start_date: "today+14"
-    num_blocks: 2
-    rental_notes: "Owner-submitted reservation"
-
-  # ── node3004 (L40Sx4) ──────────────────────────────────────────────
-  # Single reservation: today+21, 14 blocks (168h, ends ~day+28)
-  - node_address: "node3004"
-    project: "orcd_u8_p2"
-    requesting_user: "orcd_u3"          # technical_admin
-    start_date: "today+21"
-    num_blocks: 14
-    rental_notes: "Full-week L40S reservation"
-
-  # ── node3005 (L40Sx4) ──────────────────────────────────────────────
-  # Single reservation: today+36, 4 blocks (48h, ends ~day+38)
-  - node_address: "node3005"
-    project: "orcd_u9_p2"
-    requesting_user: "orcd_u4"          # technical_admin
-    start_date: "today+36"
-    num_blocks: 4
-    rental_notes: "Future L40S reservation"
-
-  # ── node3006 (L40Sx4) ──────────────────────────────────────────────
-  # Reservation A: today+7, 1 block (12h, ends ~day+7)
-  - node_address: "node3006"
-    project: "orcd_u0_p1"
-    requesting_user: "orcd_u2"          # technical_admin
-    start_date: "today+7"
-    num_blocks: 1
-    rental_notes: "Tech admin short L40S reservation"
-
-  # Reservation B: today+10, 3 blocks (36h, ends ~day+11)
-  - node_address: "node3006"
-    project: "orcd_u1_p1"
-    requesting_user: "orcd_u1"          # project owner
-    start_date: "today+10"
-    num_blocks: 3
-    rental_notes: "Owner 3-block reservation"
-
-  # ── node3007 (L40Sx4) ──────────────────────────────────────────────
-  # Single reservation: today+29, 2 blocks (24h, ends ~day+30)
-  - node_address: "node3007"
-    project: "orcd_u2_p2"
-    requesting_user: "orcd_u2"          # project owner
-    start_date: "today+29"
-    num_blocks: 2
-    rental_notes: "Late-scheduled L40S reservation"
-
-  # ── node3008 (L40Sx4) ──────────────────────────────────────────────
-  # Single reservation: today+42, 3 blocks (36h, ends ~day+43)
-  - node_address: "node3008"
-    project: "orcd_u3_p1"
-    requesting_user: "orcd_u3"          # project owner
-    start_date: "today+42"
-    num_blocks: 3
-    rental_notes: "Owner future L40S reservation"
