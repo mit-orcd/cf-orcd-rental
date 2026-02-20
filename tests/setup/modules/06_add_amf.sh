@@ -29,6 +29,9 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
+# Default config is amf.yaml
+CONFIG_FILE="$SETUP_DIR/config/amf.yaml"
+
 module_usage() {
     cat << 'EOF'
 Usage: 06_add_amf.sh [options]
@@ -41,7 +44,11 @@ EOF
 parse_module_args "$@"
 init_module "06_add_amf"
 
-AMF_CONFIG="$(resolve_include "$CONFIG_FILE" "amf" "AMF")"
+AMF_CONFIG=${CONFIG_FILE}
+if [ ! -f "$CONFIG_FILE" ]; then
+    die "Config file not found: $CONFIG_FILE"
+fi
+
 
 # ---------------------------------------------------------------------------
 # Main loop: parse YAML, call set_user_amf for each entry

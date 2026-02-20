@@ -1,0 +1,21 @@
+version: "1.0"
+
+environment:
+  base_url: "${TEST_BASE_URL:-http://localhost:8000}"
+
+modules:
+  enabled:
+    - 01_users
+    - 02_projects
+  skip: []
+
+includes:
+  users: "users.yaml"
+  projects: "projects.yaml"
+  members: "members.yaml"
+  cost_allocations: "cost_allocations.yaml"
+  rates: "rates.yaml"
+  amf: "amf.yaml"
+  reservations: "reservations.yaml"
+  invoices: "invoices.yaml"
+  maintenance_windows: "maintenance_windows.yaml"

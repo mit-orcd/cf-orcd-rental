@@ -1,0 +1,37 @@
+version: "1.0"
+
+# Invoice generation configuration for test setup.
+#
+# This config lists which months to generate invoices for.  The module
+# script (09_invoices.sh) resolves relative month expressions at runtime
+# and calls the invoice report API for each month, saving the JSON
+# output to the test output directory.
+#
+# Invoice periods use relative month expressions:
+#   "today"              -> current month
+#   "today - 2 months"   -> 2 months before current
+#   "today + 1 month"    -> 1 month after current
+#
+# The API endpoint GET /nodes/api/invoice/YYYY/MM/ computes invoice
+# data on the fly from approved reservations, cost allocation snapshots,
+# maintenance window deductions, and any overrides.  It also creates
+# a DRAFT InvoicePeriod record if one does not already exist.
+#
+# Authentication uses the billing_user's API token (must have the
+# can_manage_billing permission).  The token is read from the output
+# of module 01_1 (tests/setup/output/01_1_multiusers/api_tokens.tsv).
+#
+# Depends on:
+#   - 01_1_multiusers.sh  (creates user accounts and API tokens)
+#   - 07_1/07_2           (creates and approves reservations)
+#   - 08_maintenance.sh   (creates maintenance windows)
+
+defaults:
+  billing_user: "orcd_bim"
+
+invoice_periods:
+  - "today - 2 months"
+  - "today - 1 month"
+  - "today"
+  - "today + 1 month"
+  - "today + 2 months"

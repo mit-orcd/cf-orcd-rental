@@ -24,6 +24,9 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
+# Default config is reservations.yaml
+CONFIG_FILE="$SETUP_DIR/config/reservations.yaml"
+
 module_usage() {
     cat << 'EOF'
 Usage: 07_2_confirm_reservations.sh [options]
@@ -36,7 +39,11 @@ EOF
 parse_module_args "$@"
 init_module "07_2_confirm_reservations"
 
-RESERV_CONFIG="$(resolve_include "$CONFIG_FILE" "reservations" "Reservations")"
+RESERV_CONFIG=${CONFIG_FILE}
+if [ ! -f "$CONFIG_FILE" ]; then
+    die "Config file not found: $CONFIG_FILE"
+fi
+
 
 # ---------------------------------------------------------------------------
 # Read approval config from YAML

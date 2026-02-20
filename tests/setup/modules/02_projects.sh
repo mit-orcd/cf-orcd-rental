@@ -14,10 +14,13 @@ SETUP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SETUP_DIR/lib/common.sh"
 common_init
 
+# Default config is projects.yaml
+CONFIG_FILE="$SETUP_DIR/config/projects.yaml"
+
 module_usage() {
     cat << 'EOF'
 Usage: 02_projects.sh [options]
-  --config <path>      Path to test_config.yaml
+  --config <path>      Path to project YAML config file
   --output-dir <path>  Output directory for artifacts
   --dry-run            Print actions without applying changes
 EOF
@@ -26,9 +29,12 @@ EOF
 parse_module_args "$@"
 init_module "02_projects"
 
-PROJECTS_CONFIG="$(resolve_include "$CONFIG_FILE" "projects" "Projects")"
+PROJECTS_CONFIG=${CONFIG_FILE}
+if [ ! -f "$CONFIG_FILE" ]; then
+    die "Config file not found: $CONFIG_FILE"
+fi
 
-log_step "Creating projects from YAML"
+log_step "Creating projects from ${PROJECTS_CONFIG}"
 
 CREATE_LOG="$MODULE_OUTPUT/create_projects.log"
 python_cmd="$(get_python_cmd)"

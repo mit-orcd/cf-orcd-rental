@@ -1,0 +1,285 @@
+version: "1.0"
+
+# Member role assignments for multi-user test setup.
+#
+# Each entry assigns one role to one user in one project.  A user can
+# have multiple roles in the same project (each is a separate entry).
+# The project owner (PI) cannot be added as a member -- the management
+# command enforces this, so every username here must differ from the
+# project's owner.
+#
+# Roles:
+#   financial_admin - Can manage cost allocations and all roles
+#   technical_admin - Can manage members, included in reservations
+#   member          - Can create reservations, included in billing
+#
+# Assignment pattern:
+#   _p1 projects: u(N+1) financial_admin, u(N+2) technical_admin, u(N+3) member
+#   _p2 projects: u(N+4) financial_admin, u(N+5) technical_admin, u(N+6) member
+#   Plus additional multi-role and cross-project entries for coverage.
+#
+# This file is consumed by modules/03_members.sh, which calls
+#   coldfront add_user_to_project <username> <project> --role <role>
+# for every entry below.
+#
+# Optional date fields per member entry:
+#   created  - Role creation date (YYYY-MM-DD or ISO 8601 datetime).
+#              Defaults to the current time if omitted.
+#   modified - Last modification date (YYYY-MM-DD or ISO 8601 datetime).
+#              Defaults to the current time if omitted.
+#
+# Depends on:
+#   - users_multi.yaml  (creates the user accounts)
+#   - projects.yaml     (creates the projects referenced here)
+
+defaults: {}
+
+members:
+  # ── User 0 projects (owner: orcd_u0) ───────────────────────────────
+  # orcd_u0_p1: base roles
+  - project: orcd_u0_p1
+    username: orcd_u1
+    role: financial_admin
+    created: "2024-10-15"
+    modified: "2025-02-01T09:00:00"
+  - project: orcd_u0_p1
+    username: orcd_u2
+    role: technical_admin
+    created: "2024-10-15"
+  - project: orcd_u0_p1
+    username: orcd_u3
+    role: member
+    created: "2024-10-15"
+  # orcd_u0_p1: multi-role -- u1 also a member
+  - project: orcd_u0_p1
+    username: orcd_u1
+    role: member
+    created: "2024-10-15"
+
+  # orcd_u0_p2: base roles
+  - project: orcd_u0_p2
+    username: orcd_u4
+    role: financial_admin
+    created: "2024-10-15"
+  - project: orcd_u0_p2
+    username: orcd_u5
+    role: technical_admin
+    created: "2024-10-15"
+  - project: orcd_u0_p2
+    username: orcd_u6
+    role: member
+    created: "2024-10-15"
+  # orcd_u0_p2: multi-role -- u5 also a member
+  - project: orcd_u0_p2
+    username: orcd_u5
+    role: member
+    created: "2024-10-15"
+
+  # ── User 1 projects (owner: orcd_u1) ───────────────────────────────
+  - project: orcd_u1_p1
+    username: orcd_u2
+    role: financial_admin
+  - project: orcd_u1_p1
+    username: orcd_u3
+    role: technical_admin
+  - project: orcd_u1_p1
+    username: orcd_u4
+    role: member
+
+  - project: orcd_u1_p2
+    username: orcd_u5
+    role: financial_admin
+  - project: orcd_u1_p2
+    username: orcd_u6
+    role: technical_admin
+  - project: orcd_u1_p2
+    username: orcd_u7
+    role: member
+
+  # ── User 2 projects (owner: orcd_u2) ───────────────────────────────
+  - project: orcd_u2_p1
+    username: orcd_u3
+    role: financial_admin
+  - project: orcd_u2_p1
+    username: orcd_u4
+    role: technical_admin
+  - project: orcd_u2_p1
+    username: orcd_u5
+    role: member
+
+  - project: orcd_u2_p2
+    username: orcd_u6
+    role: financial_admin
+  - project: orcd_u2_p2
+    username: orcd_u7
+    role: technical_admin
+  - project: orcd_u2_p2
+    username: orcd_u8
+    role: member
+
+  # ── User 3 projects (owner: orcd_u3) ───────────────────────────────
+  - project: orcd_u3_p1
+    username: orcd_u4
+    role: financial_admin
+  - project: orcd_u3_p1
+    username: orcd_u5
+    role: technical_admin
+  - project: orcd_u3_p1
+    username: orcd_u6
+    role: member
+
+  - project: orcd_u3_p2
+    username: orcd_u7
+    role: financial_admin
+  - project: orcd_u3_p2
+    username: orcd_u8
+    role: technical_admin
+  - project: orcd_u3_p2
+    username: orcd_u9
+    role: member
+  # orcd_u3_p2: multi-role -- u7 also a member
+  - project: orcd_u3_p2
+    username: orcd_u7
+    role: member
+
+  # ── User 4 projects (owner: orcd_u4) ───────────────────────────────
+  - project: orcd_u4_p1
+    username: orcd_u5
+    role: financial_admin
+  - project: orcd_u4_p1
+    username: orcd_u6
+    role: technical_admin
+  - project: orcd_u4_p1
+    username: orcd_u7
+    role: member
+
+  - project: orcd_u4_p2
+    username: orcd_u8
+    role: financial_admin
+  - project: orcd_u4_p2
+    username: orcd_u9
+    role: technical_admin
+  - project: orcd_u4_p2
+    username: orcd_u0
+    role: member
+
+  # ── User 5 projects (owner: orcd_u5) ───────────────────────────────
+  - project: orcd_u5_p1
+    username: orcd_u6
+    role: financial_admin
+  - project: orcd_u5_p1
+    username: orcd_u7
+    role: technical_admin
+  - project: orcd_u5_p1
+    username: orcd_u8
+    role: member
+  # orcd_u5_p1: extra member
+  - project: orcd_u5_p1
+    username: orcd_u1
+    role: member
+
+  - project: orcd_u5_p2
+    username: orcd_u9
+    role: financial_admin
+  - project: orcd_u5_p2
+    username: orcd_u0
+    role: technical_admin
+  - project: orcd_u5_p2
+    username: orcd_u1
+    role: member
+
+  # ── User 6 projects (owner: orcd_u6) ───────────────────────────────
+  - project: orcd_u6_p1
+    username: orcd_u7
+    role: financial_admin
+  - project: orcd_u6_p1
+    username: orcd_u8
+    role: technical_admin
+  - project: orcd_u6_p1
+    username: orcd_u9
+    role: member
+
+  - project: orcd_u6_p2
+    username: orcd_u0
+    role: financial_admin
+  - project: orcd_u6_p2
+    username: orcd_u1
+    role: technical_admin
+  - project: orcd_u6_p2
+    username: orcd_u2
+    role: member
+  # orcd_u6_p2: multi-role -- u1 also financial_admin
+  - project: orcd_u6_p2
+    username: orcd_u1
+    role: financial_admin
+
+  # ── User 7 projects (owner: orcd_u7) ───────────────────────────────
+  - project: orcd_u7_p1
+    username: orcd_u8
+    role: financial_admin
+  - project: orcd_u7_p1
+    username: orcd_u9
+    role: technical_admin
+  - project: orcd_u7_p1
+    username: orcd_u0
+    role: member
+
+  - project: orcd_u7_p2
+    username: orcd_u1
+    role: financial_admin
+  - project: orcd_u7_p2
+    username: orcd_u2
+    role: technical_admin
+  - project: orcd_u7_p2
+    username: orcd_u3
+    role: member
+
+  # ── User 8 projects (owner: orcd_u8) ───────────────────────────────
+  - project: orcd_u8_p1
+    username: orcd_u9
+    role: financial_admin
+  - project: orcd_u8_p1
+    username: orcd_u0
+    role: technical_admin
+  - project: orcd_u8_p1
+    username: orcd_u1
+    role: member
+  # orcd_u8_p1: multi-role -- u9 also technical_admin
+  - project: orcd_u8_p1
+    username: orcd_u9
+    role: technical_admin
+
+  - project: orcd_u8_p2
+    username: orcd_u2
+    role: financial_admin
+  - project: orcd_u8_p2
+    username: orcd_u3
+    role: technical_admin
+  - project: orcd_u8_p2
+    username: orcd_u4
+    role: member
+
+  # ── User 9 projects (owner: orcd_u9) ───────────────────────────────
+  - project: orcd_u9_p1
+    username: orcd_u0
+    role: financial_admin
+  - project: orcd_u9_p1
+    username: orcd_u1
+    role: technical_admin
+  - project: orcd_u9_p1
+    username: orcd_u2
+    role: member
+
+  - project: orcd_u9_p2
+    username: orcd_u3
+    role: financial_admin
+  - project: orcd_u9_p2
+    username: orcd_u4
+    role: technical_admin
+  - project: orcd_u9_p2
+    username: orcd_u5
+    role: member
+  # orcd_u9_p2: multi-role -- u5 also financial_admin
+  - project: orcd_u9_p2
+    username: orcd_u5
+    role: financial_admin

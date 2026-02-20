@@ -317,6 +317,9 @@ run_coldfront() {
     fi
 
     local output
+    c2run=`echo coldfront "$@"`
+    printf "# Running %s\n" "$c2run" >> "$log_file"
+    echo "# Running \"${c2run}\""
     output="$(coldfront "$@" 2>&1)"
     printf "%s\n" "$output" >> "$log_file"
     echo "$output"

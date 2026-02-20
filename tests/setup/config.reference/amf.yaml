@@ -1,0 +1,95 @@
+version: "1.0"
+
+# Account maintenance fee (AMF) configuration for multi-user test setup.
+#
+# Sets the account maintenance status for each regular test user. The
+# status determines what level of maintenance services the user receives
+# and which project is billed for those services.
+#
+# Status levels:
+#   basic    -> MAINT_STANDARD SKU  (standard maintenance)
+#   advanced -> MAINT_ADVANCED SKU  (advanced maintenance)
+#   inactive -> no fee (default for new accounts, not used here)
+#
+# Each entry specifies:
+#   - username:  User to configure
+#   - status:    Maintenance level (basic or advanced)
+#   - project:   Billing project (must have APPROVED cost allocation)
+#
+# Billing project eligibility (from can_use_for_maintenance_fee):
+#   The user must have an owner, technical_admin, or member role in the
+#   project.  Financial admins alone are NOT eligible.
+#
+# This module uses `coldfront set_user_amf <username> <status> --project
+# <project> --force` for each entry.
+#
+# Optional date fields per entry:
+#   created  - Record creation date (YYYY-MM-DD or ISO 8601 datetime).
+#              Defaults to the current time if omitted.
+#   modified - Last modification date (YYYY-MM-DD or ISO 8601 datetime).
+#              Defaults to the current time if omitted.
+#
+# The 3 manager accounts (orcd_rtm, orcd_bim, orcd_rem) are excluded
+# because they are system/admin roles, not regular users.
+#
+# Depends on:
+#   - users_multi.yaml       (creates user accounts)
+#   - projects.yaml          (creates the projects)
+#   - members.yaml           (assigns roles that determine eligibility)
+#   - cost_allocations.yaml  (projects must have APPROVED cost allocations)
+
+defaults:
+  status: "basic"
+
+entries:
+  # ── Users with basic (standard) maintenance ─────────────────────────
+  #
+  # Each user bills to a project where they are the owner.
+
+  - username: "orcd_u0"
+    status: "basic"
+    project: "orcd_u0_p1"          # owner -> eligible
+    created: "2024-11-15"
+    modified: "2025-02-01T09:00:00"
+
+  - username: "orcd_u2"
+    status: "basic"
+    project: "orcd_u2_p1"          # owner -> eligible
+    created: "2024-11-15"
+
+  - username: "orcd_u4"
+    status: "basic"
+    project: "orcd_u4_p2"          # owner -> eligible
+
+  - username: "orcd_u5"
+    status: "basic"
+    project: "orcd_u5_p1"          # owner -> eligible
+
+  - username: "orcd_u7"
+    status: "basic"
+    project: "orcd_u7_p2"          # owner -> eligible
+
+  - username: "orcd_u9"
+    status: "basic"
+    project: "orcd_u9_p1"          # owner -> eligible
+
+  # ── Users with advanced maintenance ─────────────────────────────────
+  #
+  # Some bill to owned projects, others bill to projects where they
+  # hold a technical_admin or member role for broader coverage.
+
+  - username: "orcd_u1"
+    status: "advanced"
+    project: "orcd_u1_p1"          # owner -> eligible
+
+  - username: "orcd_u3"
+    status: "advanced"
+    project: "orcd_u1_p1"          # technical_admin -> eligible
+
+  - username: "orcd_u6"
+    status: "advanced"
+    project: "orcd_u0_p2"          # member -> eligible
+
+  - username: "orcd_u8"
+    status: "advanced"
+    project: "orcd_u8_p1"          # owner -> eligible

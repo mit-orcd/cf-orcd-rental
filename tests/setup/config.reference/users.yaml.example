@@ -1,0 +1,50 @@
+version: "1.0"
+
+# Simplified users configuration
+# All users are created with PI status (can create and own projects)
+# Use 'groups' to assign privileged roles: billing, rental, rate
+
+defaults:
+  email_domain: "example.edu"
+  password: "TestPass123!"
+
+users:
+  # System administrators with privileged roles
+  - username: billing_admin
+    email: billing_admin@example.edu
+    first_name: Billing
+    last_name: Administrator
+    groups: [billing]
+
+  - username: rental_admin
+    email: rental_admin@example.edu
+    first_name: Rental
+    last_name: Administrator
+    groups: [rental]
+
+  - username: rate_admin
+    email: rate_admin@example.edu
+    first_name: Rate
+    last_name: Administrator
+    groups: [rate]
+
+  # Regular users for testing
+  - username: alice
+    first_name: Alice
+    last_name: Smith
+
+  - username: bob
+    first_name: Bob
+    last_name: Jones
+
+  - username: charlie
+    first_name: Charlie
+    last_name: Brown
+
+  - username: diana
+    first_name: Diana
+    last_name: Prince
+
+  - username: edward
+    first_name: Edward
+    last_name: Norton
