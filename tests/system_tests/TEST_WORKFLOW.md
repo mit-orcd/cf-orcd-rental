@@ -23,11 +23,11 @@ CI-friendly, and easy to run locally.
 ```
 tests/setup/
 ├── user_smoke_test.sh           # Single-user smoke test (refactored to use common.sh)
-├── run_workflow.sh              # Orchestrator for module scripts
 ├── lib/
 │   └── common.sh                # Shared helpers (env setup, server, API, YAML)
 ├── modules/
 │   ├── 01_users.sh
+│   ├── 01_1_multiusers.sh
 │   ├── 02_projects.sh
 │   ├── 03_members.sh
 │   ├── 04_1_attach_cost_allocations.sh   # Stage 1: submit as PENDING
@@ -41,7 +41,6 @@ tests/setup/
 │   ├── 10_api.sh
 │   └── 11_activity_log.sh
 ├── config/
-│   ├── test_config.yaml
 │   ├── users.yaml / users_multi.yaml
 │   ├── projects.yaml
 │   ├── members.yaml
@@ -55,31 +54,35 @@ tests/setup/
     └── <module>/                # Raw + pretty JSON, logs, tokens
 ```
 
-## Execution Model (Script Runner)
+## Execution Model (Direct Config)
 
-`tests/setup/run_workflow.sh`:
-- Reads `tests/setup/config/test_config.yaml` for enabled modules and config file paths.
-- Runs modules in order and writes artifacts to `tests/setup/output/<module>/`.
-- Supports `--module`, `--skip`, `--output-dir`, and `--dry-run`.
+Each module script is run directly. Every script has a built-in default
+config path (e.g. `config/invoices.yaml`) and accepts `--config` to override
+it with an alternative YAML file. There is no central orchestrator -- modules
+are invoked individually in the order shown in the dependency table below.
 
 ```bash
-# Run full workflow (modules.enabled)
-bash tests/setup/run_workflow.sh
+# Run a module with its default config
+./modules/02_projects.sh
 
-# Run a single module
-bash tests/setup/run_workflow.sh --module 01_users
+# Run a module with a custom config file
+./modules/02_projects.sh --config /path/to/my_projects.yaml
 
-# Skip one or more modules
-bash tests/setup/run_workflow.sh --skip 02_projects,03_members
+# Dry run (print actions without applying changes)
+./modules/06_add_amf.sh --dry-run
+
+# Custom output directory
+./modules/09_invoices.sh --output-dir /tmp/test_output
 ```
+
+All modules support three flags: `--config <path>`, `--output-dir <path>`, and `--dry-run`.
 
 ### Flow (shared helpers)
 
 ```mermaid
 flowchart TD
-  yamlConfig["YAML_Config"] --> runWorkflow["run_workflow.sh"]
-  commonLib["common.sh"] --> moduleScripts["module_XX_*.sh"]
-  runWorkflow --> moduleScripts
+  yamlConfig["config/*.yaml"] --> moduleScripts["module_XX_*.sh"]
+  commonLib["common.sh"] --> moduleScripts
   moduleScripts --> coldfrontCLI["coldfrontCLI"]
   moduleScripts --> coldfrontAPI["coldfrontAPI"]
   moduleScripts --> outputs["output_artifacts"]
@@ -89,9 +92,12 @@ flowchart TD
 
 All scripts source `common.sh` for:
 - `common_init`: workspace and path discovery.
+- `parse_module_args`: parses `--config`, `--output-dir`, and `--dry-run` flags.
+- `init_module`: creates the output directory and activates the ColdFront environment.
 - `ensure_env`: calls `setup_environment.sh`, reuses DB when present.
 - `activate_env`: activates virtualenv and ensures API migrations are applied.
 - `start_server_if_needed`, `wait_for_server`, `server_ready`.
+- `run_coldfront`: runs a management command (or logs it in dry-run mode).
 - `api_get`: authenticated API requests.
 - `pretty_json`: pretty-print output artifacts.
 - `yaml_list`: extract values from YAML (requires PyYAML).
@@ -123,25 +129,23 @@ Notes:
 
 ## YAML Configuration
 
-### `tests/setup/config/test_config.yaml`
-```yaml
-version: "1.0"
-environment:
-  base_url: "${TEST_BASE_URL:-http://localhost:8000}"
+Each module script has a hardcoded default config path. The `--config` flag
+overrides it to point at any YAML file with the same schema.
 
-modules:
-  enabled:
-    - 01_users
-    - 02_projects
-  skip: []
-
-includes:
-  users: "users.yaml"
-  projects: "projects.yaml"
-  reservations: "reservations.yaml"
-  invoices: "invoices.yaml"
-  maintenance_windows: "maintenance_windows.yaml"
-```
+| Script | Default Config |
+|---|---|
+| `01_users.sh` | `config/users.yaml` |
+| `01_1_multiusers.sh` | `config/users_multi.yaml` |
+| `02_projects.sh` | `config/projects.yaml` |
+| `03_members.sh` | `config/members.yaml` |
+| `04_1_attach_cost_allocations.sh` | `config/cost_allocations.yaml` |
+| `04_2_confirm_cost_allocations.sh` | `config/cost_allocations.yaml` |
+| `05_rates.sh` | `config/rates.yaml` |
+| `06_add_amf.sh` | `config/amf.yaml` |
+| `07_1_create_reservations.sh` | `config/reservations.yaml` |
+| `07_2_confirm_reservations.sh` | `config/reservations.yaml` |
+| `08_maintenance.sh` | `config/maintenance.yaml` |
+| `09_invoices.sh` | `config/invoices.yaml` |
 
 ### Users (`users.yaml`)
 - Defines manager and regular users.
@@ -288,10 +292,20 @@ Modules 10 (API checks) and 11 (activity log) are placeholders for the upcoming 
     cd coldfront-orcd-direct-charge
     ./tests/setup/setup_environment.sh
 
-- name: Run Script Workflow
+- name: Run Setup Modules
   run: |
-    cd coldfront-orcd-direct-charge
-    bash tests/setup/run_workflow.sh
+    cd coldfront-orcd-direct-charge/tests/setup
+    ./modules/01_1_multiusers.sh
+    ./modules/02_projects.sh
+    ./modules/03_members.sh
+    ./modules/04_1_attach_cost_allocations.sh
+    ./modules/04_2_confirm_cost_allocations.sh
+    ./modules/05_rates.sh
+    ./modules/06_add_amf.sh
+    ./modules/07_1_create_reservations.sh
+    ./modules/07_2_confirm_reservations.sh
+    ./modules/08_maintenance.sh
+    ./modules/09_invoices.sh
 
 - name: Upload Outputs
   if: always()
@@ -301,7 +315,7 @@ Modules 10 (API checks) and 11 (activity log) are placeholders for the upcoming 
     path: coldfront-orcd-direct-charge/tests/setup/output/
 ```
 
-For minimal CI validation, `tests/setup/user_smoke_test.sh` can be used instead of the full workflow.
+For minimal CI validation, `tests/setup/user_smoke_test.sh` can be used instead of running all modules.
 
 ## Local Usage
 
@@ -309,8 +323,13 @@ For minimal CI validation, `tests/setup/user_smoke_test.sh` can be used instead 
 # Minimal smoke test
 bash tests/setup/user_smoke_test.sh
 
-# Full workflow (enabled modules)
-bash tests/setup/run_workflow.sh
+# Run individual modules (from tests/setup/)
+./modules/01_1_multiusers.sh
+./modules/02_projects.sh
+./modules/03_members.sh
+
+# Run a module with a custom config
+./modules/02_projects.sh --config /path/to/my_projects.yaml
 ```
 
 ## Implementation Notes
