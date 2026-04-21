@@ -6,3 +6,11 @@ uv.lock
 # Generated fixture files in helper_programs (output artifacts)
 helper_programs/mk_gpucpunode_csv/*.json
 helper_programs/csv_to_fixtures/*.json
+
+# Per-run artifacts written by the setup-script pipeline
+# (tests/setup/setup_environment.sh, tests/setup/run_all.sh, tests/setup/user_smoke_test.sh,
+#  and every module under tests/setup/modules/). Contents include API tokens, generated
+#  random passwords, raw invoice JSON, and per-step .log files. CI publishes a redacted
+#  copy of this directory to the `smoke-test-artifacts` branch via tests/setup/lib/redact_secrets.sh;
+#  see tests/setup/output/ entry in the PR introducing this rule for the full inventory.
+tests/setup/output/
